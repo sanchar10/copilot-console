@@ -34,7 +34,6 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   const userScrolledUpRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [cwdError, setCwdError] = useState<string | null>(null);
   const [eligibleSubAgents, setEligibleSubAgents] = useState<Agent[]>([]);
   const [starterPrompts, setStarterPrompts] = useState<StarterPrompt[]>([]);
   const [promptToSend, setPromptToSend] = useState<string | null>(null);
@@ -109,7 +108,6 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   }, [sessionId, sessions, setSessions]);
 
   const handleCwdChange = useCallback(async (newCwd: string) => {
-    setCwdError(null);
     try {
       const updatedSession = await updateSession(sessionId, { cwd: newCwd });
       setSessions(sessions.map(s =>
@@ -119,8 +117,6 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
       clearReadySession(sessionId);
     } catch (error) {
       console.error('Failed to update CWD:', error);
-      setCwdError('Directory does not exist');
-      setTimeout(() => setCwdError(null), 3000);
     }
   }, [sessionId, sessions, setSessions]);
 
@@ -236,7 +232,6 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
         eligibleSubAgents={eligibleSubAgents}
         subAgentSelections={session?.sub_agents || []}
         onSubAgentSelectionsChange={handleSubAgentSelectionsChange}
-        cwdError={cwdError}
       />
 
       {/* Messages Area */}

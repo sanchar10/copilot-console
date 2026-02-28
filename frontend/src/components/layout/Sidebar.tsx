@@ -241,33 +241,8 @@ export function Sidebar() {
             </select>
           ) : null;
         })()}
-        {sessions.length > 0 && (
-          <div className="relative mb-2 flex-shrink-0">
-            <svg className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder={`Search ${sessions.length} sessions...`}
-              value={sessionSearch}
-              onChange={(e) => setSessionSearch(e.target.value)}
-              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-            />
-            {sessionSearch && (
-              <button
-                onClick={() => setSessionSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                title="Clear search"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
-        <div className="flex-1 overflow-hidden">
-          <SessionList sessions={sessions.filter(s => {
+        {sessions.length > 0 && (() => {
+          const filteredSessions = sessions.filter(s => {
             if (s.trigger === 'automation') return false;
             if (selectedProject) {
               if (!s.cwd) return false;
@@ -276,8 +251,41 @@ export function Sidebar() {
             if (!sessionSearch) return true;
             const q = sessionSearch.toLowerCase();
             return (s.session_name || '').toLowerCase().includes(q);
-          })} />
-        </div>
+          });
+          const placeholder = selectedProject
+            ? `Search ${filteredSessions.length} ${selectedProject} sessions...`
+            : `Search ${filteredSessions.length} sessions...`;
+          return (
+            <>
+              <div className="relative mb-2 flex-shrink-0">
+                <svg className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder={placeholder}
+                  value={sessionSearch}
+                  onChange={(e) => setSessionSearch(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+                {sessionSearch && (
+                  <button
+                    onClick={() => setSessionSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    title="Clear search"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <SessionList sessions={filteredSessions} />
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* User Settings Footer - sticky at bottom */}
