@@ -22,8 +22,23 @@ export function Sidebar() {
   const { agents, fetchAgents } = useAgentStore();
   const { workflows, fetchWorkflows } = useWorkflowStore();
   const { automations, fetchAutomations } = useAutomationStore();
-  const { selectedProject, selectProject, getProjectName, loadProjects } = useProjectStore();
+  const { selectedProject, selectProject, loadProjects } = useProjectStore();
+  // Subscribe to projects so component re-renders when mappings load
+  const projects = useProjectStore(s => s.projects);
   const [sessionSearch, setSessionSearch] = useState('');
+
+  // Inline helper that uses current projects state for reactivity
+  const getProjectName = (cwd: string): string => {
+    if (!cwd) return '';
+    const norm = cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    for (const [storedCwd, name] of Object.entries(projects)) {
+      if (storedCwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() === norm) {
+        return name;
+      }
+    }
+    const normalized = cwd.replace(/\\/g, '/').replace(/\/+$/, '');
+    return normalized.split('/').pop() || cwd;
+  };
 
   // Poll for active agents count every 5 seconds
   useEffect(() => {
@@ -254,7 +269,10 @@ export function Sidebar() {
         <div className="flex-1 overflow-hidden">
           <SessionList sessions={sessions.filter(s => {
             if (s.trigger === 'automation') return false;
-            if (selectedProject && s.cwd && getProjectName(s.cwd) !== selectedProject) return false;
+            if (selectedProject) {
+              if (!s.cwd) return false;
+              if (getProjectName(s.cwd) !== selectedProject) return false;
+            }
             if (!sessionSearch) return true;
             const q = sessionSearch.toLowerCase();
             return (s.session_name || '').toLowerCase().includes(q);
