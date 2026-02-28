@@ -20,6 +20,7 @@ TASK_RUNS_DIR = APP_HOME / "task-runs"
 # Metadata file
 METADATA_FILE = APP_HOME / "metadata.json"
 SETTINGS_FILE = APP_HOME / "settings.json"
+PROJECTS_FILE = APP_HOME / "projects.json"
 
 # Supported models (from Copilot SDK documentation)
 DEFAULT_MODELS = [

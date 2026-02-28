@@ -2,20 +2,25 @@ import { useState, useEffect, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { browseDirectory, type FolderEntry } from '../../api/filesystem';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface FolderBrowserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (path: string) => void;
   initialPath?: string;
+  showProjectName?: boolean;
 }
 
-export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath }: FolderBrowserModalProps) {
+export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, showProjectName = true }: FolderBrowserModalProps) {
   const [currentPath, setCurrentPath] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<FolderEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState('');
+  const getProjectName = useProjectStore(s => s.getProjectName);
+  const setProject = useProjectStore(s => s.setProject);
 
   const loadDirectory = useCallback(async (path?: string) => {
     setLoading(true);
@@ -25,13 +30,16 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath }: F
       setCurrentPath(result.current_path);
       setParentPath(result.parent_path);
       setEntries(result.entries);
+      if (showProjectName && result.current_path) {
+        setProjectName(getProjectName(result.current_path));
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to browse directory';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showProjectName, getProjectName]);
 
   // Load initial directory when modal opens
   useEffect(() => {
@@ -52,6 +60,9 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath }: F
 
   const handleSelect = () => {
     if (currentPath) {
+      if (showProjectName && projectName) {
+        setProject(currentPath, projectName);
+      }
       onSelect(currentPath);
       onClose();
     }
@@ -91,6 +102,20 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath }: F
             <span className="text-gray-500 text-xs">My Computer</span>
           )}
         </button>
+
+        {/* Project name field */}
+        {showProjectName && currentPath && (
+          <div className="flex items-center gap-2 px-1">
+            <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">Project</label>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="Project name"
+              className="flex-1 px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            />
+          </div>
+        )}
 
         {/* Error display */}
         {error && (

@@ -6,6 +6,7 @@ import { useAgentMonitorStore } from '../../stores/agentMonitorStore';
 import { useAgentStore } from '../../stores/agentStore';
 import { useWorkflowStore } from '../../stores/workflowStore';
 import { useAutomationStore } from '../../stores/automationStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { listSessions } from '../../api/sessions';
 import { fetchModels } from '../../api/models';
 import { getSettings } from '../../api/settings';
@@ -21,6 +22,7 @@ export function Sidebar() {
   const { agents, fetchAgents } = useAgentStore();
   const { workflows, fetchWorkflows } = useWorkflowStore();
   const { automations, fetchAutomations } = useAutomationStore();
+  const { selectedProject, selectProject, getProjectName, loadProjects } = useProjectStore();
   const [sessionSearch, setSessionSearch] = useState('');
 
   // Poll for active agents count every 5 seconds
@@ -57,6 +59,7 @@ export function Sidebar() {
         fetchAgents();
         fetchWorkflows();
         fetchAutomations();
+        loadProjects();
       } catch (err) {
         // Backend may not be ready yet (dev mode race) — retry once after 2s
         console.warn('Initial load failed, retrying in 2s...', err);
@@ -84,7 +87,7 @@ export function Sidebar() {
       }
     }
     loadData();
-  }, [setSessions, setAvailableModels, setDefaultModel, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations]);
+  }, [setSessions, setAvailableModels, setDefaultModel, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
 
   const handleNewSession = async () => {
     // startNewSession now refreshes MCP servers automatically and enables all by default
@@ -203,6 +206,26 @@ export function Sidebar() {
 
       {/* Session List - grows to fill space, overflow hidden for virtual scroll */}
       <div className="flex-1 overflow-hidden p-3 flex flex-col">
+        {/* Project filter */}
+        {sessions.length > 0 && (() => {
+          const projectNames = [...new Set(
+            sessions
+              .filter(s => s.trigger !== 'automation' && s.cwd)
+              .map(s => getProjectName(s.cwd!))
+          )].sort();
+          return projectNames.length > 1 ? (
+            <select
+              value={selectedProject || ''}
+              onChange={e => selectProject(e.target.value || null)}
+              className="mb-2 flex-shrink-0 w-full px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            >
+              <option value="">All Projects ({projectNames.length})</option>
+              {projectNames.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          ) : null;
+        })()}
         {sessions.length > 0 && (
           <div className="relative mb-2 flex-shrink-0">
             <svg className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,6 +254,7 @@ export function Sidebar() {
         <div className="flex-1 overflow-hidden">
           <SessionList sessions={sessions.filter(s => {
             if (s.trigger === 'automation') return false;
+            if (selectedProject && s.cwd && getProjectName(s.cwd) !== selectedProject) return false;
             if (!sessionSearch) return true;
             const q = sessionSearch.toLowerCase();
             return (s.session_name || '').toLowerCase().includes(q);
