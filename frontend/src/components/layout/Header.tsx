@@ -92,6 +92,20 @@ export function Header({
   const [editName, setEditName] = useState(sessionName || '');
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
+  const projects = useProjectStore(s => s.projects);
+
+  // Derive project name reactively from subscribed projects state
+  const projectDisplayName = (() => {
+    if (!cwd) return '';
+    const norm = cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    for (const [storedCwd, name] of Object.entries(projects)) {
+      if (storedCwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() === norm) {
+        return name;
+      }
+    }
+    const segments = cwd.replace(/\\/g, '/').replace(/\/+$/, '').split('/');
+    return segments.pop() || cwd;
+  })();
 
   // Sync edit states with props
   useEffect(() => {
@@ -141,7 +155,7 @@ export function Header({
 
   return (
     <header className="h-14 border-b border-gray-100 dark:border-[#3a3a4e] bg-white dark:bg-[#252536] shadow-sm dark:shadow-black/20 flex items-center px-6 relative z-20">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex items-center gap-3 flex-1 min-w-0 [&>*]:flex-shrink-0">
         {sessionName ? (
           <>
             {/* Session Name - clickable to edit */}
@@ -269,10 +283,10 @@ export function Header({
                 title={`${cwd}\nClick to change folder`}
                 disabled={hasActiveResponse || !onCwdChange}
               >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 flex-shrink-0 translate-y-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
-                <span className="truncate">{useProjectStore.getState().getProjectName(cwd)}</span>
+                <span className="truncate">{projectDisplayName}</span>
               </button>
             )}
 

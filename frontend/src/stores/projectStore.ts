@@ -18,6 +18,8 @@ interface ProjectState {
   loadProjects: () => Promise<void>;
   /** Save/update a project name. */
   setProject: (cwd: string, name: string) => Promise<void>;
+  /** Remove a project name override. */
+  removeProject: (cwd: string) => void;
   /** Set the sidebar project filter. */
   selectProject: (name: string | null) => void;
 
@@ -39,12 +41,29 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   setProject: async (cwd, name) => {
+    // Optimistic update — UI reflects immediately
+    set(state => ({ projects: { ...state.projects, [cwd]: name } }));
     try {
-      const mapping = await apiSaveProject(cwd, name);
-      set({ projects: mapping });
+      await apiSaveProject(cwd, name);
     } catch {
-      // Ignore
+      // Revert on failure
+      get().loadProjects();
     }
+  },
+
+  removeProject: (cwd) => {
+    set(state => {
+      const { [cwd]: _, ...rest } = state.projects;
+      // Also try normalized key removal
+      const norm = cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+      const filtered: ProjectMapping = {};
+      for (const [k, v] of Object.entries(rest)) {
+        if (k.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() !== norm) {
+          filtered[k] = v;
+        }
+      }
+      return { projects: filtered };
+    });
   },
 
   selectProject: (name) => {

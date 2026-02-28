@@ -221,22 +221,32 @@ export function Sidebar() {
 
       {/* Session List - grows to fill space, overflow hidden for virtual scroll */}
       <div className="flex-1 overflow-hidden p-3 flex flex-col">
-        {/* Project filter */}
+        {/* Folder filter */}
         {sessions.length > 0 && (() => {
-          const projectNames = [...new Set(
-            sessions
-              .filter(s => s.trigger !== 'automation' && s.cwd)
-              .map(s => getProjectName(s.cwd!))
-          )].sort();
-          return projectNames.length > 1 ? (
+          // Build unique folder entries: { name, cwd (shortest path for that name) }
+          const folderMap = new Map<string, string>(); // name → cwd
+          sessions
+            .filter(s => s.trigger !== 'automation' && s.cwd)
+            .forEach(s => {
+              const name = getProjectName(s.cwd!);
+              if (!folderMap.has(name)) folderMap.set(name, s.cwd!);
+            });
+          const folderEntries = [...folderMap.entries()]
+            .map(([name, cwd]) => {
+              const segments = cwd.replace(/\\/g, '/').replace(/\/+$/, '').split('/').filter(Boolean);
+              const shortPath = segments.length <= 3 ? cwd : '…/' + segments.slice(-2).join('/');
+              return { name, path: shortPath };
+            })
+            .sort((a, b) => a.name.localeCompare(b.name));
+          return folderEntries.length > 1 ? (
             <select
               value={selectedProject || ''}
               onChange={e => selectProject(e.target.value || null)}
-              className="mb-2 flex-shrink-0 w-full px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="mb-2 flex-shrink-0 w-full max-w-full px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 overflow-hidden text-ellipsis"
             >
-              <option value="">All Projects ({projectNames.length})</option>
-              {projectNames.map(name => (
-                <option key={name} value={name}>{name}</option>
+              <option value="">All Folders ({folderEntries.length})</option>
+              {folderEntries.map(({ name, path }) => (
+                <option key={name} value={name}>{name} ({path})</option>
               ))}
             </select>
           ) : null;

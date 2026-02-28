@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { browseDirectory, type FolderEntry } from '../../api/filesystem';
 import { useProjectStore } from '../../stores/projectStore';
+import { deleteProject as apiDeleteProject } from '../../api/projects';
 
 interface FolderBrowserModalProps {
   isOpen: boolean;
@@ -14,13 +15,16 @@ interface FolderBrowserModalProps {
 
 export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, showProjectName = true }: FolderBrowserModalProps) {
   const [currentPath, setCurrentPath] = useState('');
+  const [pathInput, setPathInput] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<FolderEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [projectName, setProjectName] = useState('');
+  const pathInputRef = useRef<HTMLInputElement>(null);
   const getProjectName = useProjectStore(s => s.getProjectName);
   const setProject = useProjectStore(s => s.setProject);
+  const removeProject = useProjectStore(s => s.removeProject);
 
   const loadDirectory = useCallback(async (path?: string) => {
     setLoading(true);
@@ -28,11 +32,14 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, sho
     try {
       const result = await browseDirectory(path);
       setCurrentPath(result.current_path);
+      setPathInput(result.current_path);
       setParentPath(result.parent_path);
       setEntries(result.entries);
       if (showProjectName && result.current_path) {
         setProjectName(getProjectName(result.current_path));
       }
+      // Focus path input so Enter works immediately after navigation
+      setTimeout(() => pathInputRef.current?.focus(), 0);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to browse directory';
       setError(message);
@@ -60,8 +67,15 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, sho
 
   const handleSelect = () => {
     if (currentPath) {
-      if (showProjectName && projectName) {
-        setProject(currentPath, projectName);
+      if (showProjectName) {
+        const defaultName = currentPath.replace(/\\/g, '/').replace(/\/+$/, '').split('/').pop() || '';
+        if (!projectName.trim() || projectName.trim() === defaultName) {
+          // Cleared or matches default — remove override, fall back to folder name
+          removeProject(currentPath);
+          apiDeleteProject(currentPath).catch(() => {});
+        } else {
+          setProject(currentPath, projectName.trim());
+        }
       }
       onSelect(currentPath);
       onClose();
@@ -84,51 +98,68 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, sho
         </>
       }
     >
-      <div className="space-y-3">
-        {/* Current path bar - click anywhere to go to drives/root */}
-        <button
-          onClick={() => loadDirectory()}
-          className="w-full flex items-center gap-1.5 px-3 py-2 bg-white/50 dark:bg-[#1e1e2e]/50 backdrop-blur rounded-lg text-sm hover:bg-blue-50/60 dark:hover:bg-blue-900/30 transition-colors text-left"
-          title="Go to drives / root"
-        >
-          <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          {currentPath ? (
-            <span className="text-gray-700 dark:text-gray-200 font-mono text-xs truncate" title={currentPath}>
-              {currentPath}
-            </span>
-          ) : (
-            <span className="text-gray-500 text-xs">My Computer</span>
-          )}
-        </button>
-
-        {/* Project name field */}
-        {showProjectName && currentPath && (
-          <div className="flex items-center gap-2 px-1">
-            <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">Project</label>
-            <input
-              type="text"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              placeholder="Project name"
-              className="flex-1 px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
-            />
-          </div>
-        )}
-
-        {/* Error display */}
-        {error && (
-          <div className="px-3 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm rounded-lg flex items-center gap-2">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+      <div className="space-y-3" onKeyDown={(e) => {
+        if (e.key === 'Enter' && currentPath) {
+          const tag = (e.target as HTMLElement).tagName;
+          // Don't intercept Enter on input fields — they handle it themselves
+          if (tag !== 'INPUT') {
+            e.preventDefault();
+            handleSelect();
+          }
+        }
+      }}>
+        {/* Editable path bar */}
+        <div className="relative">
+          <input
+            ref={pathInputRef}
+            type="text"
+            value={pathInput}
+            onChange={(e) => { setPathInput(e.target.value); if (error) setError(null); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && pathInput.trim()) {
+                if (pathInput.trim() === currentPath) {
+                  handleSelect();
+                } else {
+                  loadDirectory(pathInput.trim());
+                }
+              }
+            }}
+            placeholder={error || "Type or paste a path, then press Enter"}
+            title={error || undefined}
+            className={`w-full pl-3 pr-9 py-2 text-xs font-mono rounded-lg border bg-white dark:bg-[#2a2a3c] focus:outline-none focus:ring-2 ${
+              error
+                ? 'border-red-400 dark:border-red-600 text-red-700 dark:text-red-400 placeholder-red-400 focus:ring-red-500/40'
+                : 'border-gray-200 dark:border-[#3a3a4e] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-blue-500/40'
+            }`}
+          />
+          <button
+            onClick={() => loadDirectory()}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+            title="Go to drives / root"
+          >
+            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" />
             </svg>
-            {error}
-          </div>
-        )}
+          </button>
+        </div>
+
+        {/* Project name field — always rendered to prevent layout shift */}
+        <div className={`flex items-center gap-2 px-1 ${showProjectName && currentPath ? 'visible' : 'invisible'}`}>
+          <label className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 whitespace-nowrap">Folder Name</label>
+          <input
+            type="text"
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSelect(); }}
+            placeholder="Project name"
+            maxLength={30}
+            className="flex-1 min-w-0 px-2 py-1 text-xs rounded-md border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            tabIndex={showProjectName && currentPath ? 0 : -1}
+          />
+        </div>
 
         {/* Directory listing */}
-        <div className="border border-white/40 dark:border-[#3a3a4e] rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+        <div className="border border-white/40 dark:border-[#3a3a4e] rounded-lg overflow-hidden h-72 overflow-y-auto">
           {/* Go up button */}
           {parentPath !== null && (
             <button
