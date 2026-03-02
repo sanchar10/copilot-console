@@ -39,5 +39,5 @@ Copilot Console uses the [GitHub Copilot Python SDK](https://github.com/github/c
 
 If you encounter version-related errors, reinstall Copilot Console to get compatible versions:
 ```powershell
-pipx install --force https://github.com/sanchar10/copilot-agent-console/releases/latest/download/copilot_console-py3-none-any.whl
+pipx install --force https://github.com/sanchar10/copilot-agent-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
 ```

@@ -2,7 +2,6 @@
 # Usage: irm https://raw.githubusercontent.com/sanchar10/copilot-agent-console/main/scripts/install.ps1 | iex
 
 $REPO = "sanchar10/copilot-agent-console"
-$WHL_URL = "https://github.com/$REPO/releases/latest/download/copilot_console-py3-none-any.whl"
 
 Write-Host ""
 Write-Host "  Copilot Console Installer" -ForegroundColor Cyan
@@ -80,6 +79,25 @@ if ($needsLogin) {
 # --- Install Copilot Console ---
 Write-Host ""
 Write-Host "  Installing Copilot Console..." -ForegroundColor Yellow
+Write-Host ""
+
+# Resolve latest wheel URL from GitHub releases
+Write-Host "  Fetching latest release..." -ForegroundColor DarkGray
+try {
+    $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$REPO/releases/latest" -Headers @{ "User-Agent" = "copilot-console-installer" }
+    $WHL_URL = ($releaseInfo.assets | Where-Object { $_.name -like "*.whl" } | Select-Object -First 1).browser_download_url
+    if (-not $WHL_URL) {
+        Write-Host "  [ERROR] No .whl found in latest release." -ForegroundColor Red
+        Write-Host "     Check https://github.com/$REPO/releases" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "  [OK] Found $($releaseInfo.tag_name)" -ForegroundColor Green
+} catch {
+    Write-Host "  [ERROR] Failed to fetch latest release from GitHub." -ForegroundColor Red
+    Write-Host "     Check https://github.com/$REPO/releases for manual download." -ForegroundColor Yellow
+    exit 1
+}
+
 Write-Host ""
 Write-Host "  ┌─────────────────────────────────────────────────────┐" -ForegroundColor Yellow
 Write-Host "  │  ⏳ This may take 3-5 minutes — please wait...     │" -ForegroundColor Yellow

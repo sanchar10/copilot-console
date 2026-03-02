@@ -89,16 +89,16 @@ pip install --user pipx
 python -m pipx ensurepath
 # Close and reopen the terminal after this
 
-# Install Copilot Console
-pipx install https://github.com/sanchar10/copilot-agent-console/releases/latest/download/copilot_console-py3-none-any.whl
+# Install Copilot Console (replace URL with latest .whl from Releases page)
+pipx install https://github.com/sanchar10/copilot-agent-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
 ```
 
-> **Tip:** If you have [uv](https://docs.astral.sh/uv/) installed, you can use `uv tool install` in place of `pipx install` for faster setup.
+> **Tip:** Get the latest wheel URL from the [Releases page](https://github.com/sanchar10/copilot-agent-console/releases/latest). Or use the one-click installer from the main README which always fetches the latest version automatically.
 
 ### Option B: pip
 
 ```powershell
-pip install https://github.com/sanchar10/copilot-agent-console/releases/latest/download/copilot_console-py3-none-any.whl
+pip install https://github.com/sanchar10/copilot-agent-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
 ```
 
 > **Note:** If `copilot-console` is not found after install, your Python scripts directory may not be on PATH. Option A (pipx) handles this automatically.
@@ -133,7 +133,7 @@ Run `copilot-console --help` for all options.
 When a new version is available, the app shows a banner with the install command. To update manually:
 
 ```powershell
-pipx install --force https://github.com/sanchar10/copilot-agent-console/releases/latest/download/copilot_console-py3-none-any.whl
+pipx install --force https://github.com/sanchar10/copilot-agent-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
 ```
 
 ## Uninstalling

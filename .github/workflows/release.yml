@@ -37,12 +37,6 @@ jobs:
       - name: Build Python wheel
         run: python -m build --wheel
 
-      - name: Create stable-name copy of wheel
-        shell: bash
-        run: |
-          WHL=$(ls dist/*.whl | head -1)
-          cp "$WHL" dist/copilot_console-py3-none-any.whl
-
       - name: Get version from tag
         id: version
         shell: bash
