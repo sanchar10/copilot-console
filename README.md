@@ -22,7 +22,7 @@ Copilot Console is a visual management layer on top of [GitHub Copilot CLI](http
 ## Features
 
 ### 💬 Multi-Session Chat
-Multiple conversations run simultaneously in a tabbed interface. Each session has its own context, model selection, tool configuration, sub-agent and working directory. Sessions persist across restarts. See [Sessions](docs/guides/SESSIONS.md).
+Multiple conversations run simultaneously in a tabbed interface. Each session has its own context, model selection, tool configuration, sub-agent and working directory. Sessions persist across restarts. Supports **agent modes** — Interactive, Plan, and Autopilot — switchable per session to control how the agent operates. See [Sessions](docs/guides/SESSIONS.md).
 
 ### 🎨 Rich Message Rendering
 Full Markdown with syntax-highlighted code blocks (Prism), GFM tables, Mermaid diagrams (with fullscreen view), and copy-to-clipboard. Responses render beautifully as they stream in real-time.

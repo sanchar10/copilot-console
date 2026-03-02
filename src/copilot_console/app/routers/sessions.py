@@ -11,7 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from copilot_console.app.config import SESSIONS_DIR
 from copilot_console.app.models.message import MessageCreate
-from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages
+from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages, ModeSetRequest
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.agent_storage_service import agent_storage_service
 from copilot_console.app.services.mcp_service import mcp_service
@@ -178,6 +178,50 @@ async def disconnect_session(session_id: str) -> dict:
     
     await session_service.disconnect_session(session_id)
     return {"success": True}
+
+
+@router.post("/{session_id}/mode")
+async def set_session_mode(session_id: str, request: ModeSetRequest) -> dict:
+    """Set the agent mode (interactive/plan/autopilot) for a session.
+    
+    Activates the session if it is not already active.
+    """
+    valid_modes = {"interactive", "plan", "autopilot"}
+    if request.mode not in valid_modes:
+        raise HTTPException(status_code=400, detail=f"Invalid mode: {request.mode}. Must be one of {valid_modes}")
+    
+    # Load session config for activation (CWD, MCP, tools, etc.)
+    session = session_service.get_session_local(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Build activation params matching the SSE route pattern
+    cwd = session.cwd or os.path.expanduser("~")
+    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
+    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
+    available_tools = session.tools.builtin if session.tools.builtin else None
+    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
+    system_message = None
+    if session.system_message and session.system_message.get("content"):
+        system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
+    custom_agents = None
+    if session.sub_agents:
+        custom_agents = agent_storage_service.convert_to_sdk_custom_agents(session.sub_agents, mcp_service)
+    
+    try:
+        confirmed_mode = await copilot_service.set_session_mode(
+            session_id, request.mode, cwd,
+            mcp_servers=mcp_configs,
+            tools=custom_tools if custom_tools else None,
+            available_tools=available_tools,
+            excluded_tools=excluded_tools,
+            system_message=system_message,
+            custom_agents=custom_agents,
+        )
+        return {"mode": confirmed_mode}
+    except Exception as e:
+        logger.error(f"[{session_id}] Failed to set mode: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to set mode: {e}")
 
 
 @router.post("/{session_id}/enqueue")
@@ -354,6 +398,7 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 attachments=[{"type": a.type, "path": a.path, **({"displayName": a.displayName} if a.displayName else {})} for a in request.attachments] if request.attachments else None,
                 custom_agents=custom_agents_sdk,
                 reasoning_effort=reasoning_effort,
+                agent_mode=request.agent_mode,
             )
             logger.info(f"[Background] Agent completed for session {session_id}")
             

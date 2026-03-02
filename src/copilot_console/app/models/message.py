@@ -47,6 +47,7 @@ class MessageCreate(BaseModel):
     is_new_session: bool = False  # True if this is the first message in a new session
     mode: Literal["enqueue", "immediate"] | None = None  # Message delivery mode
     attachments: list[AttachmentRef] | None = None  # File/directory attachments
+    agent_mode: str | None = None  # Agent mode to set before sending (interactive/plan/autopilot)
 
 
 class MessageDelta(BaseModel):

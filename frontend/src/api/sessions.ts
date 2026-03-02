@@ -74,6 +74,18 @@ export async function disconnectSession(sessionId: string): Promise<void> {
   // Ignore errors on disconnect (tab might be closing)
 }
 
+export async function setSessionMode(sessionId: string, mode: string): Promise<{ mode: string }> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/mode`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to set session mode: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export interface ChatStep {
   title: string;
   detail?: string;
@@ -116,11 +128,16 @@ export async function sendMessage(
   isNewSession: boolean = false,
   _onPendingMessages?: () => void,
   onTurnDone?: () => void,
-  attachments?: AttachmentRef[]
+  attachments?: AttachmentRef[],
+  onModeChanged?: (mode: string) => void,
+  agentMode?: string
 ): Promise<void> {
   const body: Record<string, unknown> = { content, is_new_session: isNewSession };
   if (attachments && attachments.length > 0) {
     body.attachments = attachments;
+  }
+  if (agentMode) {
+    body.agent_mode = agentMode;
   }
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/messages`, {
     method: 'POST',
@@ -186,6 +203,8 @@ export async function sendMessage(
             onDone(data.message_id || '', data.session_name);
           } else if (eventName === 'error' && data.error !== undefined) {
             onError(data.error);
+          } else if (eventName === 'mode_changed' && data.mode) {
+            onModeChanged?.(data.mode);
           }
         } catch (e) {
           console.error('Failed to parse SSE data:', eventData, e);

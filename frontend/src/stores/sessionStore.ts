@@ -16,6 +16,7 @@ interface NewSessionSettings {
   systemMessage?: SystemMessage | null;
   agentId?: string;
   subAgents?: string[];
+  agentMode: string;
 }
 
 interface SessionState {
@@ -93,6 +94,7 @@ export const useSessionStore = create<SessionState>((set) => ({
         cwd: defaultCwd,
         mcpServers: defaultMcpServers,
         tools: defaultTools,
+        agentMode: 'interactive',
       }
     });
   },

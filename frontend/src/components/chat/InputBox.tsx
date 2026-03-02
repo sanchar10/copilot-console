@@ -5,13 +5,18 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
-import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile } from '../../api/sessions';
+import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, setSessionMode } from '../../api/sessions';
 import type { AttachmentRef, UploadedFile } from '../../api/sessions';
 import { Button } from '../common/Button';
+import { ModeSelector, type AgentMode } from './ModeSelector';
 
 // Sessions whose backend SessionClient is confirmed ready.
 // Resets on page refresh — correct since backend clients are also destroyed.
 const readySessions = new Set<string>();
+
+// Per-session agent mode. Survives component mount/unmount so mode persists
+// when switching between new-session InputBox and session-tab InputBox.
+const sessionModes = new Map<string, AgentMode>();
 
 /**
  * Remove a session from the ready set.
@@ -20,6 +25,7 @@ const readySessions = new Set<string>();
  */
 export function clearReadySession(sessionId: string) {
   readySessions.delete(sessionId);
+  sessionModes.delete(sessionId);
 }
 
 /** @internal — test-only: check if a session is in the ready set. */
@@ -83,6 +89,41 @@ export function InputBox({ sessionId, promptToSend, onPromptSent }: InputBoxProp
   // Only disable this input if THIS session is currently activating
   const isSending = sendingSessionId === sessionId;
   const isDisabled = isSending;
+
+  // Agent mode state: read from module-level map (survives mount/unmount), fall back to interactive
+  const [sessionMode, setSessionMode_] = useState<AgentMode>(
+    () => (sessionId ? sessionModes.get(sessionId) : undefined) ?? 'interactive'
+  );
+  const currentMode: AgentMode = isNewSession
+    ? (newSessionSettings?.agentMode as AgentMode) || 'interactive'
+    : sessionMode;
+
+  // Sync mode when switching sessions — read from map or reset to interactive
+  useEffect(() => {
+    setSessionMode_(sessionId ? sessionModes.get(sessionId) ?? 'interactive' : 'interactive');
+  }, [sessionId]);
+
+  const handleModeChange = useCallback(async (newMode: AgentMode) => {
+    if (isNewSession) {
+      // New session: just update store memory
+      useSessionStore.getState().updateNewSessionSettings({ agentMode: newMode });
+    } else if (sessionId) {
+      // Existing session: call backend (which activates session if needed)
+      setSessionMode_(newMode);
+      sessionModes.set(sessionId, newMode); // Persist across mount/unmount
+      try {
+        const result = await setSessionMode(sessionId, newMode);
+        const confirmed = result.mode as AgentMode;
+        setSessionMode_(confirmed);
+        sessionModes.set(sessionId, confirmed);
+        readySessions.add(sessionId);
+      } catch (err) {
+        console.error('Failed to set mode:', err);
+        setSessionMode_(sessionMode);
+        sessionModes.set(sessionId, sessionMode); // Revert
+      }
+    }
+  }, [isNewSession, sessionId, sessionMode]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -214,6 +255,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent }: InputBoxProp
     let activeSessionId = sessionId;
     // Track if this is a brand new session being created
     let isCreatingNewSession = isNewSession || !sessionId;
+    // Capture pending mode before addSession clears newSessionSettings
+    let initialAgentMode: string | undefined;
 
     setInput('');
     const pendingAttachments = attachments.map((a) => a.attachmentRef);
@@ -228,6 +271,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent }: InputBoxProp
         const sessionName = newSessionSettings?.name || 'New Session';
         const sessionMcpServers = newSessionSettings?.mcpServers;
         const sessionTools = newSessionSettings?.tools;
+        // Capture mode before addSession clears newSessionSettings
+        const pendingAgentMode = newSessionSettings?.agentMode;
         
         const session = await createSession({ 
           model: sessionModel,
@@ -240,6 +285,11 @@ export function InputBox({ sessionId, promptToSend, onPromptSent }: InputBoxProp
           agent_id: newSessionSettings?.agentId,
           sub_agents: newSessionSettings?.subAgents,
         });
+        // Write mode to map BEFORE addSession triggers re-render and new InputBox mounts
+        if (pendingAgentMode && pendingAgentMode !== 'interactive') {
+          initialAgentMode = pendingAgentMode;
+          sessionModes.set(session.session_id, pendingAgentMode as AgentMode);
+        }
         addSession(session);
         openGenericTab({ id: tabId.session(session.session_id), type: 'session', label: session.session_name, sessionId: session.session_id });
         await connectSession(session.session_id);
@@ -375,7 +425,9 @@ export function InputBox({ sessionId, promptToSend, onPromptSent }: InputBoxProp
           // Insert the assistant response before the next queued user message.
           finalizeTurn(activeSessionId!);
         },
-        pendingAttachments.length > 0 ? pendingAttachments : undefined
+        pendingAttachments.length > 0 ? pendingAttachments : undefined,
+        (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) sessionModes.set(activeSessionId, mode as AgentMode); },
+        initialAgentMode
       );
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -486,6 +538,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent }: InputBoxProp
             </svg>
           </Button>
         </div>
+        <ModeSelector mode={currentMode} onModeChange={handleModeChange} disabled={isSending} />
       </div>
     </div>
   );

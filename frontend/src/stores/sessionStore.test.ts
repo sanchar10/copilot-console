@@ -42,7 +42,7 @@ describe('sessionStore', () => {
   describe('updateNewSessionSettings', () => {
     it('merges partial settings into existing settings', () => {
       useSessionStore.setState({
-        newSessionSettings: { name: 'old', model: 'gpt-4.1', reasoningEffort: null, cwd: '/', mcpServers: [], tools: { custom: [], builtin: [], excluded_builtin: [] } },
+        newSessionSettings: { name: 'old', model: 'gpt-4.1', reasoningEffort: null, cwd: '/', mcpServers: [], tools: { custom: [], builtin: [], excluded_builtin: [] }, agentMode: 'interactive' },
       });
       useSessionStore.getState().updateNewSessionSettings({ name: 'updated' });
       expect(useSessionStore.getState().newSessionSettings!.name).toBe('updated');
@@ -94,7 +94,7 @@ describe('sessionStore', () => {
     it('clears new session mode and settings', () => {
       useSessionStore.setState({
         isNewSession: true,
-        newSessionSettings: { name: 'x', model: 'm', reasoningEffort: null, cwd: '/', mcpServers: [], tools: { custom: [], builtin: [], excluded_builtin: [] } },
+        newSessionSettings: { name: 'x', model: 'm', reasoningEffort: null, cwd: '/', mcpServers: [], tools: { custom: [], builtin: [], excluded_builtin: [] }, agentMode: 'interactive' },
       });
       useSessionStore.getState().clearNewSession();
       expect(useSessionStore.getState().isNewSession).toBe(false);

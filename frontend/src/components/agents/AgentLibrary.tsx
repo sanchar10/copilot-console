@@ -74,6 +74,7 @@ function useAgentActions() {
         systemMessage: agent.system_message?.content ? agent.system_message : null,
         agentId: agent.id,
         subAgents: agent.sub_agents || [],
+        agentMode: 'interactive',
       },
     });
   };

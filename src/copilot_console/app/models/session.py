@@ -66,6 +66,11 @@ class SessionUpdate(BaseModel):
     sub_agents: list[str] | None = None
 
 
+class ModeSetRequest(BaseModel):
+    """Request to set the agent mode for a session."""
+    mode: str = Field(description="Agent mode: 'interactive', 'plan', or 'autopilot'")
+
+
 class Session(SessionBase):
     """Full session model."""
 

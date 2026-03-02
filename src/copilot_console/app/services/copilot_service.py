@@ -25,6 +25,7 @@ from typing import AsyncGenerator, TYPE_CHECKING
 
 from copilot import CopilotClient
 from copilot.types import Tool
+from copilot.generated.rpc import Mode, SessionModeSetParams
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
 # Import approve_all if available, otherwise provide a fallback for older SDKs.
@@ -189,6 +190,15 @@ class SessionClient:
         
         # Create new
         return await self.create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents, reasoning_effort)
+
+    async def set_mode(self, mode: str) -> str:
+        """Set the agent mode (interactive/plan/autopilot) on the active session."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to set mode on")
+        result = await self.session.rpc.mode.set(SessionModeSetParams(mode=Mode(mode)))
+        self.touch()
+        logger.info(f"[{self.session_id}] Mode set to {result.mode.value}")
+        return result.mode.value
 
 
 class CopilotService:
@@ -465,6 +475,23 @@ class CopilotService:
         """Check if a session has an active client."""
         return session_id in self._session_clients
 
+    async def set_session_mode(self, session_id: str, mode: str, cwd: str,
+                                mcp_servers: dict[str, dict] | None = None,
+                                tools: list[Tool] | None = None,
+                                available_tools: list[str] | None = None,
+                                excluded_tools: list[str] | None = None,
+                                system_message: dict | None = None,
+                                custom_agents: list[dict] | None = None) -> str:
+        """Set agent mode on a session, activating it if needed."""
+        client = await self.get_session_client(session_id, cwd)
+        # Ensure SDK session exists (resume if needed)
+        await client.get_or_create_session(
+            model="", mcp_servers=mcp_servers, tools=tools,
+            available_tools=available_tools, excluded_tools=excluded_tools,
+            system_message=system_message, custom_agents=custom_agents,
+        )
+        return await client.set_mode(mode)
+
     async def send_message(
         self,
         session_id: str,
@@ -481,6 +508,7 @@ class CopilotService:
         attachments: list[dict] | None = None,
         custom_agents: list[dict] | None = None,
         reasoning_effort: str | None = None,
+        agent_mode: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Send a message and stream the response.
 
@@ -491,6 +519,13 @@ class CopilotService:
         # Get or create per-session client
         client = await self.get_session_client(session_id, cwd)
         session = await client.get_or_create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, is_new_session, custom_agents, reasoning_effort)
+
+        # Set agent mode if explicitly requested (e.g. user changed to plan/autopilot before first message)
+        if agent_mode and agent_mode != "interactive":
+            try:
+                await client.set_mode(agent_mode)
+            except Exception as e:
+                logger.warning(f"[{session_id}] Failed to set agent mode '{agent_mode}': {e}")
 
         done = asyncio.Event()
         event_queue: asyncio.Queue[dict | None] = asyncio.Queue()
@@ -759,6 +794,18 @@ class CopilotService:
                         "data": {"title": title.strip()}
                     })
 
+            elif event_type == "session.mode_changed":
+                new_mode = getattr(data, "new_mode", None)
+                previous_mode = getattr(data, "previous_mode", None)
+                if new_mode:
+                    mode_val = new_mode.value if hasattr(new_mode, "value") else str(new_mode)
+                    prev_val = previous_mode.value if hasattr(previous_mode, "value") else str(previous_mode) if previous_mode else None
+                    event_queue.put_nowait({
+                        "event": "mode_changed",
+                        "data": {"mode": mode_val, "previous_mode": prev_val}
+                    })
+                    logger.info(f"[{session_id}] Mode changed: {prev_val} → {mode_val}")
+
             elif event_type == "session.idle":
                 idle_received = True
                 if compacting:
@@ -812,6 +859,7 @@ class CopilotService:
         attachments: list[dict] | None = None,
         custom_agents: list[dict] | None = None,
         reasoning_effort: str | None = None,
+        agent_mode: str | None = None,
     ) -> None:
         """Send a message in a background task that won't be cancelled.
         
@@ -838,6 +886,7 @@ class CopilotService:
                 attachments=attachments,
                 custom_agents=custom_agents,
                 reasoning_effort=reasoning_effort,
+                agent_mode=agent_mode,
             ):
                 event_type = evt.get("event")
                 
@@ -858,6 +907,8 @@ class CopilotService:
                     title = (evt.get("data") or {}).get("title")
                     if title:
                         buffer.updated_session_name = title
+                elif event_type == "mode_changed":
+                    buffer.add_notification("mode_changed", evt.get("data") or {})
         except asyncio.CancelledError:
             logger.warning(f"[{session_id}] Background task was cancelled")
             buffer.fail("Task was cancelled")
