@@ -11,6 +11,7 @@ import { listSessions } from '../../api/sessions';
 import { fetchModels } from '../../api/models';
 import { getSettings } from '../../api/settings';
 import { getActiveAgents } from '../../api/activeAgents';
+import { apiClient } from '../../api/client';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
 
@@ -26,6 +27,7 @@ export function Sidebar() {
   // Subscribe to projects so component re-renders when mappings load
   const projects = useProjectStore(s => s.projects);
   const [sessionSearch, setSessionSearch] = useState('');
+  const [appVersion, setAppVersion] = useState('');
 
   // Inline helper that uses current projects state for reactivity
   const getProjectName = (cwd: string): string => {
@@ -102,6 +104,10 @@ export function Sidebar() {
       }
     }
     loadData();
+    // Fetch app version from backend (non-blocking)
+    apiClient.get<{ current_version: string }>('/settings/update-check')
+      .then(info => setAppVersion(info.current_version))
+      .catch(() => {});
   }, [setSessions, setAvailableModels, setDefaultModel, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
 
   const handleNewSession = async () => {
@@ -302,12 +308,12 @@ export function Sidebar() {
       <div className="sticky bottom-0 p-2 border-t border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#252536]">
         <button
           onClick={openSettingsModal}
-          title="Settings · v0.4.0"
+          title={`Settings${appVersion ? ` · v${appVersion}` : ''}`}
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-[#32324a] transition-colors"
         >
           <span className="text-base">⚙️</span>
           <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-gray-100">Settings</span>
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">v0.4.0</span>
+          {appVersion && <span className="text-[10px] text-gray-500 dark:text-gray-400">v{appVersion}</span>}
         </button>
       </div>
     </aside>

@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Copilot Console API",
     description="Backend API for Copilot Console - A feature-rich console for GitHub Copilot agents",
-    version="0.4.0",
+    version=__import__("copilot_console").__version__,
     lifespan=lifespan,
 )
 

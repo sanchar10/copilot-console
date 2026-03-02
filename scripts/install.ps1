@@ -1,7 +1,8 @@
 # Copilot Console - One-click installer for Windows
 # Usage: irm https://raw.githubusercontent.com/sanchar10/copilot-agent-console/main/scripts/install.ps1 | iex
 
-$WHL_URL = "https://github.com/sanchar10/copilot-agent-console/releases/download/v0.4.0/copilot_console-0.4.0-py3-none-any.whl"
+$REPO = "sanchar10/copilot-agent-console"
+$WHL_URL = "https://github.com/$REPO/releases/latest/download/copilot_console-py3-none-any.whl"
 
 Write-Host ""
 Write-Host "  Copilot Console Installer" -ForegroundColor Cyan
