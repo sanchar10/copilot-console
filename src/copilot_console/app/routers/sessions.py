@@ -316,7 +316,8 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
         # No need to read session.json or call list_sessions().
         logger.info(f"[SSE] Active session path for {session_id}")
         session = None  # Not needed — SDK handles everything
-        cwd = None
+        # Preserve the existing client's CWD to avoid destroying/recreating it
+        cwd = copilot_service.get_session_cwd(session_id)
         model = None
         reasoning_effort = None
         mcp_servers_sdk = None

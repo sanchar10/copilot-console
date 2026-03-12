@@ -4,6 +4,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useTabStore } from '../../stores/tabStore';
 import { MessageBubble } from './MessageBubble';
+import { usePinStore } from '../../stores/pinStore';
 import { StreamingMessage } from './StreamingMessage';
 import { InputBox, clearReadySession } from './InputBox';
 import { TabBar } from './TabBar';
@@ -24,16 +25,134 @@ import type { AgentTools, SystemMessage, Agent, StarterPrompt } from '../../type
  * Per-session tab content — owns its own scroll position, header, messages, and input.
  * Stays mounted when hidden so scroll position and DOM are preserved.
  */
+function scrollToMessageBySdkId(mid: string) {
+  const esc = (window as any).CSS?.escape ? (window as any).CSS.escape(mid) : mid.replace(/"/g, '\\"');
+  const el = document.querySelector(`[data-sdk-message-id="${esc}"]`) as HTMLElement | null;
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function formatPinTimestamp(ts: string) {
+  try {
+    return new Date(ts).toLocaleString();
+  } catch {
+    return ts;
+  }
+}
+
+function PinsDrawer({
+  sessionId,
+  pins,
+  onClose,
+}: {
+  sessionId: string;
+  pins: { id: string; sdk_message_id: string; created_at: string; title?: string | null; excerpt?: string | null; note?: string | null }[];
+  onClose: () => void;
+}) {
+  const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setDraftNotes((prev) => {
+      const next = { ...prev };
+      for (const p of pins) {
+        if (next[p.id] === undefined) next[p.id] = p.note ?? '';
+      }
+      return next;
+    });
+  }, [pins]);
+
+  const sortedPins = [...pins].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+  return (
+    <aside className="w-96 border-l border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-[#1f1f2e]/90 backdrop-blur p-3 overflow-y-auto">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-semibold text-sm text-gray-800 dark:text-gray-100">Pins ({pins.length})</div>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500"
+          onClick={onClose}
+          title="Close"
+        >
+          Close
+        </button>
+      </div>
+
+      {sortedPins.length === 0 ? (
+        <div className="mt-3 text-sm text-gray-500 dark:text-gray-400">No pins yet.</div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {sortedPins.map((p) => {
+            const baseNote = p.note ?? '';
+            const note = draftNotes[p.id] ?? baseNote;
+            const isDirty = note !== baseNote;
+            const title = p.title || p.excerpt || p.sdk_message_id;
+
+            return (
+              <div key={p.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-[#2a2a3c]/70 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <button
+                    type="button"
+                    className="flex-1 text-left"
+                    onClick={() => scrollToMessageBySdkId(p.sdk_message_id)}
+                    title={title}
+                  >
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{formatPinTimestamp(p.created_at)}</div>
+                    <div className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline line-clamp-2">{title}</div>
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                    title="Unpin"
+                    onClick={() => {
+                      usePinStore.getState().deletePin(sessionId, p.id).catch((e) => console.error('Failed to unpin:', e));
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <div className="mt-2">
+                  <textarea
+                    className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-[#1f1f2e]/60 px-2 py-1.5 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
+                    rows={3}
+                    placeholder="Add a note (optional)"
+                    value={note}
+                    onChange={(e) => setDraftNotes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                  />
+                  <div className="mt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={!isDirty}
+                      className={`text-xs px-2 py-1 rounded border transition-colors ${isDirty ? 'border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:border-blue-300 dark:hover:border-blue-500' : 'border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'}`}
+                      onClick={() => {
+                        usePinStore.getState().updatePin(sessionId, p.id, { note }).catch((e) => console.error('Failed to update pin:', e));
+                      }}
+                      title="Save note"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </aside>
+  );
+}
+
 const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive }: { sessionId: string; isActive: boolean }) {
   const { sessions, availableMcpServers, availableTools, setSessions, updateSessionMcpServers, updateSessionTools } = useSessionStore();
   const { messagesPerSession, getStreamingState, getTokenUsage } = useChatStore();
   const { availableModels } = useUIStore();
   const { tabs, openTab: openGenericTab, switchTab: switchGenericTab } = useTabStore();
+  const pins = usePinStore((s) => s.pinsPerSession[sessionId]) || [];
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userScrolledUpRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [pinsOpen, setPinsOpen] = useState(false);
   const [eligibleSubAgents, setEligibleSubAgents] = useState<Agent[]>([]);
   const [starterPrompts, setStarterPrompts] = useState<StarterPrompt[]>([]);
   const [promptToSend, setPromptToSend] = useState<string | null>(null);
@@ -174,6 +293,14 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
       .catch(() => setEligibleSubAgents([]));
   }, [session?.agent_id]);
 
+  // Load pins for this session (only when first activated)
+  const didFetchPinsRef = useRef(false);
+  useEffect(() => {
+    if (!isActive || didFetchPinsRef.current) return;
+    didFetchPinsRef.current = true;
+    usePinStore.getState().fetchPins(sessionId);
+  }, [isActive, sessionId]);
+
   // Fetch starter prompts from agent definition
   useEffect(() => {
     const agentId = session?.agent_id;
@@ -237,51 +364,56 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
 
       {/* Messages Area */}
       <div className="relative flex-1 min-h-0">
-        <div ref={scrollContainerRef} onScroll={handleScroll} className="absolute inset-0 overflow-y-auto p-4">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {isLoadingMessages && showSpinner ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-                <svg className="w-6 h-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <p className="text-sm">Loading messages...</p>
-              </div>
-            ) : messages.length === 0 && !isStreaming ? (
-              <div className="flex flex-col items-center justify-center h-full gap-4">
-                <p className="text-gray-400">Start a conversation...</p>
-                {starterPrompts.length > 0 && (
-                  <div className="w-full max-w-4xl mx-auto space-y-2 px-4">
-                    {starterPrompts.map((sp, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setPromptToSend(sp.prompt)}
-                        title={sp.prompt}
-                        className="w-full text-left px-4 py-2.5 rounded-lg border border-white/40 dark:border-[#3a3a4e] bg-white/50 dark:bg-[#2a2a3c]/50 hover:bg-white/80 dark:hover:bg-[#2a2a3c]/80 transition-colors"
-                      >
-                        <div className="font-medium text-gray-700 dark:text-gray-200">{sp.title}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{sp.prompt}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} cwd={session?.cwd} />
-                ))}
-                {isStreaming && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
-              </>
-            )}
-            <div ref={messagesEndRef} />
+        <div className="absolute inset-0 flex">
+          <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {isLoadingMessages && showSpinner ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
+                  <svg className="w-6 h-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <p className="text-sm">Loading messages...</p>
+                </div>
+              ) : messages.length === 0 && !isStreaming ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <p className="text-gray-400">Start a conversation...</p>
+                  {starterPrompts.length > 0 && (
+                    <div className="w-full max-w-4xl mx-auto space-y-2 px-4">
+                      {starterPrompts.map((sp, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setPromptToSend(sp.prompt)}
+                          title={sp.prompt}
+                          className="w-full text-left px-4 py-2.5 rounded-lg border border-white/40 dark:border-[#3a3a4e] bg-white/50 dark:bg-[#2a2a3c]/50 hover:bg-white/80 dark:hover:bg-[#2a2a3c]/80 transition-colors"
+                        >
+                          <div className="font-medium text-gray-700 dark:text-gray-200">{sp.title}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{sp.prompt}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {messages.map((message) => (
+                    <MessageBubble key={message.id} message={message} cwd={session?.cwd} sessionId={sessionId} />
+                  ))}
+                  {isStreaming && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
+                </>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
+
+          {pinsOpen && <PinsDrawer sessionId={sessionId} pins={pins} onClose={() => setPinsOpen(false)} />}
         </div>
+
         {/* Scroll-to-bottom button */}
         {showScrollButton && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 dark:bg-[#2a2a3c]/80 backdrop-blur text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-full shadow-lg border border-white/40 dark:border-gray-700 text-sm flex items-center gap-1.5 hover:bg-white/95 dark:hover:bg-[#2a2a3c]/95 transition-colors z-10"
+            className="absolute bottom-4 right-4 bg-white/80 dark:bg-[#2a2a3c]/80 backdrop-blur text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-full shadow-lg border border-white/40 dark:border-gray-700 text-sm flex items-center gap-1.5 hover:bg-white/95 dark:hover:bg-[#2a2a3c]/95 transition-colors z-10"
           >
             ↓ New messages
           </button>
@@ -289,7 +421,14 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
       </div>
 
       {/* Input Area */}
-      <InputBox sessionId={sessionId} promptToSend={promptToSend} onPromptSent={() => setPromptToSend(null)} />
+      <InputBox
+        sessionId={sessionId}
+        promptToSend={promptToSend}
+        onPromptSent={() => setPromptToSend(null)}
+        pinsCount={pins.length}
+        pinsOpen={pinsOpen}
+        onPinsToggle={() => setPinsOpen((v) => !v)}
+      />
     </div>
   );
 });

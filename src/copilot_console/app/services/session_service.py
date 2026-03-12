@@ -474,6 +474,16 @@ class SessionService:
             text = text.replace('\r\n', '\n').replace('\r', '')
             return text
 
+        def _extract_sdk_message_id(data: object) -> str | None:
+            msg_id = getattr(data, "message_id", None) or getattr(data, "messageId", None)
+            if isinstance(msg_id, str) and msg_id.strip():
+                return msg_id
+            if isinstance(data, dict):
+                msg_id = data.get("messageId") or data.get("message_id")
+                if isinstance(msg_id, str) and msg_id.strip():
+                    return msg_id
+            return None
+
         def _format_tool_input(data: object) -> str | None:
             """Format tool input/arguments for display."""
             args = getattr(data, "arguments", None) or getattr(data, "input", None)
@@ -557,8 +567,10 @@ class SessionService:
                             ))
 
                     if isinstance(content, str) and (content.strip() or msg_attachments):
+                        sdk_message_id = _extract_sdk_message_id(data)
                         messages.append(Message(
-                            id=str(uuid.uuid4()),
+                            id=sdk_message_id or str(uuid.uuid4()),
+                            sdk_message_id=sdk_message_id,
                             role="user",
                             content=content or "",
                             timestamp=datetime.now(timezone.utc),
@@ -621,8 +633,10 @@ class SessionService:
                     if content and content.strip():
                         # Attach pending steps to this message
                         steps = [MessageStep(title=s["title"], detail=s.get("detail")) for s in pending_steps] if pending_steps else None
+                        sdk_message_id = _extract_sdk_message_id(data)
                         messages.append(Message(
-                            id=str(uuid.uuid4()),
+                            id=sdk_message_id or str(uuid.uuid4()),
+                            sdk_message_id=sdk_message_id,
                             role="assistant",
                             content=content,
                             timestamp=datetime.now(timezone.utc),
@@ -648,8 +662,7 @@ class SessionService:
                     if msg_id and reasoning:
                         reasoning_by_message_id[msg_id] = reasoning
             
-            # Match reasoning to messages by content (since we generate new IDs)
-            # Also need to match by content since SDK message IDs might not match
+            # Fallback content mapping (legacy) for cases where SDK IDs aren't available.
             content_to_reasoning: dict[str, str] = {}
             for raw_evt in raw_events:
                 if raw_evt.get("type") == "assistant.message":
@@ -658,11 +671,14 @@ class SessionService:
                     reasoning = data.get("reasoningText")
                     if content and reasoning:
                         content_to_reasoning[content.strip()] = reasoning
-            
-            # Add reasoning as a step to matching messages
+
+            # Add reasoning as a step to matching messages (prefer SDK messageId).
             for msg in messages:
-                if msg.role == "assistant" and msg.content:
-                    reasoning = content_to_reasoning.get(msg.content.strip())
+                if msg.role == "assistant":
+                    anchor_id = msg.sdk_message_id or msg.id
+                    reasoning = reasoning_by_message_id.get(anchor_id)
+                    if not reasoning and msg.content:
+                        reasoning = content_to_reasoning.get(msg.content.strip())
                     if reasoning:
                         reasoning_step = MessageStep(title="Reasoning", detail=reasoning)
                         if msg.steps:
@@ -670,7 +686,7 @@ class SessionService:
                             msg.steps = [reasoning_step] + list(msg.steps)
                         else:
                             msg.steps = [reasoning_step]
-                        logger.debug(f"Added reasoning step to message: {msg.content[:30]}...")
+                        logger.debug(f"Added reasoning step to message_id={anchor_id}")
         
         except Exception as e:
             logger.warning(f"Failed to read raw events for reasoningText: {e}")

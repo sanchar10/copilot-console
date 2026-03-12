@@ -36,6 +36,8 @@ class ResponseBuffer:
     completed_at: Optional[datetime] = None
     # Auto-naming: updated session name (set by background task if name was auto-generated)
     updated_session_name: Optional[str] = None
+    # Stable SDK messageId for the most recently completed turn (if available)
+    last_message_id: Optional[str] = None
     
     # For SSE consumers to wait on new data (no polling!)
     _new_data_event: asyncio.Event = field(default_factory=asyncio.Event)
@@ -57,7 +59,12 @@ class ResponseBuffer:
     
     def add_notification(self, event: str, data: dict | None = None) -> None:
         """Add a pass-through notification event and signal waiting consumers."""
-        self.notifications.append({"event": event, "data": data or {}})
+        payload = data or {}
+        if event == "turn_done":
+            msg_id = payload.get("message_id")
+            if isinstance(msg_id, str) and msg_id.strip():
+                self.last_message_id = msg_id
+        self.notifications.append({"event": event, "data": payload})
         self._new_data_event.set()
     
     def complete(self) -> None:

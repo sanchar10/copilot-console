@@ -19,7 +19,9 @@ Long-running agent support:
 """
 
 import asyncio
+import glob
 import os
+import re
 import time
 from typing import AsyncGenerator, TYPE_CHECKING
 
@@ -42,6 +44,72 @@ if TYPE_CHECKING:
     from copilot_console.app.services.response_buffer import ResponseBuffer
 
 logger = get_logger(__name__)
+
+
+def _parse_agent_file(filepath: str) -> dict | None:
+    """Parse a .agent.md file into a custom agent config dict.
+    
+    Extracts the YAML frontmatter for description and uses the file body as the prompt.
+    Returns None if the file is malformed (missing frontmatter).
+    """
+    basename = os.path.basename(filepath)
+    name = basename.replace(".agent.md", "")
+    
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        return None
+    
+    # Parse YAML frontmatter (---\n...\n---)
+    match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+    if not match:
+        return None
+    
+    fm = match.group(1)
+    description = ""
+    for line in fm.split("\n"):
+        if line.startswith("description:"):
+            description = line[len("description:"):].strip()
+            break
+    
+    body = content[match.end():].strip()
+    
+    return {
+        "name": name,
+        "display_name": name,
+        "description": description,
+        "prompt": body,
+    }
+
+
+def discover_workspace_agents(cwd: str) -> list[dict]:
+    """Discover .agent.md files from the workspace and user home .github/agents/ dirs.
+    
+    Scans two locations (matching CLI behavior):
+    1. [cwd]/.github/agents/*.agent.md  (project-level)
+    2. ~/.github/agents/*.agent.md      (user-level)
+    
+    Returns a list of custom agent config dicts ready for the SDK's custom_agents param.
+    """
+    agents: list[dict] = []
+    seen_names: set[str] = set()
+    
+    dirs_to_scan = [
+        os.path.join(cwd, ".github", "agents"),
+        os.path.join(os.path.expanduser("~"), ".github", "agents"),
+    ]
+    
+    for agents_dir in dirs_to_scan:
+        if not os.path.isdir(agents_dir):
+            continue
+        for filepath in sorted(glob.glob(os.path.join(agents_dir, "*.agent.md"))):
+            agent = _parse_agent_file(filepath)
+            if agent and agent["name"] not in seen_names:
+                agents.append(agent)
+                seen_names.add(agent["name"])
+    
+    return agents
 
 
 class SessionClient:
@@ -134,12 +202,27 @@ class SessionClient:
         if custom_agents:
             session_opts["custom_agents"] = custom_agents
         
+        # Auto-discover workspace agents from .github/agents/ dirs
+        # and merge with any explicitly-provided custom agents
+        workspace_agents = discover_workspace_agents(self.cwd)
+        if workspace_agents:
+            existing = session_opts.get("custom_agents", [])
+            existing_names = {a["name"] for a in existing}
+            # Add workspace agents that don't conflict with explicit agents
+            for wa in workspace_agents:
+                if wa["name"] not in existing_names:
+                    existing.append(wa)
+            session_opts["custom_agents"] = existing
+            logger.info(f"[{self.session_id}] Discovered {len(workspace_agents)} workspace agents")
+        
         if reasoning_effort:
             session_opts["reasoning_effort"] = reasoning_effort
         
+        session_opts["working_directory"] = self.cwd
+        
         self.session = await self.client.create_session(session_opts)
         self.touch()
-        logger.info(f"[{self.session_id}] Created SDK session with model={model}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
+        logger.info(f"[{self.session_id}] Created SDK session with model={model}, working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
         return self.session
     
     async def resume_session(self, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, custom_agents: list[dict] | None = None) -> object | None:
@@ -163,6 +246,18 @@ class SessionClient:
                 resume_opts["system_message"] = system_message
             if custom_agents:
                 resume_opts["custom_agents"] = custom_agents
+            
+            # Auto-discover workspace agents and merge
+            workspace_agents = discover_workspace_agents(self.cwd)
+            if workspace_agents:
+                existing = resume_opts.get("custom_agents", [])
+                existing_names = {a["name"] for a in existing}
+                for wa in workspace_agents:
+                    if wa["name"] not in existing_names:
+                        existing.append(wa)
+                resume_opts["custom_agents"] = existing
+            
+            resume_opts["working_directory"] = self.cwd
             
             logger.info(f"[{self.session_id}] Resuming SDK session with custom_agents={len(custom_agents or [])}")
             self.session = await self.client.resume_session(self.session_id, resume_opts)
@@ -474,6 +569,11 @@ class CopilotService:
     def is_session_active(self, session_id: str) -> bool:
         """Check if a session has an active client."""
         return session_id in self._session_clients
+
+    def get_session_cwd(self, session_id: str) -> str | None:
+        """Get the CWD of an active session's client."""
+        client = self._session_clients.get(session_id)
+        return client.cwd if client else None
 
     async def set_session_mode(self, session_id: str, mode: str, cwd: str,
                                 mcp_servers: dict[str, dict] | None = None,

@@ -39,7 +39,7 @@ interface ChatState {
   setTokenUsage: (sessionId: string, usage: TokenUsage) => void;
   clearTokenUsage: (sessionId: string) => void;
   finalizeStreaming: (sessionId: string, messageId: string) => void;
-  finalizeTurn: (sessionId: string) => void;
+  finalizeTurn: (sessionId: string, messageId?: string) => void;
   setStreaming: (sessionId: string, isStreaming: boolean) => void;
   setSending: (sessionId: string | null) => void;
   clearSessionMessages: (sessionId: string) => void;
@@ -123,13 +123,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const newStreamingPerSession = { ...state.streamingPerSession };
       delete newStreamingPerSession[sessionId];
 
+      const resolvedId = messageId || `turn-${Date.now()}`;
+
       return {
         messagesPerSession: {
           ...state.messagesPerSession,
           [sessionId]: [
             ...(state.messagesPerSession[sessionId] || []),
             {
-              id: messageId,
+              id: resolvedId,
+              sdk_message_id: messageId || undefined,
               role: 'assistant' as const,
               content: streaming.content,
               steps: streaming.steps,
@@ -141,14 +144,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  finalizeTurn: (sessionId) =>
+  finalizeTurn: (sessionId, messageId) =>
     set((state) => {
       const streaming = state.streamingPerSession[sessionId] || emptyStreamingState;
       if (!streaming.content.trim()) return state;
 
       const messages = [...(state.messagesPerSession[sessionId] || [])];
+      const resolvedId = messageId || `turn-${Date.now()}`;
       const assistantMsg = {
-        id: `turn-${Date.now()}`,
+        id: resolvedId,
+        sdk_message_id: messageId || undefined,
         role: 'assistant' as const,
         content: streaming.content,
         steps: streaming.steps,

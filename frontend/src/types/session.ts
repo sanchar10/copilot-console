@@ -28,6 +28,7 @@ export interface ChatStep {
 
 export interface Message {
   id: string;
+  sdk_message_id?: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;

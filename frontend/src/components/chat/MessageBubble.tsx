@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Message, MessageAttachment } from '../../types/message';
+import { usePinStore } from '../../stores/pinStore';
 import type { Components } from 'react-markdown';
 import { MermaidDiagram, isMermaidCode } from './MermaidDiagram';
 import { processFileLinks, isFilePath, resolveFileHref, handleFilePathClick } from '../../utils/processFileLinks';
@@ -11,6 +12,7 @@ import { processFileLinks, isFilePath, resolveFileHref, handleFilePathClick } fr
 interface MessageBubbleProps {
   message: Message;
   cwd?: string | null;
+  sessionId?: string;
 }
 
 function fileIcon(filename: string): string {
@@ -190,7 +192,7 @@ function createMarkdownComponents(cwd?: string | null): Components {
   };
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, cwd }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, cwd, sessionId }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isEnqueued = isUser && message.mode === 'enqueue';
@@ -207,8 +209,15 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd }: Messa
     );
   }
 
+  const canPin = !isUser && !!sessionId && !!message.sdk_message_id;
+  const isPinned = usePinStore((s) => {
+    if (!canPin) return false;
+    const pins = s.pinsPerSession[sessionId!] || [];
+    return pins.some((p) => p.sdk_message_id === message.sdk_message_id);
+  });
+
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3" data-sdk-message-id={message.sdk_message_id}>
       {/* Avatar */}
       <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
       isUser ? 'bg-blue-600' : 'bg-emerald-600'
@@ -227,15 +236,43 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd }: Messa
       {/* Message content */}
       <div className="flex-1 min-w-0">
         {/* Label */}
-        <div className={`text-sm font-medium mb-1 ${isUser ? 'text-blue-600' : 'text-emerald-600'}`}>
-          {isUser ? 'You' : 'Copilot'}
-          {isEnqueued && (
-            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-600">
-              <svg className="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Queued
-            </span>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className={`text-sm font-medium ${isUser ? 'text-blue-600' : 'text-emerald-600'}`}>
+            {isUser ? 'You' : 'Copilot'}
+            {isEnqueued && (
+              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-600">
+                <svg className="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Queued
+              </span>
+            )}
+          </div>
+
+          {canPin && (
+            <button
+              className={`text-xs px-2 py-0.5 rounded border ${isPinned ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300' : 'bg-white/70 dark:bg-[#2a2a3c]/70 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'} hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-700 dark:hover:text-blue-300`}
+              title={isPinned ? 'Unpin message' : 'Pin message'}
+              onClick={() => {
+                const mid = message.sdk_message_id;
+                if (!sessionId || !mid) return;
+                const store = usePinStore.getState();
+                const pins = store.pinsPerSession[sessionId] || [];
+                const existing = pins.find((p) => p.sdk_message_id === mid);
+                if (existing) {
+                  store.deletePin(sessionId, existing.id).catch((e) => console.error('Failed to unpin:', e));
+                  return;
+                }
+                const oneLine = message.content.replace(/\s+/g, ' ').trim();
+                store.createPin(sessionId, {
+                  sdk_message_id: mid,
+                  title: oneLine.slice(0, 80) || undefined,
+                  excerpt: oneLine.slice(0, 160) || undefined,
+                }).catch((e) => console.error('Failed to pin:', e));
+              }}
+            >
+              {isPinned ? 'Pinned' : 'Pin'}
+            </button>
           )}
         </div>
         

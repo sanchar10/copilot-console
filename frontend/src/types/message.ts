@@ -11,6 +11,8 @@ export interface MessageAttachment {
 
 export interface Message {
   id: string;
+  /** Durable SDK anchor when available (used for pins/permalinks). */
+  sdk_message_id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;

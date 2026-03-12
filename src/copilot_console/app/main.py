@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from copilot_console.app.config import API_PREFIX, ensure_directories
-from copilot_console.app.routers import agents, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, workflows
+from copilot_console.app.routers import agents, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, workflows, pins
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.response_buffer import response_buffer_manager
 from copilot_console.app.services.task_runner_service import TaskRunnerService
@@ -123,6 +123,7 @@ app.include_router(task_runs.router, prefix=API_PREFIX)
 app.include_router(viewed.router, prefix=API_PREFIX)
 app.include_router(push.router, prefix=API_PREFIX)
 app.include_router(workflows.router, prefix=API_PREFIX)
+app.include_router(pins.router, prefix=API_PREFIX)
 
 
 @app.get("/health")

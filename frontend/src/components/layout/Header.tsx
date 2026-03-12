@@ -49,6 +49,8 @@ interface HeaderProps {
   openTabs?: string[];
   eligibleSubAgents?: Agent[];
   subAgentSelections?: string[];
+
+
   onRelatedSessionClick?: (sessionId: string) => void;
   onNameChange?: (newName: string) => void;
   onModelChange?: (newModel: string, reasoningEffort?: string | null) => void;
@@ -77,6 +79,8 @@ export function Header({
   sessions = [],
   currentSessionId,
   openTabs = [],
+  eligibleSubAgents = [],
+  subAgentSelections = [],
   onRelatedSessionClick,
   onNameChange,
   onModelChange,
@@ -85,8 +89,6 @@ export function Header({
   onMcpSelectionsChange,
   onToolSelectionsChange,
   onSystemMessageChange,
-  eligibleSubAgents = [],
-  subAgentSelections = [],
   onSubAgentSelectionsChange,
 }: HeaderProps) {
   const [isEditingName, setIsEditingName] = useState(false);
@@ -274,7 +276,7 @@ export function Header({
 
             {/* Token usage slider - right aligned, only for existing sessions */}
             {!isNewSession && (
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 <TokenUsageSlider
                   tokenLimit={tokenUsage?.tokenLimit}
                   currentTokens={tokenUsage?.currentTokens}

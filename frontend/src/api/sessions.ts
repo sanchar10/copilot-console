@@ -86,6 +86,9 @@ export async function setSessionMode(sessionId: string, mode: string): Promise<{
   return response.json();
 }
 
+// --- Repo Agent APIs ---
+
+
 export interface ChatStep {
   title: string;
   detail?: string;
