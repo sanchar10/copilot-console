@@ -295,8 +295,8 @@ export function MobileSettings({ onConnectionChange }: Props) {
           <ol className="text-xs text-gray-600 dark:text-gray-400 space-y-2 list-decimal list-inside">
             <li>On your desktop, start Copilot Console with <code className="bg-gray-100 dark:bg-[#1e1e2e] px-1 py-0.5 rounded">--expose</code></li>
             <li>Open Settings in the desktop UI → Mobile Companion section</li>
-            <li>Tap <strong>Copy setup link</strong> below the QR code</li>
-            <li>Paste the link into the Quick Setup field above</li>
+            <li>Tap <strong>📷 Scan QR Code</strong> above and scan the code from your desktop</li>
+            <li>Or manually enter the <strong>Server URL</strong> and <strong>API Token</strong> shown on desktop</li>
             <li>Tap <strong>Save</strong> to connect</li>
           </ol>
         </section>

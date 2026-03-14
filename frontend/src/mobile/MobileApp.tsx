@@ -5,7 +5,7 @@ import { MobileChatView } from './components/MobileChatView';
 import { MobileAgentMonitor } from './components/MobileAgentMonitor';
 import { MobileSettings } from './components/MobileSettings';
 import { NotificationBanner } from './components/NotificationBanner';
-import { mobileApiClient, setStoredToken, setStoredBaseUrl, getStoredToken, onAuthErrorChange, clearAuthError, getAuthError } from './mobileClient';
+import { mobileApiClient, setStoredToken, setStoredBaseUrl, getStoredToken, getStoredBaseUrl, onAuthErrorChange, clearAuthError, getAuthError } from './mobileClient';
 import { useTheme } from '../hooks/useTheme';
 import './mobile.css';
 
@@ -57,11 +57,17 @@ function ConnectionErrorScreen({ authError, onRetry, onReconfigure }: {
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
         {authError === 'unauthorized' ? 'Session Expired' : 'Connection Lost'}
       </h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-xs">
+      <p className="text-gray-600 dark:text-gray-400 mb-2 max-w-xs">
         {authError === 'unauthorized'
           ? 'Your API token has been regenerated. Please scan the QR code again from the desktop Settings.'
           : 'Unable to reach the server. Check your internet connection and retry.'}
       </p>
+      {authError === 'network' && getStoredBaseUrl() && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-6 max-w-xs break-all">
+          Server: {getStoredBaseUrl()}
+        </p>
+      )}
+      {authError !== 'network' && <div className="mb-6" />}
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button onClick={onRetry} className="bg-blue-600 text-white rounded-lg py-3 px-4 font-medium">
           Retry Connection
@@ -140,9 +146,41 @@ export function MobileApp() {
 
   // Show setup screen if no token configured AND not on localhost
   if (!isLocalhost && !getStoredToken() && !searchParams.get('token')) {
+    const savedUrl = getStoredBaseUrl();
     return (
       <div className="h-dvh bg-[#fafafa] dark:bg-[#1e1e2e] flex flex-col safe-top">
-        <MobileSettings onConnectionChange={handleConnectionChange} />
+        {/* Welcome header */}
+        <div className="px-6 pt-8 pb-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-3xl">🤖</span>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Copilot Console</h1>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Connect to your Copilot Console server to get started
+          </p>
+        </div>
+
+        {/* Reconnect prompt when we have a saved URL but no token */}
+        {savedUrl && (
+          <div className="mx-6 mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Last connected to:</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-mono break-all mb-2">{savedUrl}</p>
+            <button
+              onClick={() => {
+                setStoredBaseUrl(savedUrl);
+                handleConnectionChange();
+              }}
+              className="w-full bg-blue-600 text-white text-sm rounded-lg py-2 px-3 font-medium"
+            >
+              Reconnect
+            </button>
+          </div>
+        )}
+
+        {/* Existing settings for QR scan / manual entry */}
+        <div className="flex-1 overflow-auto">
+          <MobileSettings onConnectionChange={handleConnectionChange} />
+        </div>
       </div>
     );
   }

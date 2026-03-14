@@ -1,9 +1,10 @@
-import { StrictMode } from 'react'
+import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
-import App from './App.tsx'
-import { MobileApp } from './mobile/MobileApp.tsx'
+
+const App = lazy(() => import('./App.tsx'));
+const MobileApp = lazy(() => import('./mobile/MobileApp.tsx').then(m => ({ default: m.MobileApp })));
 
 // Register service worker for PWA support (mobile only)
 if ('serviceWorker' in navigator && window.location.pathname.startsWith('/mobile')) {
@@ -17,10 +18,16 @@ if ('serviceWorker' in navigator && window.location.pathname.startsWith('/mobile
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/mobile/*" element={<MobileApp />} />
-        <Route path="/*" element={<App />} />
-      </Routes>
+      <Suspense fallback={
+        <div className="h-screen flex items-center justify-center bg-[#fafafa] dark:bg-[#1e1e2e]">
+          <div className="text-gray-400 dark:text-gray-500 text-sm">Loading...</div>
+        </div>
+      }>
+        <Routes>
+          <Route path="/mobile/*" element={<MobileApp />} />
+          <Route path="/*" element={<App />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   </StrictMode>,
 )

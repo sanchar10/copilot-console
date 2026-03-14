@@ -1,4 +1,5 @@
 {
+  "id": "/mobile",
   "name": "Copilot Console",
   "short_name": "CopilotConsole",
   "description": "Mobile companion for Copilot Console",
@@ -8,6 +9,7 @@
   "orientation": "portrait",
   "theme_color": "#0f172a",
   "background_color": "#0f172a",
+  "categories": ["developer", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
