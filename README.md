@@ -122,8 +122,9 @@ Options:
   --no-sleep         Prevent Windows from sleeping while running
                      (useful when scheduled tasks need to run overnight)
   --expose           Enable remote access via devtunnel for mobile companion
-  --allow-anonymous  Allow anonymous tunnel access (default: authenticated,
-                     same Microsoft account only). Requires --expose.
+  --allow-anonymous  Allow anonymous tunnel access (token-secured, no login
+                     on phone). Recommended for personal accounts. Requires
+                     --expose.
   --version, -v      Show version and exit
 ```
 
@@ -139,10 +140,10 @@ copilot-console --no-browser
 # Keep PC awake for overnight scheduled tasks
 copilot-console --no-sleep
 
-# Enable mobile companion (secure — requires your Microsoft account)
+# Enable mobile companion (secure — requires same Microsoft work/school account on phone)
 copilot-console --expose
 
-# Enable mobile companion (anonymous — anyone with the URL can connect)
+# Enable mobile companion (anonymous — token-secured, no login on phone, works on all devices)
 copilot-console --expose --allow-anonymous
 ```
 

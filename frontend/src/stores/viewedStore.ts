@@ -24,6 +24,7 @@ interface ViewedState {
   
   // Track active agents
   setAgentActive: (sessionId: string, active: boolean) => void;
+  setActiveAgentIds: (ids: Set<string>) => void;
   isAgentActive: (sessionId: string) => boolean;
 }
 
@@ -97,6 +98,10 @@ export const useViewedStore = create<ViewedState>((set, get) => ({
       }
       return { activeAgents: newActiveAgents };
     });
+  },
+
+  setActiveAgentIds: (ids: Set<string>) => {
+    set({ activeAgents: ids });
   },
 
   isAgentActive: (sessionId: string) => {

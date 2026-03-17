@@ -111,14 +111,16 @@ python -m build --wheel
 To test the mobile companion during development:
 
 ```powershell
-# Start with tunnel (secure — same Microsoft account only)
+# Start with tunnel (secure — same Microsoft work/school account on phone)
 npm run dev -- --expose
 
-# Or with anonymous access (no login required on phone)
+# Or with anonymous access (token-secured, no login on phone — recommended for personal accounts)
 npm run dev -- --expose --allow-anonymous
 ```
 
 This starts the backend, frontend, and devtunnel automatically. Open Settings in the desktop UI to see the QR code, then scan it from your phone.
+
+> **Note:** Authenticated mode (`--expose` without `--allow-anonymous`) requires a work or school (Microsoft Entra ID) account on both the server and the phone. Personal Microsoft and GitHub accounts fail on Safari/iOS. Use `--allow-anonymous` if you don't have a corporate account.
 
 ## Troubleshooting
 

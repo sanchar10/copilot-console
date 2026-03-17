@@ -43,6 +43,8 @@ interface InputBoxProps {
   /** When set, InputBox auto-populates and submits this text, then calls onPromptSent */
   promptToSend?: string | null;
   onPromptSent?: () => void;
+  /** Called when the user sends a message (for scroll reset) */
+  onMessageSent?: () => void;
   /** Number of pins in the current session (for badge display) */
   pinsCount?: number;
   /** Whether the pins drawer is currently open */
@@ -66,7 +68,7 @@ function fileIcon(filename: string): string {
   return '📄';
 }
 
-export function InputBox({ sessionId, promptToSend, onPromptSent, pinsCount, pinsOpen, onPinsToggle }: InputBoxProps) {
+export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent, pinsCount, pinsOpen, onPinsToggle }: InputBoxProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<(UploadedFile & { attachmentRef: AttachmentRef })[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -354,6 +356,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, pinsCount, pin
       attachments: pendingAttachments.length > 0 ? pendingAttachments.map((a) => ({ type: a.type, path: a.path, displayName: a.displayName })) : undefined,
     };
     addMessage(activeSessionId, userMessage);
+    onMessageSent?.();
     updateSessionTimestamp(activeSessionId);
     setStreaming(activeSessionId, true);
     

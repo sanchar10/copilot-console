@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from copilot_console.app.middleware.selective_gzip import SelectiveGZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -104,6 +105,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compress responses >1KB, but skip SSE streams so they flow in real-time
+app.add_middleware(SelectiveGZipMiddleware, minimum_size=1000)
 
 # Token-based auth for non-localhost API access (mobile companion via tunnel)
 app.add_middleware(TokenAuthMiddleware)

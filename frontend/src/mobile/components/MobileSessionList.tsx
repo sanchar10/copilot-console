@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mobileApiClient } from '../mobileClient';
+import { mobileApiClient, getApiBase, getHeaders } from '../mobileClient';
 import { formatRelativeTime } from '../../utils/formatters';
 import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -20,11 +20,15 @@ export function MobileSessionList({ onNotification }: Props) {
   const navigate = useNavigate();
   const sessions = useSessionStore(s => s.sessions);
   const setSessions = useSessionStore(s => s.setSessions);
+  const updateSessionTimestamp = useSessionStore(s => s.updateSessionTimestamp);
   const viewedStore = useViewedStore();
-  const [activeSessionIds, setActiveSessionIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const activeAgents = useViewedStore(s => s.activeAgents);
+  const setActiveAgentIds = useViewedStore(s => s.setActiveAgentIds);
+  const setAgentActive = useViewedStore(s => s.setAgentActive);
+  const [loading, setLoading] = useState(!sessions.length);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Full data reload — only for first boot and explicit refresh
   const loadData = useCallback(async () => {
     try {
       const [sessionsData, viewedData, activeData] = await Promise.all([
@@ -34,75 +38,124 @@ export function MobileSessionList({ onNotification }: Props) {
       ]);
       const filtered = sessionsData.sessions.filter(s => s.trigger !== 'automation');
       setSessions(filtered);
-      // Populate viewedStore with timestamps from backend
-      useViewedStore.setState({ lastViewed: viewedData, isLoaded: true });
-      setActiveSessionIds(new Set(activeData.sessions.map(s => s.session_id)));
+      // Merge viewed timestamps: keep the more recent of in-memory vs backend
+      const currentViewed = useViewedStore.getState().lastViewed;
+      const merged: Record<string, number> = { ...viewedData };
+      for (const [sid, ts] of Object.entries(currentViewed)) {
+        if (!merged[sid] || ts > merged[sid]) {
+          merged[sid] = ts;
+        }
+      }
+      useViewedStore.setState({ lastViewed: merged, isLoaded: true });
+      setActiveAgentIds(new Set(activeData.sessions.map(s => s.session_id)));
     } catch (err) {
       console.error('Failed to load sessions:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [setSessions]);
+  }, [setSessions, setActiveAgentIds]);
 
+  // First boot only — subsequent navigations use cached stores
   useEffect(() => {
     if (sessions.length > 0) {
-      setLoading(false);
-    } else {
-      loadData();
+      // Already have data in stores — mark loaded immediately, skip fetch
+      useViewedStore.setState({ isLoaded: true });
+      return;
     }
+    loadData();
   }, []);
 
-  // SSE for active agent notifications with exponential backoff
+  // Stable refs for SSE handlers
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const onNotificationRef = useRef(onNotification);
+  onNotificationRef.current = onNotification;
+
+  // SSE for active agent updates — fetch-based for reliable auth on mobile
   const sseBackoffRef = useRef(2000);
 
   useEffect(() => {
-    let es: EventSource | null = null;
+    let abortController: AbortController | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
 
-    function connect() {
+    async function connect() {
       if (cancelled) return;
-      es = mobileApiClient.createEventSource('/sessions/active-agents/stream');
+      abortController = new AbortController();
+      sseBackoffRef.current = 2000;
 
-      es.addEventListener(SSE_EVENTS.COMPLETED, (event) => {
-        const data = JSON.parse(event.data);
-        const sid = data.session_id;
-        const session = sessions.find(s => s.session_id === sid);
-        onNotification({
-          message: `Agent finished: ${session?.session_name || 'Session'}`,
-          sessionId: sid,
+      try {
+        const response = await fetch(`${getApiBase()}/sessions/active-agents/stream`, {
+          headers: getHeaders(),
+          signal: abortController.signal,
         });
-        // Reload sessions to pick up updated data
-        loadData();
-      });
 
-      es.addEventListener(SSE_EVENTS.UPDATE, (event) => {
-        const data = JSON.parse(event.data);
-        const currentIds = new Set<string>(data.sessions.map((s: { session_id: string }) => s.session_id));
-        setActiveSessionIds(currentIds);
-        sseBackoffRef.current = 2000;
-      });
-
-      es.onopen = () => { sseBackoffRef.current = 2000; };
-
-      es.onerror = () => {
-        es?.close();
-        if (!cancelled) {
-          reconnectTimer = setTimeout(connect, sseBackoffRef.current);
-          sseBackoffRef.current = Math.min(sseBackoffRef.current * 2, 30000);
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE connect failed: ${response.status}`);
         }
-      };
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done || cancelled) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const events = sseBuffer.split(/\r?\n\r?\n/);
+          sseBuffer = events.pop() || '';
+
+          for (const event of events) {
+            const lines = event.split(/\r?\n/);
+            let eventName = '';
+            let eventData = '';
+            for (const line of lines) {
+              if (line.startsWith('event:')) eventName = line.replace(/^event:\s?/, '').trim();
+              else if (line.startsWith('data:')) eventData = line.replace(/^data:\s?/, '');
+            }
+            if (!eventData) continue;
+            try {
+              const data = JSON.parse(eventData);
+              if (eventName === SSE_EVENTS.COMPLETED) {
+                const sid = data.session_id;
+                // Update stores — spinner → blue dot transition
+                useViewedStore.getState().setAgentActive(sid, false);
+                useSessionStore.getState().updateSessionTimestamp(sid);
+                const session = sessionsRef.current.find(s => s.session_id === sid);
+                onNotificationRef.current({
+                  message: `Agent finished: ${session?.session_name || 'Session'}`,
+                  sessionId: sid,
+                });
+              } else if (eventName === SSE_EVENTS.UPDATE) {
+                const currentIds = new Set<string>(
+                  data.sessions.map((s: { session_id: string }) => s.session_id)
+                );
+                useViewedStore.getState().setActiveAgentIds(currentIds);
+                sseBackoffRef.current = 2000;
+              }
+            } catch { /* skip malformed event */ }
+          }
+        }
+      } catch {
+        // Connection lost — reconnect with backoff
+      }
+
+      if (!cancelled) {
+        reconnectTimer = setTimeout(connect, sseBackoffRef.current);
+        sseBackoffRef.current = Math.min(sseBackoffRef.current * 2, 30000);
+      }
     }
 
     connect();
 
     return () => {
       cancelled = true;
-      es?.close();
+      abortController?.abort();
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
-  }, [sessions, onNotification]);
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -114,10 +167,7 @@ export function MobileSessionList({ onNotification }: Props) {
   };
 
   const handleSessionClick = async (sessionId: string) => {
-    // Mark as viewed via store + API
     viewedStore.markViewed(sessionId);
-    // Also call mobile API to persist
-    mobileApiClient.post(`/viewed/${sessionId}`).catch(() => {});
     navigate(`/mobile/chat/${sessionId}`);
   };
 
@@ -211,24 +261,29 @@ export function MobileSessionList({ onNotification }: Props) {
           <div className="divide-y divide-gray-100 dark:divide-[#3a3a4e]">
             {sessions.map(session => {
               const unread = isUnread(session);
-              const isActive = activeSessionIds.has(session.session_id);
+              const isActive = activeAgents.has(session.session_id);
               return (
                 <button
                   key={session.session_id}
                   onClick={() => handleSessionClick(session.session_id)}
                   className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-[#2a2a3c] active:bg-gray-100 dark:active:bg-[#32324a] transition-colors"
                 >
-                  {/* Unread dot */}
-                  <div className="w-2.5 flex-shrink-0">
-                    {unread && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    )}
+                  {/* Status indicator — mutually exclusive: spinner > blue dot > empty (same as desktop) */}
+                  <div className="w-3 flex-shrink-0 flex items-center justify-center">
+                    {isActive ? (
+                      <svg className="w-3 h-3 text-emerald-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : unread ? (
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                    ) : null}
                   </div>
 
                   {/* Session info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm truncate ${unread ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <span className={`text-sm truncate ${unread && !isActive ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
                         {session.session_name}
                       </span>
                     </div>
@@ -236,14 +291,6 @@ export function MobileSessionList({ onNotification }: Props) {
                       {session.model} · {formatRelativeTime(session.updated_at)}
                     </div>
                   </div>
-
-                  {/* Active indicator */}
-                  {isActive && (
-                    <span className="flex-shrink-0 relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-                    </span>
-                  )}
 
                   {/* Chevron */}
                   <svg className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

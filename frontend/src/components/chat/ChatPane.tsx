@@ -184,34 +184,44 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
     if (isProgrammaticScrollRef.current) return;
     const nearBottom = isNearBottom();
     userScrolledUpRef.current = !nearBottom;
-    setShowScrollButton(!nearBottom && isStreaming);
-  }, [isNearBottom, isStreaming]);
+    setShowScrollButton(!nearBottom);
+  }, [isNearBottom]);
 
   // Auto-scroll: only when user hasn't scrolled up
   useEffect(() => {
     if (isActive && !userScrolledUpRef.current) {
       isProgrammaticScrollRef.current = true;
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-      // Reset flag after scroll event fires
-      requestAnimationFrame(() => { isProgrammaticScrollRef.current = false; });
+      // Use setTimeout to ensure all scroll events from instant scroll have fired
+      setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
     }
   }, [messages, streamingContent, streamingSteps, isActive]);
 
-  // Re-engage auto-scroll when streaming stops
+  // Re-engage auto-scroll when streaming stops (but don't hide button — user may still be scrolled up)
   useEffect(() => {
     if (!isStreaming) {
       userScrolledUpRef.current = false;
-      setShowScrollButton(false);
+      // Recheck scroll position — button stays if still scrolled up after content settles
+      requestAnimationFrame(() => {
+        const nearBottom = isNearBottom();
+        setShowScrollButton(!nearBottom);
+      });
     }
-  }, [isStreaming]);
+  }, [isStreaming, isNearBottom]);
 
   // Scroll-to-bottom handler for the button
   const scrollToBottom = useCallback(() => {
     userScrolledUpRef.current = false;
     setShowScrollButton(false);
     isProgrammaticScrollRef.current = true;
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    requestAnimationFrame(() => { isProgrammaticScrollRef.current = false; });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
+  }, []);
+
+  // Re-engage auto-scroll when user sends a message
+  const handleMessageSent = useCallback(() => {
+    userScrolledUpRef.current = false;
+    setShowScrollButton(false);
   }, []);
 
   // Handlers
@@ -410,14 +420,12 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
         </div>
 
         {/* Scroll-to-bottom button */}
-        {showScrollButton && (
-          <button
-            onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 bg-white/80 dark:bg-[#2a2a3c]/80 backdrop-blur text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-full shadow-lg border border-white/40 dark:border-gray-700 text-sm flex items-center gap-1.5 hover:bg-white/95 dark:hover:bg-[#2a2a3c]/95 transition-colors z-10"
-          >
-            ↓ New messages
-          </button>
-        )}
+        <button
+          onClick={scrollToBottom}
+          className={`absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 dark:bg-[#2a2a3c]/80 backdrop-blur text-gray-900 dark:text-gray-100 px-3 py-1.5 rounded-full shadow-lg border border-gray-300 dark:border-gray-600 text-sm flex items-center gap-1.5 hover:bg-white/95 dark:hover:bg-[#2a2a3c]/95 transition-opacity duration-200 z-10 ${showScrollButton ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
       </div>
 
       {/* Input Area */}
@@ -425,6 +433,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
         sessionId={sessionId}
         promptToSend={promptToSend}
         onPromptSent={() => setPromptToSend(null)}
+        onMessageSent={handleMessageSent}
         pinsCount={pins.length}
         pinsOpen={pinsOpen}
         onPinsToggle={() => setPinsOpen((v) => !v)}

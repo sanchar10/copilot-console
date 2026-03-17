@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatStep } from '../../types/message';
@@ -206,13 +206,26 @@ function StreamingCodeBlock({ segment }: { segment: CodeSegment }) {
 
 export function StreamingMessage({ content, steps, cwd }: StreamingMessageProps) {
   const stepsRef = useRef<HTMLDivElement>(null);
+  const stepsUserScrolledRef = useRef(false);
+  const stepsIsProgrammaticRef = useRef(false);
   const mdComponents = useMemo(() => createStreamingMarkdownComponents(cwd), [cwd]);
 
+  // Auto-scroll steps only if user hasn't manually scrolled up
   useEffect(() => {
-    if (stepsRef.current) {
+    if (stepsRef.current && !stepsUserScrolledRef.current) {
+      stepsIsProgrammaticRef.current = true;
       stepsRef.current.scrollTop = stepsRef.current.scrollHeight;
+      requestAnimationFrame(() => { stepsIsProgrammaticRef.current = false; });
     }
   }, [steps?.length]);
+
+  const handleStepsScroll = useCallback(() => {
+    if (stepsIsProgrammaticRef.current) return;
+    const el = stepsRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+    stepsUserScrolledRef.current = !nearBottom;
+  }, []);
 
   const segments = splitSegments(content);
 
@@ -240,7 +253,7 @@ export function StreamingMessage({ content, steps, cwd }: StreamingMessageProps)
               <div className="text-gray-600 dark:text-gray-400 font-medium mb-2">
                 Steps ({steps.length})
               </div>
-              <div ref={stepsRef} className="space-y-2 text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
+              <div ref={stepsRef} onScroll={handleStepsScroll} className="space-y-2 text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
                 {steps.map((s, idx) => (
                   <div key={idx} className="border-l-2 border-emerald-300 pl-3">
                     <div className="font-medium">{s.title}</div>

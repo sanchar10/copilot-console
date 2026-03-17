@@ -232,7 +232,9 @@ if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
     if ($devtunnel) {
         Write-Host "  [OK] devtunnel installed" -ForegroundColor Green
         Write-Host ""
-        Write-Host "  Signing in to devtunnel (required for secure tunnels)..." -ForegroundColor Yellow
+        Write-Host "  Signing in to devtunnel..." -ForegroundColor Yellow
+        Write-Host "  TIP: Use a work or school (Entra ID) account for best iOS/Safari support." -ForegroundColor DarkGray
+        Write-Host "  If you only have a personal account, use --allow-anonymous mode instead." -ForegroundColor DarkGray
         devtunnel user login
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  [OK] devtunnel authenticated" -ForegroundColor Green
@@ -241,7 +243,8 @@ if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
         }
         Write-Host ""
         Write-Host "  Mobile Companion ready! Start with:" -ForegroundColor Green
-        Write-Host "     copilot-console --expose" -ForegroundColor Cyan
+        Write-Host "     copilot-console --expose                   # Work/school account" -ForegroundColor Cyan
+        Write-Host "     copilot-console --expose --allow-anonymous  # Personal account" -ForegroundColor Cyan
         Write-Host "  Then open Settings in the UI and scan the QR code from your phone." -ForegroundColor DarkGray
     }
 } else {

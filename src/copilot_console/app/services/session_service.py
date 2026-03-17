@@ -193,6 +193,12 @@ class SessionService:
                 except (ValueError, AttributeError):
                     pass
             
+            # DEBUG: Log comparison for blue-dot diagnosis
+            if session_id and session_id.startswith("1ead5bcc"):
+                from copilot_console.app.services.viewed_service import viewed_service as _vs
+                _lv = _vs.get(session_id)
+                logger.info(f"[DIAG] {session_id}: updated_at={updated_at.isoformat()} ({updated_at.timestamp():.3f}), lastViewed={_lv}, hasUnread={updated_at.timestamp() > _lv if _lv else 'no-view'}")
+            
             # Try to get our stored metadata for this session (name, cwd, model)
             stored_meta = storage_service.load_session(session_id)
             

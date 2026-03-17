@@ -70,6 +70,8 @@ Then authenticate:
 devtunnel user login
 ```
 
+> **Which account?** Use a **work or school (Microsoft Entra ID) account** for the best experience on all platforms. Personal Microsoft and GitHub accounts fail on Safari/iOS. If you don't have a work/school account, you can skip login and use `--allow-anonymous` mode instead — see [Mobile Companion](MOBILE-COMPANION.md#security).
+
 Verify:
 ```powershell
 devtunnel --version

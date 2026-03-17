@@ -276,7 +276,7 @@ function TabButton({ icon, label, active, onClick, badge }: {
   return (
     <button
       onClick={onClick}
-      className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${
+      className={`flex-1 flex flex-col items-center justify-center py-1 gap-0 transition-colors ${
         active
           ? 'text-blue-600 dark:text-blue-400'
           : 'text-gray-500 dark:text-gray-400'

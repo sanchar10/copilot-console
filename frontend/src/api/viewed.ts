@@ -2,7 +2,24 @@
  * API for session viewed timestamps
  */
 
-const API_BASE = '/api';
+/** Resolve API base — uses full tunnel URL on mobile, relative '/api' on desktop */
+function getApiBase(): string {
+  const baseUrl = localStorage.getItem('copilotconsole_base_url');
+  if (baseUrl) {
+    return `${baseUrl.replace(/\/$/, '')}/api`;
+  }
+  return '/api';
+}
+
+/** Build headers with auth token if available (supports both desktop and mobile/tunnel access) */
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const token = localStorage.getItem('copilotconsole_api_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export interface ViewedTimestamps {
   [sessionId: string]: number;
@@ -13,7 +30,7 @@ export interface ViewedTimestamps {
  */
 export async function getViewedTimestamps(): Promise<ViewedTimestamps> {
   console.log(`[Viewed API] GET /viewed`);
-  const response = await fetch(`${API_BASE}/viewed`);
+  const response = await fetch(`${getApiBase()}/viewed`, { headers: getAuthHeaders() });
   if (!response.ok) {
     console.error('[Viewed API] Failed to fetch viewed timestamps');
     return {};
@@ -29,8 +46,9 @@ export async function getViewedTimestamps(): Promise<ViewedTimestamps> {
 export async function markSessionViewed(sessionId: string): Promise<void> {
   try {
     console.log(`[Viewed API] POST /viewed/${sessionId}`);
-    const response = await fetch(`${API_BASE}/viewed/${sessionId}`, {
+    const response = await fetch(`${getApiBase()}/viewed/${sessionId}`, {
       method: 'POST',
+      headers: getAuthHeaders(),
     });
     if (response.ok) {
       const data = await response.json();

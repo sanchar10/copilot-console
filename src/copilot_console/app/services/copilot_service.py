@@ -316,6 +316,7 @@ class CopilotService:
         self._sdk_metadata_cache: dict[str, object] = {}
         
         self._lock: asyncio.Lock | None = None  # Created lazily in async context
+        self._session_msg_locks: dict[str, asyncio.Lock] = {}  # Per-session read locks
         self._cleanup_task: asyncio.Task | None = None
         self._idle_timeout_seconds = 600  # 10 minutes
         self._models_cache: list[dict] | None = None
@@ -438,6 +439,13 @@ class CopilotService:
         try:
             sessions = await self._main_client.list_sessions()
             logger.info(f"Listed {len(sessions)} sessions from SDK")
+            # DEBUG: Log modifiedTime for blue-dot diagnosis
+            for _s in sessions:
+                _sid = getattr(_s, "sessionId", None) or getattr(_s, "session_id", None)
+                if _sid and _sid.startswith("1ead5bcc"):
+                    _mt = getattr(_s, "modifiedTime", None)
+                    _st = getattr(_s, "startTime", None)
+                    logger.info(f"[DIAG] Session {_sid}: modifiedTime={_mt}, startTime={_st}")
             # Populate metadata cache
             self._sdk_metadata_cache = {}
             for s in sessions:
@@ -456,7 +464,9 @@ class CopilotService:
     async def get_session_messages(self, session_id: str) -> list:
         """Get messages from a session WITHOUT keeping it active.
         
-        Uses main client to resume temporarily, fetch messages, then destroy.
+        Uses main client to resume temporarily, fetch messages, then destroy
+        to release the session from the main client. Per-session lock prevents
+        concurrent resume/destroy races from multiple HTTP requests.
         """
         await self._start_main_client()
         assert self._main_client is not None
@@ -472,19 +482,27 @@ class CopilotService:
                         logger.warning(f"Failed to get messages from active session {session_id}: {e}")
                         return []
 
-        # Resume temporarily with main client, get messages, destroy
-        try:
-            resume_config: dict = {"streaming": False}
-            if approve_all_permissions:
-                resume_config["on_permission_request"] = approve_all_permissions
-            session = await self._main_client.resume_session(session_id, resume_config)
-            messages = await session.get_messages()
-            await session.destroy()
-            logger.info(f"Fetched {len(messages)} messages from session {session_id} (temporary resume)")
-            return messages
-        except Exception as e:
-            logger.warning(f"Could not get messages for session {session_id}: {e}")
-            return []
+        # Per-session lock to prevent concurrent resume/destroy races
+        if session_id not in self._session_msg_locks:
+            self._session_msg_locks[session_id] = asyncio.Lock()
+        
+        async with self._session_msg_locks[session_id]:
+            # Resume temporarily with main client, get messages, destroy to release
+            try:
+                resume_config: dict = {"streaming": False}
+                if approve_all_permissions:
+                    resume_config["on_permission_request"] = approve_all_permissions
+                session = await self._main_client.resume_session(session_id, resume_config)
+                messages = await session.get_messages()
+                logger.info(f"Fetched {len(messages)} messages from session {session_id} (temporary resume)")
+                try:
+                    await session.destroy()
+                except Exception:
+                    pass  # Best-effort cleanup — session data persists on disk regardless
+                return messages
+            except Exception as e:
+                logger.warning(f"Could not get messages for session {session_id}: {e}")
+                return []
 
     # -------------------------------------------------------------------------
     # Per-session client operations

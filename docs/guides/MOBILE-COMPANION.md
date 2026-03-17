@@ -11,9 +11,11 @@ Requires [devtunnel](https://learn.microsoft.com/en-us/azure/developer/dev-tunne
 winget install Microsoft.devtunnel          # Windows 10/11
 npm install -g @msdtunnel/devtunnel-cli     # Any platform
 
-# Authenticate (required once)
+# Authenticate (required once) — use a work or school account (see note below)
 devtunnel user login
 ```
+
+> **Which account to use?** Log in with a **work or school (Microsoft Entra ID) account** for the smoothest experience. Personal Microsoft accounts and GitHub accounts work on Android and desktop browsers, but **fail on Safari/iOS** — Safari downloads an "aad" or "github" file instead of showing the login page due to strict third-party cookie policies. If you don't have a work/school account, use `--allow-anonymous` mode instead (see [Security](#security)).
 
 ## Quick Start
 
@@ -74,13 +76,22 @@ The QR code encodes the tunnel URL plus an API token. Your phone's browser opens
 
 By default, only the Microsoft account that created the tunnel can access it. When someone opens the tunnel URL, devtunnel prompts for Microsoft login and verifies it matches the tunnel owner. On top of that, all API calls require a bearer token (embedded in the QR code).
 
-### Anonymous Mode
+> **Important:** The devtunnel login must use the **same account type** on both the server and the mobile device. **Work or school (Entra ID) accounts** are recommended — they work reliably on all platforms including Safari/iOS. Personal Microsoft accounts and GitHub accounts work on Android and desktop browsers, but **fail on Safari/iOS** (Safari downloads an "aad" or "github" file instead of showing login).
+
+### Anonymous Mode (Recommended for Personal Use)
 
 ```powershell
 copilot-console --expose --allow-anonymous
 ```
 
-Skips the Microsoft login — anyone with the tunnel URL can reach the server. The bearer token still protects API endpoints. Use this if you want to share access with someone who doesn't have a Microsoft account on the same tenant.
+Skips the Microsoft login — anyone with the tunnel URL can reach the server. The bearer token still protects all API endpoints, so access is still secure — you need the QR code to connect.
+
+**Use anonymous mode if:**
+- You don't have a work or school (Microsoft Entra ID) account
+- You're accessing from an iPhone/iPad and logged in with a personal Microsoft or GitHub account
+- You want a frictionless setup without any login prompts on the mobile device
+
+The tunnel URL is randomly generated and not discoverable — combined with the bearer token, this provides strong security for personal use.
 
 ### Token Management
 
@@ -138,3 +149,6 @@ Messages like "SshChannel send window is full" are normal devtunnel noise from l
 
 ### Phone browser stuck on wrong Microsoft account
 Clear cookies in your mobile browser (Settings → Privacy → Clear browsing data → Cookies), or open the tunnel URL in an InPrivate/Incognito tab.
+
+### Safari downloads "aad" or "github" file instead of showing login
+This happens when devtunnel is authenticated with a personal Microsoft account or GitHub account. Safari's strict third-party cookie policy blocks the auth redirect. **Fix:** Either switch to a work/school account (`devtunnel user login`) or use anonymous mode (`--allow-anonymous`).

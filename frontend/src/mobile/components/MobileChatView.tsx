@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { mobileApiClient, getApiBase, getHeaders } from '../mobileClient';
 import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useChatStore } from '../../stores/chatStore';
+import { useViewedStore } from '../../stores/viewedStore';
+import { useSessionStore } from '../../stores/sessionStore';
 import type { Message } from '../../types/message';
 import type { ChatStep } from '../../types/message';
 
@@ -31,8 +33,14 @@ export function MobileChatView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const initialScrollDoneRef = useRef(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const isMountedRef = useRef(true);
 
   // Read from chatStore (use shallow equality to avoid infinite re-render from new [] refs)
   const messages = useChatStore(s => sessionId ? s.messagesPerSession[sessionId] : undefined) ?? EMPTY_MESSAGES;
@@ -42,6 +50,11 @@ export function MobileChatView() {
   const appendStreamingContent = useChatStore(s => s.appendStreamingContent);
   const addStreamingStep = useChatStore(s => s.addStreamingStep);
   const setStreaming = useChatStore(s => s.setStreaming);
+  const finalizeTurn = useChatStore(s => s.finalizeTurn);
+
+  const { markViewed, setAgentActive } = useViewedStore();
+  const updateSessionTimestamp = useSessionStore(s => s.updateSessionTimestamp);
+  const updateSessionName = useSessionStore(s => s.updateSessionName);
 
   // Load session data
   useEffect(() => {
@@ -51,6 +64,8 @@ export function MobileChatView() {
         const data = await mobileApiClient.get<SessionData>(`/sessions/${sessionId}`);
         setSession(data);
         setMessages(sessionId, data.messages);
+        // Sync in-memory store so blue dot clears immediately (no pull-to-refresh needed)
+        markViewed(sessionId);
 
         // Check if there's an active response to resume
         const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
@@ -64,20 +79,68 @@ export function MobileChatView() {
         setLoading(false);
       }
     })();
-    // Mark as viewed
-    mobileApiClient.post(`/viewed/${sessionId}`).catch(() => {});
   }, [sessionId]);
 
-  // Auto-scroll to bottom on load and new messages
+  // Reset scroll tracking when entering a new session
   useEffect(() => {
-    requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
-    });
-  }, [messages, streamingState.content]);
+    initialScrollDoneRef.current = false;
+    userScrolledUpRef.current = false;
+    setShowScrollButton(false);
+  }, [sessionId]);
 
-  // Cleanup event source
+  // Detect if user is near the bottom of the scroll container
+  const isNearBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  }, []);
+
+  // Track user scroll to show/hide ↓ button
+  const handleScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) return;
+    const nearBottom = isNearBottom();
+    userScrolledUpRef.current = !nearBottom;
+    setShowScrollButton(!nearBottom);
+  }, [isNearBottom]);
+  // Scroll to bottom — used for both initial load and auto-scroll
+  const doScrollToBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    isProgrammaticScrollRef.current = true;
+    el.scrollTop = el.scrollHeight - el.clientHeight;
+    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
+  }, []);
+
+  // Auto-scroll on messages/streaming changes
   useEffect(() => {
+    if (messages.length === 0 || loading) return;
+
+    if (!initialScrollDoneRef.current) {
+      // Initial load: scroll to bottom unconditionally, with delay to ensure DOM is painted
+      initialScrollDoneRef.current = true;
+      setTimeout(() => doScrollToBottom(), 50);
+    } else if (!userScrolledUpRef.current) {
+      // Subsequent updates: only if user hasn't scrolled up
+      doScrollToBottom();
+    }
+  }, [messages, streamingState.content, loading, doScrollToBottom]);
+
+  // Scroll-to-bottom handler for the floating button
+  const scrollToBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    userScrolledUpRef.current = false;
+    setShowScrollButton(false);
+    isProgrammaticScrollRef.current = true;
+    el.scrollTop = el.scrollHeight - el.clientHeight;
+    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
+  }, []);
+
+  // Cleanup event source + mark unmounted
+  useEffect(() => {
+    isMountedRef.current = true; // Reset on (re)mount — required for StrictMode
     return () => {
+      isMountedRef.current = false;
       eventSourceRef.current?.close();
     };
   }, []);
@@ -87,9 +150,10 @@ export function MobileChatView() {
       .then(data => {
         setMessages(sid, data.messages);
         setStreaming(sid, false);
+        if (isMountedRef.current) markViewed(sid);
       })
       .catch(() => {});
-  }, [setMessages, setStreaming]);
+  }, [setMessages, setStreaming, markViewed]);
 
   const resumeStream = useCallback((fromChunk = 0, fromStep = 0) => {
     if (!sessionId) return;
@@ -133,6 +197,10 @@ export function MobileChatView() {
     setInput('');
     setSending(true);
 
+    // Re-engage auto-scroll when user sends a message
+    userScrolledUpRef.current = false;
+    setShowScrollButton(false);
+
     // Optimistic UI: add user message
     const userMsg: Message = {
       id: `temp-${Date.now()}`,
@@ -142,6 +210,7 @@ export function MobileChatView() {
     };
     addMessage(sessionId, userMsg);
     setStreaming(sessionId, true);
+    setAgentActive(sessionId, true);
 
     try {
       // Check if agent is active — enqueue if so, otherwise send new message
@@ -174,6 +243,45 @@ export function MobileChatView() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let sseBuffer = '';
+        let receivedDone = false;
+
+        const onDone = (sessionName?: string) => {
+          setStreaming(sessionId, false);
+          setAgentActive(sessionId, false);
+          // Always bump timestamp so blue dot can appear if user navigated away
+          updateSessionTimestamp(sessionId);
+          // Only mark viewed if user is still on this chat screen
+          if (isMountedRef.current) markViewed(sessionId);
+          if (sessionName) updateSessionName(sessionId, sessionName);
+        };
+
+        const processEvent = (eventText: string) => {
+          const lines = eventText.split(/\r?\n/);
+          let eventName = '';
+          let eventData = '';
+          for (const line of lines) {
+            if (line.startsWith('event:')) eventName = line.replace(/^event:\s?/, '').trim();
+            else if (line.startsWith('data:')) eventData = line.replace(/^data:\s?/, '');
+          }
+          if (!eventData) return;
+          try {
+            const data = JSON.parse(eventData);
+            if (eventName === SSE_EVENTS.DELTA && data.content !== undefined) {
+              appendStreamingContent(sessionId, data.content);
+            } else if (eventName === SSE_EVENTS.STEP && data.title) {
+              addStreamingStep(sessionId, data);
+            } else if (eventName === 'turn_done') {
+              finalizeTurn(sessionId);
+            } else if (eventName === SSE_EVENTS.DONE) {
+              receivedDone = true;
+              onDone(data.session_name);
+            } else if (eventName === SSE_EVENTS.ERROR) {
+              receivedDone = true;
+              setStreaming(sessionId, false);
+              setAgentActive(sessionId, false);
+            }
+          } catch { /* skip malformed event */ }
+        };
 
         try {
           while (true) {
@@ -185,30 +293,22 @@ export function MobileChatView() {
             sseBuffer = events.pop() || '';
 
             for (const event of events) {
-              const lines = event.split(/\r?\n/);
-              let eventName = '';
-              let eventData = '';
-              for (const line of lines) {
-                if (line.startsWith('event:')) eventName = line.replace(/^event:\s?/, '').trim();
-                else if (line.startsWith('data:')) eventData = line.replace(/^data:\s?/, '');
-              }
-              if (!eventData) continue;
-              try {
-                const data = JSON.parse(eventData);
-                if (eventName === SSE_EVENTS.DELTA && data.content !== undefined) {
-                  appendStreamingContent(sessionId, data.content);
-                } else if (eventName === SSE_EVENTS.STEP && data.title) {
-                  addStreamingStep(sessionId, data);
-                } else if (eventName === SSE_EVENTS.DONE) {
-                  reloadMessages(sessionId);
-                } else if (eventName === SSE_EVENTS.ERROR) {
-                  reloadMessages(sessionId);
-                }
-              } catch { /* skip malformed event */ }
+              processEvent(event);
             }
           }
+
+          // Flush decoder and process any remaining buffered event
+          sseBuffer += decoder.decode();
+          if (sseBuffer.trim()) {
+            processEvent(sseBuffer);
+          }
+
+          // Safety net: if DONE was never received but stream ended normally
+          if (!receivedDone) {
+            onDone();
+          }
         } catch {
-          // Stream interrupted — reload messages to get final state
+          // Stream interrupted — reload to get final state
           reloadMessages(sessionId);
         }
       }
@@ -304,7 +404,7 @@ export function MobileChatView() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-2">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-3 py-2 relative">
         <div className="space-y-3 max-w-2xl mx-auto">
           {messages.map(msg => (
             <MobileMessageBubble key={msg.id} message={msg} />
@@ -334,6 +434,13 @@ export function MobileChatView() {
           )}
           <div ref={messagesEndRef} />
         </div>
+        <button
+          onClick={scrollToBottom}
+          className={`sticky bottom-2 left-1/2 -translate-x-1/2 bg-black/20 dark:bg-white/20 backdrop-blur-sm text-gray-800 dark:text-gray-100 w-10 h-10 rounded-full shadow-lg flex items-center justify-center z-10 transition-opacity duration-200 ${showScrollButton ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          aria-label="Scroll to bottom"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
       </div>
 
       {/* Input */}
@@ -349,7 +456,7 @@ export function MobileChatView() {
                 handleSend();
               }
             }}
-            placeholder={streamingState.isStreaming ? 'Agent is working... (enqueue a follow-up)' : 'Type a message...'}
+            placeholder={streamingState.isStreaming ? 'Agent is working...' : 'Type a message...'}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style={{ maxHeight: '120px' }}
