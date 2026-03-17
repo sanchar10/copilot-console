@@ -10,7 +10,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { listSessions } from '../../api/sessions';
 import { fetchModels } from '../../api/models';
 import { getSettings } from '../../api/settings';
-import { getActiveAgents } from '../../api/activeAgents';
+import { subscribeToActiveAgents } from '../../api/activeAgents';
 import { apiClient } from '../../api/client';
 import { useViewedStore } from '../../stores/viewedStore';
 import { SessionList } from '../session/SessionList';
@@ -45,21 +45,22 @@ export function Sidebar() {
 
   const setActiveAgentIds = useViewedStore(s => s.setActiveAgentIds);
 
-  // Poll for active agents every 5 seconds — syncs both count and activeAgents set
+  // Subscribe to active-agents SSE stream — replaces polling
   useEffect(() => {
-    const fetchActiveCount = async () => {
-      try {
-        const data = await getActiveAgents();
+    const controller = subscribeToActiveAgents(
+      (data) => {
         setActiveCount(data.count);
         setActiveAgentIds(new Set(data.sessions.map(s => s.session_id)));
-      } catch {
-        // Ignore errors for polling
+      },
+      (_sessionId) => {
+        // Completed events are handled implicitly: the next "update" event
+        // won't include the completed session, so activeAgents set clears it.
+      },
+      (_error) => {
+        // SSE disconnected — will auto-reconnect on next mount
       }
-    };
-    
-    fetchActiveCount();
-    const interval = setInterval(fetchActiveCount, 5000);
-    return () => clearInterval(interval);
+    );
+    return () => controller.abort();
   }, [setActiveCount, setActiveAgentIds]);
 
   useEffect(() => {

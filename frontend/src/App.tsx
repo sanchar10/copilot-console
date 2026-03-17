@@ -13,19 +13,18 @@ function App() {
   const refreshMcpServers = useSessionStore((state) => state.refreshMcpServers);
   const refreshTools = useSessionStore((state) => state.refreshTools);
   const tabs = useTabStore((state) => state.tabs);
-  const { loadViewedTimestamps, loadActiveAgents } = useViewedStore();
+  const { loadViewedTimestamps } = useViewedStore();
   const { isOpen: isAgentMonitorOpen, setOpen: setAgentMonitorOpen } = useAgentMonitorStore();
 
   // Initialize theme from localStorage on mount
   useTheme();
 
-  // Load available MCP servers, tools, viewed timestamps, and active agents on app startup
+  // Load available MCP servers, tools, and viewed timestamps on app startup
   useEffect(() => {
     refreshMcpServers();
     refreshTools();
     loadViewedTimestamps();
-    loadActiveAgents(); // Check which agents are still running from previous session
-  }, [refreshMcpServers, refreshTools, loadViewedTimestamps, loadActiveAgents]);
+  }, [refreshMcpServers, refreshTools, loadViewedTimestamps]);
 
   // Disconnect all open sessions when browser tab closes
   useEffect(() => {
