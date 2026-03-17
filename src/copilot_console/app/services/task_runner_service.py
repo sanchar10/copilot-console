@@ -150,6 +150,10 @@ class TaskRunnerService:
                 # send_message_background does NOT call buffer.complete() — caller must do it
                 buffer.complete()
                 
+                # Record server-side completion timestamp (fixes blue dot)
+                from copilot_console.app.services.completion_times_service import completion_times_service
+                completion_times_service.mark_completed(session_id)
+                
                 # Trigger delayed push notification check
                 from copilot_console.app.services.notification_manager import notification_manager
                 preview = buffer.get_full_content()[:120] if buffer.chunks else ""

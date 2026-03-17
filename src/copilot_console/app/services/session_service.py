@@ -159,10 +159,15 @@ class SessionService:
     async def list_sessions(self) -> list[Session]:
         """List all sessions from SDK, sorted by last update time.
         
-        Timestamps come from SDK (startTime, modifiedTime), not our metadata.
+        Timestamps: created_at from SDK startTime, updated_at from our
+        completion_times.json (falls back to SDK modifiedTime for migration).
         """
         # Get sessions from SDK
         sdk_sessions = await copilot_service.list_sessions()
+        
+        # Load completion timestamps once for all sessions (single file read)
+        from copilot_console.app.services.completion_times_service import completion_times_service
+        completion_times = completion_times_service.get_all()
         
         sessions = []
         for sdk_session in sdk_sessions:
@@ -185,19 +190,18 @@ class SessionService:
                 except (ValueError, AttributeError):
                     pass
             
-            # updated_at defaults to created_at (not mtime) to avoid inflation
-            updated_at = created_at
-            if sdk_modified:
-                try:
-                    updated_at = datetime.fromisoformat(sdk_modified.replace('Z', '+00:00'))
-                except (ValueError, AttributeError):
-                    pass
-            
-            # DEBUG: Log comparison for blue-dot diagnosis
-            if session_id and session_id.startswith("1ead5bcc"):
-                from copilot_console.app.services.viewed_service import viewed_service as _vs
-                _lv = _vs.get(session_id)
-                logger.info(f"[DIAG] {session_id}: updated_at={updated_at.isoformat()} ({updated_at.timestamp():.3f}), lastViewed={_lv}, hasUnread={updated_at.timestamp() > _lv if _lv else 'no-view'}")
+            # updated_at: prefer our completion_times (same clock as viewed.json),
+            # fall back to SDK modifiedTime for migration / CLI sessions
+            ct = completion_times.get(session_id)
+            if ct is not None:
+                updated_at = datetime.fromtimestamp(ct, tz=timezone.utc)
+            else:
+                updated_at = created_at
+                if sdk_modified:
+                    try:
+                        updated_at = datetime.fromisoformat(sdk_modified.replace('Z', '+00:00'))
+                    except (ValueError, AttributeError):
+                        pass
             
             # Try to get our stored metadata for this session (name, cwd, model)
             stored_meta = storage_service.load_session(session_id)
@@ -278,6 +282,9 @@ class SessionService:
         
         # If we have stored metadata (web-created or adopted CLI session)
         if stored_meta:
+            from copilot_console.app.services.completion_times_service import completion_times_service
+            ct = completion_times_service.get(session_id)
+            
             if sdk_session:
                 # Session exists in SDK - use SDK timestamps from cache
                 mtime = get_session_mtime(session_id)
@@ -290,18 +297,21 @@ class SessionService:
                         created_at = datetime.fromisoformat(sdk_start.replace('Z', '+00:00'))
                     except (ValueError, AttributeError):
                         pass
-                # updated_at defaults to created_at, not mtime
-                updated_at = created_at
-                if sdk_modified:
-                    try:
-                        updated_at = datetime.fromisoformat(sdk_modified.replace('Z', '+00:00'))
-                    except (ValueError, AttributeError):
-                        pass
+                # Prefer completion_times, fall back to SDK modifiedTime
+                if ct is not None:
+                    updated_at = datetime.fromtimestamp(ct, tz=timezone.utc)
+                else:
+                    updated_at = created_at
+                    if sdk_modified:
+                        try:
+                            updated_at = datetime.fromisoformat(sdk_modified.replace('Z', '+00:00'))
+                        except (ValueError, AttributeError):
+                            pass
             else:
                 # Web-created session not yet in SDK (or cache miss) - use file mtime
                 mtime = get_session_mtime(session_id)
                 created_at = mtime
-                updated_at = mtime
+                updated_at = datetime.fromtimestamp(ct, tz=timezone.utc) if ct is not None else mtime
             
             return Session(
                 session_id=session_id,
@@ -391,6 +401,12 @@ class SessionService:
             return None
         
         mtime = get_session_mtime(session_id)
+        
+        # Prefer completion_times for updated_at (same clock as viewed.json)
+        from copilot_console.app.services.completion_times_service import completion_times_service
+        ct = completion_times_service.get(session_id)
+        updated_at = datetime.fromtimestamp(ct, tz=timezone.utc) if ct is not None else mtime
+        
         return Session(
             session_id=session_id,
             session_name=stored_meta.get("session_name", session_id),
@@ -403,7 +419,7 @@ class SessionService:
             agent_id=stored_meta.get("agent_id"),
             trigger=stored_meta.get("trigger"),
             created_at=mtime,
-            updated_at=mtime,
+            updated_at=updated_at,
         )
 
     def should_auto_name(self, session_id: str) -> bool:

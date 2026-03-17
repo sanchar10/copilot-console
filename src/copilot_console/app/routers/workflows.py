@@ -427,6 +427,14 @@ async def delete_workflow_run(run_id: str) -> dict:
             storage_service.delete_session(sid)
         except Exception as e:
             logger.warning(f"Failed to clean up session storage {sid}: {e}")
+        # Clean up viewed and completion timestamps
+        try:
+            from copilot_console.app.services.viewed_service import viewed_service
+            from copilot_console.app.services.completion_times_service import completion_times_service
+            viewed_service.remove(sid)
+            completion_times_service.remove(sid)
+        except Exception:
+            pass
 
     return {"deleted": True}
 

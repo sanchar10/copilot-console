@@ -57,6 +57,12 @@ async def delete_task_run(run_id: str):
             await session_service.delete_session(run.session_id)
         except Exception:
             pass  # Session may already be gone
+        # Clean up completion timestamp
+        try:
+            from copilot_console.app.services.completion_times_service import completion_times_service
+            completion_times_service.remove(run.session_id)
+        except Exception:
+            pass
 
     # Delete the task run record
     task_run_storage_service.delete_run(run_id)

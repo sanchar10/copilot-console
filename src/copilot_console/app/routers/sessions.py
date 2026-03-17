@@ -20,6 +20,7 @@ from copilot_console.app.services.session_service import session_service
 from copilot_console.app.services.storage_service import storage_service
 from copilot_console.app.services.tools_service import get_tools_service
 from copilot_console.app.services.viewed_service import viewed_service
+from copilot_console.app.services.completion_times_service import completion_times_service
 from copilot_console.app.services.logging_service import get_logger, set_session_context
 
 logger = get_logger(__name__)
@@ -72,9 +73,13 @@ async def stream_active_agents() -> EventSourceResponse:
                 # Check for completed sessions
                 completed = previous_session_ids - current_session_ids
                 for session_id in completed:
+                    ct = completion_times_service.get(session_id)
+                    event_data: dict = {"session_id": session_id}
+                    if ct is not None:
+                        event_data["updated_at"] = ct
                     yield {
                         "event": "completed",
-                        "data": json.dumps({"session_id": session_id})
+                        "data": json.dumps(event_data)
                     }
                 
                 # Send update with all active sessions
@@ -124,8 +129,9 @@ async def delete_session(session_id: str) -> dict:
     deleted = await session_service.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
-    # Clean up viewed timestamp
+    # Clean up viewed timestamp and completion timestamp
     viewed_service.remove(session_id)
+    completion_times_service.remove(session_id)
     return {"success": True}
 
 
@@ -432,6 +438,9 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
             # NOW mark the buffer complete - SSE done event will include the name
             buffer.complete()
             
+            # Record server-side completion timestamp (fixes blue dot)
+            completion_times_service.mark_completed(session_id)
+            
             # Trigger delayed push notification check
             from copilot_console.app.services.notification_manager import notification_manager
             preview = buffer.get_full_content()[:120] if buffer.chunks else ""
@@ -504,10 +513,13 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 if buffer.status == ResponseStatus.COMPLETED:
                     content = buffer.get_full_content()
                     if content.strip():
-                        done_data = {"content_length": len(content)}
+                        done_data: dict = {"content_length": len(content)}
                         # Include auto-generated session name if available
                         if buffer.updated_session_name:
                             done_data["session_name"] = buffer.updated_session_name
+                        ct = completion_times_service.get(session_id)
+                        if ct is not None:
+                            done_data["updated_at"] = ct
                         yield {"event": "done", "data": json.dumps(done_data)}
                     else:
                         yield {"event": "error", "data": json.dumps({"error": "No response content"})}

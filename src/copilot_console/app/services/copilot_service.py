@@ -439,13 +439,6 @@ class CopilotService:
         try:
             sessions = await self._main_client.list_sessions()
             logger.info(f"Listed {len(sessions)} sessions from SDK")
-            # DEBUG: Log modifiedTime for blue-dot diagnosis
-            for _s in sessions:
-                _sid = getattr(_s, "sessionId", None) or getattr(_s, "session_id", None)
-                if _sid and _sid.startswith("1ead5bcc"):
-                    _mt = getattr(_s, "modifiedTime", None)
-                    _st = getattr(_s, "startTime", None)
-                    logger.info(f"[DIAG] Session {_sid}: modifiedTime={_mt}, startTime={_st}")
             # Populate metadata cache
             self._sdk_metadata_cache = {}
             for s in sessions:
