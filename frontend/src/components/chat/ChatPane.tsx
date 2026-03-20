@@ -25,10 +25,24 @@ import type { AgentTools, SystemMessage, Agent, StarterPrompt } from '../../type
  * Per-session tab content — owns its own scroll position, header, messages, and input.
  * Stays mounted when hidden so scroll position and DOM are preserved.
  */
-function scrollToMessageBySdkId(mid: string) {
+export function scrollToMessageBySdkId(mid: string, fallbackContent?: string): HTMLElement | null {
   const esc = (window as any).CSS?.escape ? (window as any).CSS.escape(mid) : mid.replace(/"/g, '\\"');
-  const el = document.querySelector(`[data-sdk-message-id="${esc}"]`) as HTMLElement | null;
+  let el = document.querySelector(`[data-sdk-message-id="${esc}"]`) as HTMLElement | null;
+
+  // Fallback: scan message elements for matching text content
+  if (!el && fallbackContent) {
+    const needle = fallbackContent.toLowerCase();
+    const candidates = document.querySelectorAll('[data-sdk-message-id]');
+    for (const node of candidates) {
+      if ((node as HTMLElement).textContent?.toLowerCase().includes(needle)) {
+        el = node as HTMLElement;
+        break;
+      }
+    }
+  }
+
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  return el;
 }
 
 function formatPinTimestamp(ts: string) {

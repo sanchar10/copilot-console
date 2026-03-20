@@ -588,8 +588,12 @@ class SessionService:
                                 displayName=getattr(att, "display_name", None),
                             ))
 
+                    # Skip CLI-injected system notifications masquerading as user messages
+                    if isinstance(content, str) and "<system_notification>" in content:
+                        continue
+
                     if isinstance(content, str) and (content.strip() or msg_attachments):
-                        sdk_message_id = _extract_sdk_message_id(data)
+                        sdk_message_id = _extract_sdk_message_id(data) or getattr(evt, 'id', None)
                         messages.append(Message(
                             id=sdk_message_id or str(uuid.uuid4()),
                             sdk_message_id=sdk_message_id,

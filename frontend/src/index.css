@@ -111,4 +111,15 @@ html.dark textarea {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* Search result highlight flash */
+@keyframes search-flash {
+  0%   { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6); background-color: rgba(59, 130, 246, 0.08); }
+  70%  { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); background-color: rgba(59, 130, 246, 0.04); }
+  100% { box-shadow: none; background-color: transparent; }
+}
+.search-highlight {
+  animation: search-flash 2s ease-out;
+  border-radius: 8px;
+}
+
 

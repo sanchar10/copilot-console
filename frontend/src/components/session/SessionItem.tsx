@@ -5,7 +5,8 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
-import { getSession, deleteSession, connectSession, getResponseStatus, resumeResponseStream } from '../../api/sessions';
+import { deleteSession } from '../../api/sessions';
+import { openSessionTab } from '../../utils/openSession';
 import { ConfirmModal } from '../common/ConfirmModal';
 import type { Session } from '../../types/session';
 
@@ -14,10 +15,10 @@ interface SessionItemProps {
 }
 
 export function SessionItem({ session }: SessionItemProps) {
-  const { removeSession, setSessions, sessions, refreshMcpServers, updateSessionMcpServers, updateSessionTimestamp, clearNewSession } = useSessionStore();
-  const { messagesPerSession, setMessages, clearSessionMessages, setStreaming, appendStreamingContent, addStreamingStep, finalizeStreaming } = useChatStore();
-  const { isAgentActive, setAgentActive, markViewed, hasUnread } = useViewedStore();
-  const { tabs, activeTabId, openTab: openGenericTab, switchTab, closeTab } = useTabStore();
+  const { removeSession } = useSessionStore();
+  const { clearSessionMessages } = useChatStore();
+  const { isAgentActive, markViewed, hasUnread } = useViewedStore();
+  const { tabs, activeTabId, switchTab, closeTab } = useTabStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
@@ -73,121 +74,15 @@ export function SessionItem({ session }: SessionItemProps) {
   const handleClick = async () => {
     if (isActive) return;
 
-    // Clear new-session mode when switching to an existing session
-    clearNewSession();
-
-    const sessionId = session.session_id;
-
     // If session is already open as a tab, just switch to it (instant, like tab bar click)
     if (isOpen) {
       switchTab(sessionTabId);
-      markViewed(sessionId);
-      return;
-    }
-    
-    // Always refresh MCP servers from disk when opening a session
-    const freshServers = await refreshMcpServers();
-
-    // Helper to merge MCP servers — keep saved selections that still exist, add new servers
-    const mergeMcpServers = (savedSelections: string[] | undefined) => {
-      const freshNames = new Set(freshServers.map(s => s.name));
-      if (savedSelections !== undefined && savedSelections !== null) {
-        // User has configured selections (may be empty = chose none)
-        return savedSelections.filter(name => freshNames.has(name));
-      }
-      // Never configured — default to all servers enabled
-      return freshServers.map(s => s.name);
-    };
-
-    // Helper to check and resume active response stream
-    const checkAndResumeActiveResponse = async () => {
-      try {
-        await connectSession(sessionId);
-        const status = await getResponseStatus(sessionId);
-        
-        if (status.active) {
-          console.log(`[SessionItem] Active response detected for ${sessionId}, resuming stream...`);
-          setStreaming(sessionId, true);
-          setAgentActive(sessionId, true);
-          
-          // Resume streaming from where we left off
-          await resumeResponseStream(
-            sessionId,
-            status.chunks_count || 0,
-            status.steps_count || 0,
-            (content) => appendStreamingContent(sessionId, content),
-            (step) => addStreamingStep(sessionId, step),
-            () => {
-              // On done
-              finalizeStreaming(sessionId, '');
-              setAgentActive(sessionId, false);
-              updateSessionTimestamp(sessionId);
-              markViewed(sessionId);
-              // Refresh messages to get the saved response from SDK
-              getSession(sessionId).then(s => setMessages(sessionId, s.messages)).catch(() => {});
-            },
-            (error) => {
-              console.error('[SessionItem] Resume stream error:', error);
-              setStreaming(sessionId, false);
-              setAgentActive(sessionId, false);
-            }
-          );
-          return true; // Active response found and resumed
-        }
-        return false; // No active response
-      } catch (err) {
-        console.error('Failed to check response status:', err);
-        return false;
-      }
-    };
-
-    // If already cached, just open tab but check for active response
-    if (messagesPerSession[sessionId]) {
-      const mergedSelections = mergeMcpServers(session.mcp_servers);
-      updateSessionMcpServers(sessionId, mergedSelections);
-      openGenericTab({ id: sessionTabId, type: 'session', label: session.session_name, sessionId });
-      
-      // Check if there's an active response we need to resume
-      const hasActiveResponse = await checkAndResumeActiveResponse();
-      if (!hasActiveResponse) {
-        // Only mark as viewed if no active response (otherwise wait for stream to complete)
-        markViewed(sessionId);
-      }
+      markViewed(session.session_id);
       return;
     }
 
-    // Open tab immediately for visual feedback, then load in background
-    openGenericTab({ id: sessionTabId, type: 'session', label: session.session_name, sessionId });
-
-    try {
-      // Load session with messages
-      const sessionData = await getSession(sessionId);
-      setMessages(sessionId, sessionData.messages);
-      
-      const mergedSelections = mergeMcpServers(sessionData.mcp_servers);
-      
-      // Update session in store with adopted data (cwd, model, name, mcp_servers)
-      setSessions(sessions.map(s => 
-        s.session_id === sessionId 
-          ? { ...s, cwd: sessionData.cwd, model: sessionData.model, session_name: sessionData.session_name, mcp_servers: mergedSelections }
-          : s
-      ));
-      
-      // Check if there's an active response we need to resume
-      const hasActiveResponse = await checkAndResumeActiveResponse();
-      if (!hasActiveResponse) {
-        // Only mark as viewed if no active response
-        markViewed(sessionId);
-      }
-    } catch (err) {
-      console.error('Failed to load session:', err);
-      setMessages(sessionId, [{
-        id: 'error',
-        role: 'assistant',
-        content: `⚠️ Could not load this session.\n\nError: ${err instanceof Error ? err.message : String(err)}`,
-        timestamp: new Date().toISOString(),
-      }]);
-    }
+    // Full session open flow: MCP merge, load messages, streaming resume, etc.
+    await openSessionTab(session);
   };
 
   const handleInfoClick = (e: React.MouseEvent) => {

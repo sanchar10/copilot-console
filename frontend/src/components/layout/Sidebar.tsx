@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
@@ -15,6 +15,7 @@ import { apiClient } from '../../api/client';
 import { useViewedStore } from '../../stores/viewedStore';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
+import { SearchModal } from '../search/SearchModal';
 
 export function Sidebar() {
   const { sessions, setSessions, startNewSession, setLoading, setError } = useSessionStore();
@@ -27,7 +28,7 @@ export function Sidebar() {
   const { selectedProject, selectProject, loadProjects } = useProjectStore();
   // Subscribe to projects so component re-renders when mappings load
   const projects = useProjectStore(s => s.projects);
-  const [sessionSearch, setSessionSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
 
   // Inline helper that uses current projects state for reactivity
@@ -44,6 +45,18 @@ export function Sidebar() {
   };
 
   const setActiveAgentIds = useViewedStore(s => s.setActiveAgentIds);
+
+  // Ctrl+K / Cmd+K global shortcut to open search
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', handleGlobalKey);
+    return () => document.removeEventListener('keydown', handleGlobalKey);
+  }, []);
 
   // Subscribe to active-agents SSE stream — replaces polling
   useEffect(() => {
@@ -136,6 +149,15 @@ export function Sidebar() {
             <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
           </svg>
           <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex-1">Copilot Console</h1>
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#32324a] transition-colors"
+            title="Search sessions (Ctrl+K)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
         </div>
         <Button
           variant="primary"
@@ -256,16 +278,20 @@ export function Sidebar() {
               return { name, path: shortPath, fullPath: cwd };
             })
             .sort((a, b) => a.name.localeCompare(b.name));
+          const totalNonAutoSessions = sessions.filter(s => s.trigger !== 'automation').length;
           return folderEntries.length > 1 ? (
             <select
               value={selectedProject || ''}
               onChange={e => selectProject(e.target.value || null)}
               className="mb-2 flex-shrink-0 w-full min-w-0 max-w-full px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 overflow-hidden text-ellipsis"
             >
-              <option value="">All Folders ({folderEntries.length})</option>
-              {folderEntries.map(({ name, fullPath }) => (
-                <option key={name} value={name} title={fullPath}>{name}</option>
-              ))}
+              <option value="">All Projects ({folderEntries.length}) · {totalNonAutoSessions} sessions</option>
+              {folderEntries.map(({ name, fullPath }) => {
+                const count = sessions.filter(s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === name).length;
+                return (
+                  <option key={name} value={name} title={fullPath}>{name} · {count} sessions</option>
+                );
+              })}
             </select>
           ) : null;
         })()}
@@ -276,42 +302,12 @@ export function Sidebar() {
               if (!s.cwd) return false;
               if (getProjectName(s.cwd) !== selectedProject) return false;
             }
-            if (!sessionSearch) return true;
-            const q = sessionSearch.toLowerCase();
-            return (s.session_name || '').toLowerCase().includes(q);
+            return true;
           });
-          const placeholder = selectedProject
-            ? `Search ${filteredSessions.length} ${selectedProject} sessions...`
-            : `Search ${filteredSessions.length} sessions...`;
           return (
-            <>
-              <div className="relative mb-2 flex-shrink-0">
-                <svg className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder={placeholder}
-                  value={sessionSearch}
-                  onChange={(e) => setSessionSearch(e.target.value)}
-                  className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                />
-                {sessionSearch && (
-                  <button
-                    onClick={() => setSessionSearch('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    title="Clear search"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <SessionList sessions={filteredSessions} />
-              </div>
-            </>
+            <div className="flex-1 overflow-hidden">
+              <SessionList sessions={filteredSessions} />
+            </div>
           );
         })()}
       </div>
@@ -328,6 +324,8 @@ export function Sidebar() {
           {appVersion && <span className="text-[10px] text-gray-500 dark:text-gray-400">v{appVersion}</span>}
         </button>
       </div>
+
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </aside>
   );
 }
