@@ -5,6 +5,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Message, MessageAttachment } from '../../types/message';
 import { usePinStore } from '../../stores/pinStore';
+import { useUIStore } from '../../stores/uiStore';
 import type { Components } from 'react-markdown';
 import { MermaidDiagram, isMermaidCode } from './MermaidDiagram';
 import { processFileLinks, isFilePath, resolveFileHref, handleFilePathClick } from '../../utils/processFileLinks';
@@ -192,11 +193,29 @@ function createMarkdownComponents(cwd?: string | null): Components {
   };
 }
 
+function HighlightedText({ text, term }: { text: string; term: string }) {
+  if (!term) return <>{text}</>;
+  const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/60 text-inherit rounded-sm px-0.5">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 export const MessageBubble = memo(function MessageBubble({ message, cwd, sessionId }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isEnqueued = isUser && message.mode === 'enqueue';
   const mdComponents = useMemo(() => createMarkdownComponents(cwd), [cwd]);
+  const searchTerm = useUIStore((s) => s.searchHighlightTerm);
 
   // System messages render as compact inline notifications
   if (isSystem) {
@@ -301,12 +320,14 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
           )}
           {isUser ? (
             <>
-              <div className="whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100">{message.content || (message.attachments?.length ? '' : message.content)}</div>
+              <div className="whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100">
+                {searchTerm ? <HighlightedText text={message.content || ''} term={searchTerm} /> : (message.content || (message.attachments?.length ? '' : message.content))}
+              </div>
               {message.attachments && message.attachments.length > 0 && <AttachmentChips attachments={message.attachments} />}
             </>
           ) : (
             <div className="prose prose-sm max-w-none prose-gray dark:prose-invert">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={searchTerm ? { ...mdComponents, text: ({ children }) => <HighlightedText text={String(children)} term={searchTerm} /> } : mdComponents}>
                 {message.content}
               </ReactMarkdown>
             </div>

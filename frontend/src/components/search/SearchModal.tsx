@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { searchSessions, type SearchResult, type SearchSnippet } from '../../api/search';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useUIStore } from '../../stores/uiStore';
 import { openSessionTab } from '../../utils/openSession';
 import { scrollToMessageBySdkId } from '../chat/ChatPane';
 
@@ -59,7 +60,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!query || query.length < 2) {
+    if (!query || query.length < 3) {
       setResults([]);
       setLoading(false);
       return;
@@ -95,11 +96,18 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   }, [results]);
 
   const handleSelect = useCallback(async (result: SearchResult, snippet?: SearchSnippet) => {
+    const currentQuery = query;
     onClose();
 
     // Find session in store
     const session = sessions.find(s => s.session_id === result.session_id);
     if (!session) return;
+
+    // Set search highlight term for keyword highlighting in messages
+    if (currentQuery) {
+      useUIStore.getState().setSearchHighlight(currentQuery);
+      setTimeout(() => useUIStore.getState().setSearchHighlight(null), 5000);
+    }
 
     // Use the shared session opener (same as SessionItem click)
     await openSessionTab(session);

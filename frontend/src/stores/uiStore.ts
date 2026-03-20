@@ -7,6 +7,7 @@ interface UIState {
   availableModels: Model[];
   defaultModel: string;
   defaultCwd: string;
+  searchHighlightTerm: string | null;
 
   toggleSidebar: () => void;
   openSettingsModal: () => void;
@@ -14,6 +15,7 @@ interface UIState {
   setAvailableModels: (models: Model[]) => void;
   setDefaultModel: (model: string) => void;
   setDefaultCwd: (cwd: string) => void;
+  setSearchHighlight: (term: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -22,6 +24,7 @@ export const useUIStore = create<UIState>((set) => ({
   availableModels: [],
   defaultModel: 'gpt-4.1',
   defaultCwd: '',
+  searchHighlightTerm: null,
 
   toggleSidebar: () =>
     set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
@@ -30,4 +33,5 @@ export const useUIStore = create<UIState>((set) => ({
   setAvailableModels: (models) => set({ availableModels: models }),
   setDefaultModel: (model) => set({ defaultModel: model }),
   setDefaultCwd: (cwd) => set({ defaultCwd: cwd }),
+  setSearchHighlight: (term) => set({ searchHighlightTerm: term }),
 }));
