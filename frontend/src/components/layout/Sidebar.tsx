@@ -121,6 +121,7 @@ export function Sidebar() {
           fetchAgents();
           fetchWorkflows();
           fetchAutomations();
+          loadProjects();
         } catch (retryErr) {
           setError(retryErr instanceof Error ? retryErr.message : 'Failed to load data');
         }
