@@ -338,11 +338,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
       setPendingFiles([]);
     }
 
-    // For sessions not yet confirmed ready on the backend, lock input
-    // until the first SSE event arrives (proves SessionClient is alive).
-    // Once confirmed, subsequent messages skip the lock.
-    // Placed here so we always have the real session ID (even for new sessions).
-    const needsLock = !readySessions.has(activeSessionId);
+    // For NEW sessions, lock input until the first SSE event arrives
+    // (proves SessionClient is alive). For existing sessions, the backend
+    // already has a client — no activation lock needed.
+    const needsLock = (isNewSession || !sessionId) && !readySessions.has(activeSessionId);
     if (needsLock) {
       setSending(activeSessionId);
     }
