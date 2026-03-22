@@ -29,14 +29,12 @@ export interface ViewedTimestamps {
  * Get all session viewed timestamps
  */
 export async function getViewedTimestamps(): Promise<ViewedTimestamps> {
-  console.log(`[Viewed API] GET /viewed`);
   const response = await fetch(`${getApiBase()}/viewed`, { headers: getAuthHeaders() });
   if (!response.ok) {
     console.error('[Viewed API] Failed to fetch viewed timestamps');
     return {};
   }
   const data = await response.json();
-  console.log(`[Viewed API] Loaded ${Object.keys(data).length} timestamps:`, data);
   return data;
 }
 
@@ -45,14 +43,12 @@ export async function getViewedTimestamps(): Promise<ViewedTimestamps> {
  */
 export async function markSessionViewed(sessionId: string): Promise<void> {
   try {
-    console.log(`[Viewed API] POST /viewed/${sessionId}`);
     const response = await fetch(`${getApiBase()}/viewed/${sessionId}`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
     if (response.ok) {
       const data = await response.json();
-      console.log(`[Viewed API] Success:`, data);
     } else {
       console.error(`[Viewed API] Failed: ${response.status}`);
     }

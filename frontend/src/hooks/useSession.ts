@@ -23,7 +23,7 @@ export function useSession(sessionId: string | null) {
       // Check if there's an active response being generated (agent still running)
       const status = await getResponseStatus(id);
       if (status.active) {
-        console.log(`[Session] Active response detected for ${id}, resuming stream...`);
+
         setStreaming(id, true);
         setAgentActive(id, true);
         

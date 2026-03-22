@@ -34,10 +34,8 @@ export const useViewedStore = create<ViewedState>((set, get) => ({
   isLoaded: false,
 
   loadViewedTimestamps: async () => {
-    console.log(`[ViewedStore] loadViewedTimestamps() called`);
     try {
       const timestamps = await getViewedTimestamps();
-      console.log(`[ViewedStore] Setting lastViewed:`, timestamps);
       set({ lastViewed: timestamps, isLoaded: true });
     } catch (error) {
       console.error('[ViewedStore] Failed to load viewed timestamps:', error);
@@ -46,11 +44,9 @@ export const useViewedStore = create<ViewedState>((set, get) => ({
   },
 
   loadActiveAgents: async () => {
-    console.log(`[ViewedStore] loadActiveAgents() called`);
     try {
       const data = await getActiveAgents();
       const activeIds = new Set(data.sessions.map(s => s.session_id));
-      console.log(`[ViewedStore] Found ${activeIds.size} active agents:`, [...activeIds]);
       set({ activeAgents: activeIds });
     } catch (error) {
       console.error('[ViewedStore] Failed to load active agents:', error);
@@ -59,7 +55,6 @@ export const useViewedStore = create<ViewedState>((set, get) => ({
 
   markViewed: (sessionId: string) => {
     const now = Date.now() / 1000; // Convert to Unix timestamp (seconds)
-    console.log(`[ViewedStore] markViewed(${sessionId}) at ${now}`);
     set((state) => ({
       lastViewed: { ...state.lastViewed, [sessionId]: now },
     }));

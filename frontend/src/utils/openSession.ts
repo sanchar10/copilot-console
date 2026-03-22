@@ -57,7 +57,7 @@ export async function openSessionTab(session: Session): Promise<void> {
       const status = await getResponseStatus(sessionId);
 
       if (status.active) {
-        console.log(`[openSessionTab] Active response detected for ${sessionId}, resuming stream...`);
+
         setStreaming(sessionId, true);
         setAgentActive(sessionId, true);
 
