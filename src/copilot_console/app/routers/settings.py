@@ -19,6 +19,7 @@ class SettingsUpdate(BaseModel):
     default_model: str | None = None
     default_cwd: str | None = None
     workflow_step_timeout: int | None = None
+    cli_notifications: bool | None = None
 
 
 @router.get("")
@@ -48,7 +49,36 @@ async def update_settings(request: SettingsUpdate) -> dict:
                 detail="workflow_step_timeout must be at least 30 seconds"
             )
         updates["workflow_step_timeout"] = request.workflow_step_timeout
+    if request.cli_notifications is not None:
+        updates["cli_notifications"] = request.cli_notifications
+        _sync_hook_config(request.cli_notifications)
     return storage_service.update_settings(updates)
+
+
+def _sync_hook_config(enabled: bool) -> None:
+    """Create or remove the CLI agentStop hook config to match the setting."""
+    import json
+    from pathlib import Path
+    hooks_dir = Path.home() / ".copilot" / "hooks"
+    hook_file = hooks_dir / "console-notifications.json"
+
+    if enabled:
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        config = {
+            "version": 1,
+            "hooks": {
+                "agentStop": [{
+                    "type": "command",
+                    "bash": "cli-notify hook agent-stop",
+                    "powershell": "cli-notify hook agent-stop",
+                    "timeoutSec": 10,
+                }],
+            },
+        }
+        hook_file.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    else:
+        if hook_file.exists():
+            hook_file.unlink()
 
 
 @router.get("/update-check")

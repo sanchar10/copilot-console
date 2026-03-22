@@ -3,6 +3,7 @@ const API_BASE = '/api';
 export interface Settings {
   default_model: string;
   default_cwd: string;
+  cli_notifications?: boolean;
 }
 
 export async function getSettings(): Promise<Settings> {

@@ -307,7 +307,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
           {/* Pin icon — top-right of message body */}
           {canPin && (
             <button
-              className={`absolute top-2 right-2 p-0.5 rounded transition-opacity ${
+              className={`absolute top-2 right-2 p-1 rounded transition-opacity ${
                 isPinned ? 'opacity-100' : 'opacity-0 group-hover/pin:opacity-60 hover:!opacity-100'
               }`}
               title={isPinned ? 'Unpin message' : 'Pin message'}
@@ -330,7 +330,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
                 }).catch((err) => console.error('Failed to pin:', err));
               }}
             >
-              {isPinned ? <PinnedIcon size={16} /> : <UnpinnedIcon size={16} />}
+              {isPinned ? <PinnedIcon size={20} /> : <UnpinnedIcon size={20} />}
             </button>
           )}
           {!isUser && message.steps && message.steps.length > 0 && (

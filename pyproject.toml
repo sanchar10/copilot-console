@@ -61,6 +61,7 @@ dev = [
 
 [project.scripts]
 copilot-console = "copilot_console.cli:main"
+cli-notify = "copilot_console.cli_notify:main"
 
 [project.urls]
 Homepage = "https://github.com/sanchar10/copilot-agent-console"

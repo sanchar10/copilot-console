@@ -5,7 +5,7 @@ import { Button } from '../common/Button';
 import { Select } from '../common/Select';
 import { FolderBrowserModal } from '../common/FolderBrowserModal';
 import { useUIStore } from '../../stores/uiStore';
-import { updateSettings } from '../../api/settings';
+import { updateSettings, getSettings } from '../../api/settings';
 import { apiClient } from '../../api/client';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -23,6 +23,7 @@ export function SettingsModal() {
   const { theme, setTheme } = useTheme();
   const [selectedModel, setSelectedModel] = useState(defaultModel);
   const [selectedCwd, setSelectedCwd] = useState(defaultCwd);
+  const [cliNotifications, setCliNotifications] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
@@ -31,6 +32,11 @@ export function SettingsModal() {
     setSelectedModel(defaultModel);
     setSelectedCwd(defaultCwd);
     setError(null);
+    if (isSettingsModalOpen) {
+      getSettings().then(s => {
+        setCliNotifications(s.cli_notifications ?? false);
+      }).catch(() => {});
+    }
   }, [defaultModel, defaultCwd, isSettingsModalOpen]);
 
   const handleSave = async () => {
@@ -150,6 +156,44 @@ export function SettingsModal() {
             <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         )}
+
+        {/* CLI Notifications */}
+        <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                CLI Notifications
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Receive mobile push notifications when Copilot completes a response in CLI sessions.
+                Toggle via CLI: <code className="bg-gray-100 dark:bg-[#1e1e2e] px-1 rounded text-xs">!cli-notify on</code>
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={cliNotifications}
+              onClick={async () => {
+                const newVal = !cliNotifications;
+                setCliNotifications(newVal);
+                try {
+                  await updateSettings({ cli_notifications: newVal } as any);
+                } catch {
+                  setCliNotifications(!newVal);
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                cliNotifications ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  cliNotifications ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
 
         {/* Mobile Companion */}
         <MobileCompanionSection isOpen={isSettingsModalOpen} />

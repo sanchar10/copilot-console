@@ -124,8 +124,10 @@ class StorageService:
                 settings["default_cwd"] = DEFAULT_CWD
             if "workflow_step_timeout" not in settings:
                 settings["workflow_step_timeout"] = DEFAULT_WORKFLOW_STEP_TIMEOUT
+            if "cli_notifications" not in settings:
+                settings["cli_notifications"] = False
             return settings
-        return {"default_model": DEFAULT_MODEL, "default_cwd": DEFAULT_CWD, "workflow_step_timeout": DEFAULT_WORKFLOW_STEP_TIMEOUT}
+        return {"default_model": DEFAULT_MODEL, "default_cwd": DEFAULT_CWD, "workflow_step_timeout": DEFAULT_WORKFLOW_STEP_TIMEOUT, "cli_notifications": False}
 
     def update_settings(self, settings: dict) -> dict:
         """Update user settings."""

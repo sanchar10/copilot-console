@@ -494,8 +494,107 @@ class CopilotService:
                     pass  # Best-effort cleanup — session data persists on disk regardless
                 return messages
             except Exception as e:
+                # CLI bug: writes event types (e.g. system.notification) that its
+                # own session.resume RPC rejects as "Unknown event type".
+                # Fix: strip the offending events from events.jsonl and retry.
+                error_msg = str(e)
+                if "Unknown event type" in error_msg:
+                    stripped = await self._sanitize_events_jsonl(session_id, error_msg)
+                    if stripped:
+                        try:
+                            session = await self._main_client.resume_session(session_id, resume_config)
+                            messages = await session.get_messages()
+                            logger.info(f"Session {session_id} resumed successfully after sanitization")
+                            try:
+                                await session.destroy()
+                            except Exception:
+                                pass
+                            return messages
+                        except Exception as retry_err:
+                            logger.warning(f"Session {session_id} resume failed even after sanitization: {retry_err}")
+                            return []
                 logger.warning(f"Could not get messages for session {session_id}: {e}")
                 return []
+
+    async def _sanitize_events_jsonl(self, session_id: str, error_msg: str) -> bool:
+        """Strip unsupported event types from events.jsonl so session.resume can succeed.
+        
+        The CLI writes event types (e.g. system.notification) that its own
+        JSON-RPC session.resume handler rejects. This extracts the offending
+        type from the error message, removes those events, and re-links the
+        parentId chain so remaining events stay connected.
+        
+        Returns True if events were removed, False otherwise.
+        """
+        import json as _json
+        from copilot_console.app.config import COPILOT_SESSION_STATE
+
+        # Extract the event type from error like: Unknown event type: "system.notification"
+        match = re.search(r'Unknown event type:\s*"([^"]+)"', error_msg)
+        if not match:
+            logger.warning(f"Session {session_id} has unsupported event type but could not parse type from: {error_msg}")
+            return False
+
+        bad_type = match.group(1)
+        logger.warning(f"Session {session_id} has unsupported event type '{bad_type}' — sanitizing events.jsonl")
+
+        events_file = COPILOT_SESSION_STATE / session_id / "events.jsonl"
+        if not events_file.exists():
+            return False
+
+        try:
+            raw_lines = events_file.read_text(encoding="utf-8").splitlines()
+            events = []
+            for ln in raw_lines:
+                ln = ln.strip()
+                if ln:
+                    try:
+                        events.append(_json.loads(ln))
+                    except _json.JSONDecodeError:
+                        events.append(ln)  # preserve malformed lines as-is
+
+            # Build a parentId redirect map for removed events:
+            # If B is removed and B.parentId = A, then any event pointing to B
+            # should point to A instead.
+            removed_redirect: dict[str, str | None] = {}
+            kept = []
+            for evt in events:
+                if isinstance(evt, dict) and evt.get("type") == bad_type:
+                    removed_redirect[evt["id"]] = evt.get("parentId")
+                else:
+                    kept.append(evt)
+
+            if not removed_redirect:
+                return False
+
+            # Re-link parentId references: walk up the removed chain
+            # until we find a surviving parent
+            for evt in kept:
+                if not isinstance(evt, dict):
+                    continue
+                pid = evt.get("parentId")
+                while pid in removed_redirect:
+                    pid = removed_redirect[pid]
+                if pid != evt.get("parentId"):
+                    evt["parentId"] = pid
+
+            # Write back
+            out_lines = []
+            for evt in kept:
+                if isinstance(evt, dict):
+                    out_lines.append(_json.dumps(evt, ensure_ascii=False))
+                else:
+                    out_lines.append(evt)
+
+            tmp = events_file.with_suffix(".jsonl.tmp")
+            tmp.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+            tmp.replace(events_file)
+            removed_count = len(removed_redirect)
+            logger.info(f"Sanitized events.jsonl for session {session_id}: removed {removed_count} '{bad_type}' event(s), retrying resume")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to sanitize events.jsonl for session {session_id}: {e}")
+            return False
 
     # -------------------------------------------------------------------------
     # Per-session client operations

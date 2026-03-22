@@ -39,6 +39,12 @@ DEFAULT_CWD = str(Path.home())
 # Default timeout (seconds) for each workflow step (agent invocation)
 DEFAULT_WORKFLOW_STEP_TIMEOUT = 600  # 10 minutes
 
+# Default CLI notifications setting
+DEFAULT_CLI_NOTIFICATIONS = False
+
+# Copilot CLI home directory (where hooks live)
+COPILOT_HOME = Path.home() / ".copilot"
+
 # API settings
 API_PREFIX = "/api"
 

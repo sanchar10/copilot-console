@@ -263,7 +263,7 @@ export function Header({
               />
             )}
 
-            {/* Sessions using same folder */}
+            {/* Sessions using same project folder */}
             {cwd && onRelatedSessionClick && (
               <RelatedSessions
                 sessions={sessions}

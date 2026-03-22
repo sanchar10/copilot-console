@@ -490,11 +490,14 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         {isUploading && (
           <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">Uploading...</div>
         )}
-        <div className="flex items-center gap-2">
-          {/* Mode dropdown (outside main input row, left side) */}
-          <ModeSelector mode={currentMode} onModeChange={handleModeChange} disabled={isSending} />
-          {/* Main input row — width matches chat bubbles */}
-          <div className="flex-1 flex items-center gap-2">
+        {/* Input row — mirrors message layout: flex gap-3 [avatar-col w-8] [content flex-1] */}
+        <div className="flex gap-3 items-center">
+          {/* Avatar column: attach icon (aligns with avatars), mode selector floats left */}
+          <div className="w-8 flex-shrink-0 relative flex items-center justify-center">
+            {/* Mode selector — floats to the left of the avatar column */}
+            <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap z-10">
+              <ModeSelector mode={currentMode} onModeChange={handleModeChange} disabled={isSending} />
+            </div>
             {/* Hidden file input */}
             <input
               ref={fileInputRef}
@@ -503,17 +506,20 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
               className="hidden"
               onChange={(e) => { if (e.target.files) handleFiles(e.target.files); e.target.value = ''; }}
             />
-            {/* Attach button */}
+            {/* Attach button — aligns with message avatars */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isDisabled}
-              className="flex-shrink-0 h-12 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50"
+              className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-full"
               title="Attach files"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
             </button>
+          </div>
+          {/* Content column — aligns with message bubble content */}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
             <textarea
               ref={textareaRef}
               value={input}

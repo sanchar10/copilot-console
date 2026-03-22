@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C — Modern Studio Layout</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg-base: #0a0a12;
+    --bg-app: #0f0f1a;
+    --bg-surface: #161625;
+    --bg-elevated: #1c1c30;
+    --bg-card: #1a1a2e;
+    --bg-card-hover: #20203a;
+    --bg-input: #12121f;
+    --border: rgba(255,255,255,0.06);
+    --border-focus: rgba(124,109,240,0.4);
+    --text: #e8e8f0;
+    --text-secondary: #9898b0;
+    --text-tertiary: #5a5a78;
+    --accent: #7c6df0;
+    --accent-soft: rgba(124,109,240,0.12);
+    --accent-medium: rgba(124,109,240,0.2);
+    --accent-glow: rgba(124,109,240,0.08);
+    --green: #34d399;
+    --green-soft: rgba(52,211,153,0.12);
+    --orange: #fb923c;
+    --orange-soft: rgba(251,146,60,0.12);
+    --red: #f87171;
+    --red-soft: rgba(248,113,113,0.15);
+    --blue: #60a5fa;
+    --blue-soft: rgba(96,165,250,0.12);
+    --panel-bg: rgba(16,16,28,0.85);
+    --panel-border: rgba(255,255,255,0.08);
+    --sidebar-w: 230px;
+    --panel-w: 300px;
+    --tab-h: 42px;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-xs: 4px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: var(--bg-base);
+    color: var(--text);
+    padding: 24px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #7c6df0, #60a5fa, #34d399);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 16px 0 6px;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    margin-bottom: 32px;
+    font-weight: 400;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 48px 0 6px;
+    letter-spacing: -0.3px;
+  }
+  .desc {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+    max-width: 900px;
+  }
+
+  /* ====== APP FRAME ====== */
+  .app {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto 40px;
+    height: 560px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-app);
+    box-shadow: 0 0 80px rgba(124,109,240,0.04), 0 2px 40px rgba(0,0,0,0.3);
+    position: relative;
+  }
+
+  /* ====== SIDEBAR ====== */
+  .sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-head {
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-head span { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.3px; text-transform: uppercase; }
+  .btn-new-session {
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 10px; border-radius: 6px;
+    background: var(--accent-soft); border: 1px solid rgba(124,109,240,0.2);
+    color: var(--accent); font-size: 11px; font-weight: 500; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-new-session:hover { background: var(--accent-medium); }
+  .s-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.12s;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .s-item:hover { background: rgba(255,255,255,0.02); }
+  .s-item.active { background: var(--accent-glow); border-left-color: var(--accent); }
+  .s-item .name { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s-item .meta { font-size: 10px; color: var(--text-tertiary); display: flex; align-items: center; gap: 6px; }
+  .dot-unread { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+  .dot-active { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: glow-pulse 2s ease-in-out infinite; }
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(52,211,153,0.4); }
+    50% { box-shadow: 0 0 10px rgba(52,211,153,0.7); }
+  }
+
+  /* ====== MAIN AREA ====== */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  /* ====== TAB BAR ====== */
+  .tabs {
+    display: flex; align-items: center;
+    height: var(--tab-h);
+    padding: 0 10px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    gap: 2px;
+  }
+  .tab {
+    padding: 7px 14px;
+    font-size: 12px; font-weight: 450;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid transparent; border-bottom: none;
+    transition: all 0.12s;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+    position: relative;
+  }
+  .tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+  .tab.active { color: var(--text); background: var(--bg-app); border-color: var(--border); }
+  .tab .x { font-size: 10px; color: var(--text-tertiary); margin-left: 4px; opacity: 0; transition: opacity 0.1s; }
+  .tab:hover .x { opacity: 1; }
+  .tab-fill { flex: 1; }
+
+  /* Tab bar actions */
+  .tab-actions { display: flex; align-items: center; gap: 4px; }
+  .model-pill {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 20px;
+    background: var(--accent-soft); font-size: 11px;
+    color: var(--accent); font-weight: 500;
+    cursor: default; white-space: nowrap;
+  }
+  .token-pill {
+    padding: 4px 8px; border-radius: 20px;
+    background: rgba(255,255,255,0.04);
+    font-size: 10px; color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: none; background: transparent;
+    color: var(--text-tertiary); font-size: 16px;
+    cursor: pointer; transition: all 0.12s;
+    position: relative;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+  .icon-btn.active { background: var(--accent-soft); color: var(--accent); }
+  .icon-btn .count {
+    position: absolute; top: 2px; right: 2px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); color: white;
+    font-size: 8px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .stop-btn {
+    width: 28px; height: 28px;
+    background: var(--red-soft); border: 1px solid rgba(248,113,113,0.25);
+    color: var(--red); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .stop-btn:hover { background: rgba(248,113,113,0.25); }
+
+  /* Streaming dot on tab */
+  .stream-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(52,211,153,0.5);
+    animation: glow-pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ====== CHAT BODY ====== */
+  .chat-body { flex: 1; display: flex; min-height: 0; }
+  .messages {
+    flex: 1; overflow-y: auto; padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .msg {
+    max-width: 82%;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(124,109,240,0.2), rgba(96,165,250,0.15));
+    border: 1px solid rgba(124,109,240,0.15);
+    border-bottom-right-radius: 4px;
+  }
+  .msg.agent {
+    align-self: flex-start;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .msg code {
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px; border-radius: 4px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+  }
+  .typing-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+  .typing-dots span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text-tertiary);
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px;
+    color: var(--text-tertiary); font-size: 13px;
+  }
+  .empty-state .icon { font-size: 40px; opacity: 0.3; margin-bottom: 4px; }
+
+  /* ====== INPUT AREA ====== */
+  .input-area { padding: 10px 20px 14px; }
+  .input-box {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 12px;
+    transition: border-color 0.15s;
+  }
+  .input-box:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .input-box .ib { flex-shrink: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--text-tertiary); font-size: 16px; cursor: pointer; border-radius: 6px; transition: all 0.1s; }
+  .input-box .ib:hover { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
+  .input-box textarea {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-size: 13px; font-family: 'Inter', sans-serif;
+    resize: none; outline: none; min-height: 20px; max-height: 120px;
+    line-height: 1.4; padding: 5px 0;
+  }
+  .input-box textarea::placeholder { color: var(--text-tertiary); }
+  .send-btn {
+    width: 32px; height: 32px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), #6058d0);
+    border: none; border-radius: 8px;
+    color: white; font-size: 13px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    box-shadow: 0 2px 8px rgba(124,109,240,0.3);
+  }
+  .send-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,109,240,0.4); }
+
+  /* Mode chips row */
+  .chips-row { display: flex; align-items: center; gap: 4px; padding: 8px 4px 0; }
+  .chip {
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 500;
+    cursor: pointer; transition: all 0.12s;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-tertiary);
+  }
+  .chip:hover { background: rgba(255,255,255,0.04); color: var(--text-secondary); }
+  .chip.on {
+    background: var(--accent-soft);
+    border-color: rgba(124,109,240,0.3);
+    color: var(--accent);
+  }
+  .chip-sep { width: 1px; height: 14px; background: var(--border); margin: 0 4px; }
+
+  /* ====== SETTINGS PANEL (the star) ====== */
+  .panel {
+    width: var(--panel-w);
+    min-width: var(--panel-w);
+    background: var(--panel-bg);
+    backdrop-filter: blur(24px) saturate(1.2);
+    -webkit-backdrop-filter: blur(24px) saturate(1.2);
+    border-left: 1px solid var(--panel-border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    animation: slide-in 0.2s ease-out;
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+  .panel-head {
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-head .title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .panel-head .close-panel {
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    color: var(--text-tertiary); font-size: 14px;
+    cursor: pointer; border-radius: 6px;
+    transition: all 0.1s;
+  }
+  .panel-head .close-panel:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+
+  /* Section */
+  .p-section { padding: 4px 14px; }
+  .p-section-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 4px;
+    cursor: pointer; user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.1s;
+  }
+  .p-section-btn:hover { background: rgba(255,255,255,0.02); border-radius: 6px; }
+  .p-section-btn .label {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .p-section-btn .label .ico { font-size: 14px; opacity: 0.6; }
+  .p-section-btn .summary {
+    font-size: 11px; color: var(--text-tertiary);
+    display: flex; align-items: center; gap: 4px;
+  }
+  .p-section-btn .arrow { font-size: 9px; color: var(--text-tertiary); transition: transform 0.15s; }
+  .p-section-btn .arrow.open { transform: rotate(90deg); }
+  .p-body { padding: 0 4px 12px; }
+
+  /* Card style for inline content */
+  .p-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .p-card-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .p-card-row:last-child { border-bottom: none; }
+  .p-card-row:hover { background: var(--bg-card-hover); }
+  .p-card-row .lbl { color: var(--text-secondary); }
+  .p-card-row .val {
+    font-weight: 500; padding: 2px 8px;
+    border-radius: 20px; font-size: 11px;
+  }
+  .val-accent { background: var(--accent-soft); color: var(--accent); }
+  .val-green { background: var(--green-soft); color: var(--green); }
+  .val-dim { background: rgba(255,255,255,0.04); color: var(--text-tertiary); }
+  .val-orange { background: var(--orange-soft); color: var(--orange); }
+
+  /* Segmented control */
+  .seg-ctrl {
+    display: flex;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: 8px;
+  }
+  .seg-btn {
+    flex: 1; padding: 5px 0;
+    text-align: center; font-size: 10px; font-weight: 500;
+    color: var(--text-tertiary); cursor: pointer;
+    border-radius: 6px; transition: all 0.15s;
+  }
+  .seg-btn:hover { color: var(--text-secondary); }
+  .seg-btn.on {
+    background: var(--accent-soft);
+    color: var(--accent);
+    box-shadow: 0 1px 4px rgba(124,109,240,0.15);
+  }
+
+  /* Toggle switch */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 12px;
+    border-radius: 6px;
+    transition: background 0.1s;
+  }
+  .toggle-row:hover { background: rgba(255,255,255,0.02); }
+  .toggle-row .name { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .toggle-row .name .ico { font-size: 13px; opacity: 0.5; }
+  .switch {
+    width: 32px; height: 18px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.1);
+    position: relative; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .switch.on { background: var(--accent); }
+  .switch::after {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: white;
+    top: 2px; left: 2px;
+    transition: transform 0.15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .switch.on::after { transform: translateX(14px); }
+
+  /* Textarea in panel */
+  .p-textarea {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 11px;
+    font-family: 'Inter', sans-serif;
+    padding: 8px 10px;
+    resize: vertical;
+    min-height: 56px;
+    outline: none;
+    transition: border-color 0.15s;
+    line-height: 1.5;
+  }
+  .p-textarea:focus { border-color: var(--border-focus); }
+  .p-textarea::placeholder { color: var(--text-tertiary); }
+
+  /* Token gauge */
+  .token-gauge { padding: 4px 0; }
+  .gauge-bar {
+    height: 4px; border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden; margin-bottom: 6px;
+  }
+  .gauge-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--blue));
+    transition: width 0.3s;
+  }
+  .gauge-fill.high { background: linear-gradient(90deg, var(--orange), var(--red)); }
+  .gauge-labels {
+    display: flex; justify-content: space-between;
+    font-size: 10px; color: var(--text-tertiary);
+  }
+
+  /* Disabled overlay */
+  .dimmed { opacity: 0.35; pointer-events: none; }
+  .disabled-msg {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 6px;
+    background: var(--orange-soft);
+    font-size: 10px; color: var(--orange);
+    margin-top: 4px;
+  }
+  .lock-msg {
+    font-size: 9px; color: var(--text-tertiary);
+    font-style: italic; padding: 2px 12px;
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  /* Pins panel style */
+  .pins-panel { width: var(--panel-w); min-width: var(--panel-w); background: var(--panel-bg); backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2); border-left: 1px solid var(--panel-border); display: flex; flex-direction: column; animation: slide-in 0.2s ease-out; }
+  .pin-card {
+    margin: 6px 14px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px; color: var(--text);
+    line-height: 1.5;
+    position: relative;
+  }
+  .pin-card::before {
+    content: '📌';
+    position: absolute; top: -6px; left: 8px;
+    font-size: 12px;
+    background: var(--bg-card);
+    padding: 0 4px;
+    border-radius: 4px;
+  }
+  .pin-card strong { color: var(--accent); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+  /* Inline model dropdown */
+  .model-dropdown {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .md-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px; font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer; transition: background 0.1s;
+    border-bottom: 1px solid var(--border);
+  }
+  .md-item:last-child { border-bottom: none; }
+  .md-item:hover { background: var(--bg-card-hover); }
+  .md-item.selected { color: var(--accent); background: var(--accent-glow); }
+  .md-item .check { font-size: 13px; }
+  .effort-pills {
+    display: flex; gap: 4px;
+    padding: 5px 12px 8px 32px;
+    background: var(--accent-glow);
+    border-bottom: 1px solid var(--border);
+  }
+  .effort-pill {
+    padding: 2px 10px; border-radius: 20px;
+    font-size: 10px; font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    cursor: pointer; transition: all 0.12s;
+  }
+  .effort-pill:hover { border-color: rgba(124,109,240,0.3); color: var(--text-secondary); }
+  .effort-pill.on { background: var(--accent-soft); border-color: rgba(124,109,240,0.4); color: var(--accent); }
+
+  /* Comparison */
+  .compare { max-width: 900px; margin: 24px auto; }
+  .compare table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .compare th { padding: 10px 14px; text-align: left; color: var(--accent); font-weight: 600; border-bottom: 2px solid rgba(124,109,240,0.2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .compare td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+  .compare td:first-child { color: var(--text); font-weight: 500; }
+  .compare .win { color: var(--green); font-weight: 500; }
+  .compare .same { color: var(--text-tertiary); }
+
+  /* Note box */
+  .note-box {
+    max-width: 900px;
+    margin: 16px auto;
+    padding: 14px 18px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124,109,240,0.12);
+    border-radius: var(--radius);
+    font-size: 12px; color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .note-box strong { color: var(--accent); }
+  .note-box.green { background: rgba(52,211,153,0.04); border-color: rgba(52,211,153,0.12); }
+  .note-box.green strong { color: var(--green); }
+</style>
+</head>
+<body>
+
+<h1>Option C — Studio Layout</h1>
+<p class="subtitle">Frosted glass settings rail &middot; Zero layout shifts &middot; Maximum chat space</p>
+
+<!-- ========== SCREEN 1: DEFAULT (RAIL CLOSED) ========== -->
+<h2>1 &nbsp;Default View — Rail Collapsed</h2>
+<p class="desc">Clean, uninterrupted chat. Model &amp; tokens shown as pills in the tab bar. Gear and pin icons toggle the panels. All vertical space goes to messages.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">API refactor discussion</div><div class="meta">Claude Sonnet 4 &middot; 2m ago</div></div>
+    <div class="s-item"><div class="name">Debug auth flow</div><div class="meta"><span class="dot-unread"></span>Claude Sonnet 4 &middot; 15m</div></div>
+    <div class="s-item"><div class="name">Layout redesign ideas</div><div class="meta">Claude Opus 4 &middot; 1h</div></div>
+    <div class="s-item"><div class="name">Search feature polish</div><div class="meta">Claude Sonnet 4 &middot; 3h</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">API refactor<span class="x">&times;</span></div>
+      <div class="tab">Debug auth<span class="x">&times;</span></div>
+      <div class="tab">Screen: localhost<span class="x">&times;</span></div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill">Claude Sonnet 4 &middot; med</div>
+        <div class="token-pill">12.4k / 200k</div>
+        <button class="icon-btn" title="Settings">&#9881;&#65039;</button>
+        <button class="icon-btn" title="Pins">&#128204;<span class="count">3</span></button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="msg user">Can you refactor the API endpoints to use a consistent REST naming convention?</div>
+        <div class="msg agent">I'll analyze the current API endpoints and propose a consistent naming scheme.<br><br>Looking at the codebase, I see three patterns:<br>• <code>/api/sessions/{id}</code> — resource-based ✓<br>• <code>/api/getSessionMessages</code> — verb-based ✗<br>• <code>/api/session-search</code> — mixed ✗<br><br>I recommend standardizing on REST resource-based naming across all 12 endpoints.</div>
+        <div class="msg user">Yes, go with REST style. Also add proper error responses.</div>
+        <div class="msg agent">I'll refactor all endpoints to REST convention and add structured error responses with proper HTTP status codes. Starting with the session router...</div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box">
+        <button class="ib" title="Attach">&#128206;</button>
+        <textarea rows="1" placeholder="Type a message... (Enter to send, Shift+Enter for new line)"></textarea>
+        <button class="send-btn" title="Send">&#9654;</button>
+      </div>
+      <div class="chips-row">
+        <span class="chip on">Interactive</span>
+        <span class="chip">Plan</span>
+        <span class="chip">Autopilot</span>
+        <span class="chip-sep"></span>
+        <span class="chip">&#9889; Fleet</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 2: SETTINGS RAIL OPEN ========== -->
+<h2>2 &nbsp;Settings Rail — Open</h2>
+<p class="desc">Frosted glass panel slides in from the right. Collapsible sections with summary badges. Chat narrows but remains fully usable. Scrollable if content is tall.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">API refactor discussion</div><div class="meta">Claude Sonnet 4</div></div>
+    <div class="s-item"><div class="name">Debug auth flow</div><div class="meta">Claude Sonnet 4</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">API refactor<span class="x">&times;</span></div>
+      <div class="tab">Debug auth<span class="x">&times;</span></div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill">Claude Sonnet 4 &middot; med</div>
+        <div class="token-pill">12.4k / 200k</div>
+        <button class="icon-btn active" title="Settings">&#9881;&#65039;</button>
+        <button class="icon-btn" title="Pins">&#128204;<span class="count">3</span></button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="msg user">Refactor all endpoints to REST convention.</div>
+        <div class="msg agent">Starting with the session router. I'll update each endpoint...</div>
+        <div class="msg user">Also handle 404 and 422 errors properly.</div>
+        <div class="msg agent">Added structured error responses with proper HTTP status codes for all endpoints.</div>
+      </div>
+      <!-- SETTINGS PANEL -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="title">&#9881;&#65039; Session Settings</div>
+          <button class="close-panel">&times;</button>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#129302;</span> Model</div>
+            <div class="summary"><span class="arrow open">&#9654;</span></div>
+          </div>
+          <div class="p-body">
+            <div class="p-card">
+              <div class="p-card-row"><span class="lbl">Model</span><span class="val val-accent">Claude Sonnet 4</span></div>
+              <div class="p-card-row"><span class="lbl">Reasoning</span><span class="val val-accent">medium</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#128221;</span> System Prompt</div>
+            <div class="summary"><span class="arrow open">&#9654;</span></div>
+          </div>
+          <div class="p-body">
+            <div class="seg-ctrl">
+              <div class="seg-btn on">Replace</div>
+              <div class="seg-btn">Append</div>
+            </div>
+            <textarea class="p-textarea" rows="3" placeholder="Custom system prompt...">You are an expert API designer. Follow REST conventions strictly.</textarea>
+          </div>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#128295;</span> Tools</div>
+            <div class="summary"><span style="font-size:10px; color: var(--green);">All built-in</span> <span class="arrow">&#9654;</span></div>
+          </div>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#128268;</span> MCP Servers</div>
+            <div class="summary"><span style="font-size:10px; color: var(--text-tertiary);">3 active</span> <span class="arrow">&#9654;</span></div>
+          </div>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#129520;</span> Agents</div>
+            <div class="summary"><span style="font-size:10px; color: var(--text-tertiary);">none</span> <span class="arrow">&#9654;</span></div>
+          </div>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#128193;</span> Directory</div>
+            <div class="summary"><span style="font-size:10px; color: var(--text-tertiary);">~/project</span> <span class="arrow">&#9654;</span></div>
+          </div>
+        </div>
+
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#128200;</span> Tokens</div>
+            <div class="summary"><span class="arrow open">&#9654;</span></div>
+          </div>
+          <div class="p-body">
+            <div class="token-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" style="width:6%"></div></div>
+              <div class="gauge-labels"><span>12.4k used</span><span>200k limit</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box">
+        <button class="ib">&#128206;</button>
+        <textarea rows="1" placeholder="Type a message..."></textarea>
+        <button class="send-btn">&#9654;</button>
+      </div>
+      <div class="chips-row">
+        <span class="chip on">Interactive</span>
+        <span class="chip">Plan</span>
+        <span class="chip">Autopilot</span>
+        <span class="chip-sep"></span>
+        <span class="chip">&#9889; Fleet</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 3: MODEL DROPDOWN ========== -->
+<h2>3 &nbsp;Model Selector Expanded</h2>
+<p class="desc">Model section expanded in the rail showing inline dropdown with reasoning effort pills. Same component as today — just re-parented into the panel.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">New Session</div><div class="meta">Not started</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">+ New Session</div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill">Claude Sonnet 4 &middot; med</div>
+        <button class="icon-btn active">&#9881;&#65039;</button>
+        <button class="icon-btn">&#128204;</button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="empty-state">
+          <div class="icon">&#128172;</div>
+          Start a new conversation
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="title">&#9881;&#65039; Session Settings</div>
+          <button class="close-panel">&times;</button>
+        </div>
+        <div class="p-section">
+          <div class="p-section-btn">
+            <div class="label"><span class="ico">&#129302;</span> Model</div>
+            <div class="summary"><span class="arrow open">&#9654;</span></div>
+          </div>
+          <div class="p-body">
+            <div class="model-dropdown">
+              <div class="md-item"><span>Claude Opus 4</span></div>
+              <div class="md-item selected"><span>Claude Sonnet 4</span><span class="check">&#10003;</span></div>
+              <div class="effort-pills">
+                <span class="effort-pill">low</span>
+                <span class="effort-pill on">medium ●</span>
+                <span class="effort-pill">high</span>
+              </div>
+              <div class="md-item"><span>Claude Haiku 4</span></div>
+              <div class="md-item"><span>GPT-5.1</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128221;</span> System Prompt</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128295;</span> Tools</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128268;</span> MCP Servers</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#129520;</span> Agents</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128193;</span> Directory</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box">
+        <button class="ib">&#128206;</button>
+        <textarea rows="1" placeholder="Type a message..."></textarea>
+        <button class="send-btn">&#9654;</button>
+      </div>
+      <div class="chips-row">
+        <span class="chip on">Interactive</span>
+        <span class="chip">Plan</span>
+        <span class="chip">Autopilot</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 4: TOOLS + AGENTS MUTEX ========== -->
+<h2>4 &nbsp;Tools Active — Agents Disabled (Mutex)</h2>
+<p class="desc">Custom tools are selected, so Agents section shows the disabled state with an explanatory message. Same mutual exclusion rule — same logic, rendered in panel.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">New Session</div><div class="meta">Not started</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">+ New Session</div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill">Claude Sonnet 4</div>
+        <button class="icon-btn active">&#9881;&#65039;</button>
+        <button class="icon-btn">&#128204;</button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="empty-state"><div class="icon">&#128172;</div>Start a new conversation</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="title">&#9881;&#65039; Session Settings</div><button class="close-panel">&times;</button></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#129302;</span> Model</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128221;</span> System Prompt</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+
+        <!-- Tools — expanded -->
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#128295;</span> Tools</div><div class="summary"><span class="arrow open">&#9654;</span></div></div>
+          <div class="p-body">
+            <div style="font-size:10px; color:var(--text-tertiary); margin-bottom:6px; font-weight:500;">Built-in Tools</div>
+            <div class="seg-ctrl">
+              <div class="seg-btn on">All</div>
+              <div class="seg-btn">Include</div>
+              <div class="seg-btn">Exclude</div>
+            </div>
+            <div style="font-size:10px; color:var(--text-tertiary); margin: 8px 0 6px; font-weight:500;">Custom Tools</div>
+            <div class="toggle-row"><div class="name"><span class="ico">&#128206;</span> file_search</div><div class="switch on"></div></div>
+            <div class="toggle-row"><div class="name"><span class="ico">&#128187;</span> code_interpreter</div><div class="switch on"></div></div>
+            <div class="toggle-row"><div class="name"><span class="ico">&#127760;</span> web_browser</div><div class="switch"></div></div>
+          </div>
+        </div>
+
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128268;</span> MCP Servers</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+
+        <!-- Agents — disabled by tools -->
+        <div class="p-section">
+          <div class="p-section-btn" style="opacity: 0.4;">
+            <div class="label"><span class="ico">&#129520;</span> Agents</div>
+            <div class="summary"><span class="arrow">&#9654;</span></div>
+          </div>
+          <div class="p-body">
+            <div class="disabled-msg">&#9888;&#65039; Disabled — custom tools are selected</div>
+          </div>
+        </div>
+
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128193;</span> Directory</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box"><button class="ib">&#128206;</button><textarea rows="1" placeholder="Type a message..."></textarea><button class="send-btn">&#9654;</button></div>
+      <div class="chips-row"><span class="chip on">Interactive</span><span class="chip">Plan</span><span class="chip">Autopilot</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 5: AGENTS ACTIVE (TOOLS DISABLED) ========== -->
+<h2>5 &nbsp;Agents Active — Custom Tools Disabled (Reverse Mutex)</h2>
+<p class="desc">Sub-agents selected. Custom tools section is grayed out with explanation. Built-in tools mode still editable.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">New Session</div><div class="meta">Not started</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">+ New Session</div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill">Claude Sonnet 4</div>
+        <button class="icon-btn active">&#9881;&#65039;</button>
+        <button class="icon-btn">&#128204;</button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages"><div class="empty-state"><div class="icon">&#128172;</div>Start a new conversation</div></div>
+      <div class="panel">
+        <div class="panel-head"><div class="title">&#9881;&#65039; Session Settings</div><button class="close-panel">&times;</button></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#129302;</span> Model</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128221;</span> System Prompt</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+
+        <!-- Tools — custom disabled -->
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#128295;</span> Tools</div><div class="summary"><span class="arrow open">&#9654;</span></div></div>
+          <div class="p-body">
+            <div style="font-size:10px; color:var(--text-tertiary); margin-bottom:6px; font-weight:500;">Built-in Tools</div>
+            <div class="seg-ctrl">
+              <div class="seg-btn on">All</div>
+              <div class="seg-btn">Include</div>
+              <div class="seg-btn">Exclude</div>
+            </div>
+            <div class="dimmed">
+              <div style="font-size:10px; color:var(--text-tertiary); margin: 8px 0 6px; font-weight:500;">Custom Tools <span style="font-size:9px;color:var(--orange);">(disabled with agents)</span></div>
+              <div class="toggle-row"><div class="name"><span class="ico">&#128206;</span> file_search</div><div class="switch"></div></div>
+              <div class="toggle-row"><div class="name"><span class="ico">&#128187;</span> code_interpreter</div><div class="switch"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128268;</span> MCP Servers</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+
+        <!-- Agents — active -->
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#129520;</span> Agents</div><div class="summary"><span class="arrow open">&#9654;</span></div></div>
+          <div class="p-body">
+            <div class="toggle-row"><div class="name"><span class="ico">&#129302;</span> code-reviewer</div><div class="switch on"></div></div>
+            <div class="toggle-row"><div class="name"><span class="ico">&#128640;</span> deploy-agent</div><div class="switch"></div></div>
+            <div class="toggle-row"><div class="name"><span class="ico">&#128269;</span> search-agent</div><div class="switch"></div></div>
+          </div>
+        </div>
+
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128193;</span> Directory</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box"><button class="ib">&#128206;</button><textarea rows="1" placeholder="Type a message..."></textarea><button class="send-btn">&#9654;</button></div>
+      <div class="chips-row"><span class="chip on">Interactive</span><span class="chip">Plan</span><span class="chip">Autopilot</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 6: STREAMING ========== -->
+<h2>6 &nbsp;Streaming State</h2>
+<p class="desc">Agent is responding. Green pulse on tab. Stop button appears in tab bar (fixed position, no input-area shift). Rail is dimmed + read-only. Input still works for queuing messages. Mode chips disabled.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">API refactor</div><div class="meta"><span class="dot-active"></span> streaming...</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active"><span class="stream-dot"></span>API refactor<span class="x">&times;</span></div>
+      <div class="tab">Debug auth<span class="x">&times;</span></div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <button class="stop-btn" title="Stop agent">&#9632;</button>
+        <div class="model-pill" style="opacity:0.5;">Claude Sonnet 4</div>
+        <div class="token-pill">14.2k / 200k</div>
+        <button class="icon-btn active">&#9881;&#65039;</button>
+        <button class="icon-btn">&#128204;<span class="count">3</span></button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="msg user">Refactor all endpoints to REST convention.</div>
+        <div class="msg agent">
+          I'll start with the session router. Renaming <code>getSessionMessages</code> to <code>GET /sessions/{id}/messages</code>...<br><br>
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <!-- DIMMED PANEL -->
+      <div class="panel dimmed">
+        <div class="panel-head"><div class="title">&#9881;&#65039; Session Settings</div><button class="close-panel">&times;</button></div>
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#129302;</span> Model</div><div class="summary"><span class="arrow">&#9654;</span></div></div>
+          <div class="p-body"><div class="p-card"><div class="p-card-row"><span class="lbl">Model</span><span class="val val-accent">Claude Sonnet 4</span></div></div></div>
+        </div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128221;</span> System Prompt</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128295;</span> Tools</div><div class="summary"><span style="font-size:10px;color:var(--green);">All</span> <span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128268;</span> MCP Servers</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#129520;</span> Agents</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="lock-msg">&#128274; Read-only while agent is responding</div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box">
+        <button class="ib">&#128206;</button>
+        <textarea rows="1" placeholder="Type a follow-up... (will be queued)" style="color:var(--text-tertiary);"></textarea>
+        <button class="send-btn">&#9654;</button>
+      </div>
+      <div class="chips-row dimmed"><span class="chip on">Interactive</span><span class="chip">Plan</span><span class="chip">Autopilot</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 7: PINS PANEL ========== -->
+<h2>7 &nbsp;Pins Panel</h2>
+<p class="desc">Pin icon toggles the pins panel — it replaces the settings rail (not stacked). Full-height frosted glass panel. Messages + input slide left together.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">API refactor</div><div class="meta">Claude Sonnet 4</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">API refactor<span class="x">&times;</span></div>
+      <div class="tab">Debug auth<span class="x">&times;</span></div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill">Claude Sonnet 4</div>
+        <div class="token-pill">12.4k / 200k</div>
+        <button class="icon-btn">&#9881;&#65039;</button>
+        <button class="icon-btn active">&#128204;<span class="count">3</span></button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="msg user">Can you refactor the API endpoints?</div>
+        <div class="msg agent">I'll standardize all 12 endpoints to REST convention. Starting with the session router...</div>
+        <div class="msg user">Go with REST style. Handle errors properly.</div>
+        <div class="msg agent">Done — all endpoints now follow REST naming with structured error responses.</div>
+      </div>
+      <div class="pins-panel">
+        <div class="panel-head">
+          <div class="title">&#128204; Pinned (3)</div>
+          <button class="close-panel">&times;</button>
+        </div>
+        <div class="pin-card">
+          <strong>Convention</strong><br>
+          Use <code>/api/{resource}/{id}</code> for all endpoints. No verbs in URLs.
+        </div>
+        <div class="pin-card">
+          <strong>Error format</strong><br>
+          Return <code>{"error": {"code": "...", "message": "..."}}</code> with HTTP status.
+        </div>
+        <div class="pin-card">
+          <strong>Exception</strong><br>
+          WebSocket endpoints stay as-is — different protocol.
+        </div>
+        <div style="padding: 12px 14px;">
+          <textarea class="p-textarea" rows="2" placeholder="Add a new pin..."></textarea>
+          <button style="margin-top: 8px; width: 100%; padding: 6px; background: linear-gradient(135deg, var(--accent), #6058d0); color: white; border: none; border-radius: 8px; font-size: 11px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 8px rgba(124,109,240,0.2);">Save Pin</button>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box"><button class="ib">&#128206;</button><textarea rows="1" placeholder="Type a message..."></textarea><button class="send-btn">&#9654;</button></div>
+      <div class="chips-row"><span class="chip on">Interactive</span><span class="chip">Plan</span><span class="chip">Autopilot</span><span class="chip-sep"></span><span class="chip">&#9889; Fleet</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 8: EXISTING SESSION (MODEL LOCKED) ========== -->
+<h2>8 &nbsp;Existing Session — Model Locked</h2>
+<p class="desc">For existing sessions, model is read-only (lock icon). Other settings remain editable. Token gauge shows usage. Same rules as today.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item active"><div class="name">API refactor</div><div class="meta">Claude Sonnet 4 &middot; 25 msgs</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab active">API refactor<span class="x">&times;</span></div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <div class="model-pill" style="opacity:0.7;">Claude Sonnet 4 &middot; med</div>
+        <div class="token-pill">45.2k / 200k</div>
+        <button class="icon-btn active">&#9881;&#65039;</button>
+        <button class="icon-btn">&#128204;<span class="count">3</span></button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages">
+        <div class="msg user">How is the refactor going?</div>
+        <div class="msg agent">All 12 endpoints converted. Summary of changes coming up...</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="title">&#9881;&#65039; Session Settings</div><button class="close-panel">&times;</button></div>
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#129302;</span> Model</div><div class="summary"><span class="arrow open">&#9654;</span></div></div>
+          <div class="p-body">
+            <div class="p-card" style="opacity:0.5;">
+              <div class="p-card-row"><span class="lbl">Model</span><span class="val val-accent">Claude Sonnet 4 &#128274;</span></div>
+              <div class="p-card-row"><span class="lbl">Reasoning</span><span class="val val-accent">medium</span></div>
+            </div>
+            <div class="lock-msg">&#128274; Model locked for existing sessions</div>
+          </div>
+        </div>
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#128221;</span> System Prompt</div><div class="summary"><span class="arrow open">&#9654;</span></div></div>
+          <div class="p-body">
+            <div class="seg-ctrl"><div class="seg-btn on">Replace</div><div class="seg-btn">Append</div></div>
+            <textarea class="p-textarea" rows="2">You are an expert API designer.</textarea>
+          </div>
+        </div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128295;</span> Tools</div><div class="summary"><span style="font-size:10px;color:var(--green);">All</span> <span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128268;</span> MCP Servers</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#129520;</span> Agents</div><div class="summary"><span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section"><div class="p-section-btn"><div class="label"><span class="ico">&#128193;</span> Directory</div><div class="summary"><span style="font-size:10px;">E:\repos\proj</span> <span class="arrow">&#9654;</span></div></div></div>
+        <div class="p-section">
+          <div class="p-section-btn"><div class="label"><span class="ico">&#128200;</span> Tokens</div><div class="summary"><span class="arrow open">&#9654;</span></div></div>
+          <div class="p-body">
+            <div class="token-gauge">
+              <div class="gauge-bar"><div class="gauge-fill" style="width:22%"></div></div>
+              <div class="gauge-labels"><span>45.2k used</span><span>200k limit</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-box"><button class="ib">&#128206;</button><textarea rows="1" placeholder="Type a message..."></textarea><button class="send-btn">&#9654;</button></div>
+      <div class="chips-row"><span class="chip on">Interactive</span><span class="chip">Plan</span><span class="chip">Autopilot</span><span class="chip-sep"></span><span class="chip">&#9889; Fleet</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN 9: NON-CHAT TAB ========== -->
+<h2>9 &nbsp;Non-Chat Tab (Screen)</h2>
+<p class="desc">When a Screen tab is active, chat-specific controls (model pill, gear, pins) hide from the tab bar. Contextual controls for the tab type appear instead. Clean and unambiguous.</p>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head"><span>Sessions</span><button class="btn-new-session">+ New</button></div>
+    <div class="s-item"><div class="name">API refactor</div><div class="meta">Claude Sonnet 4</div></div>
+    <div class="s-item"><div class="name">Debug auth flow</div><div class="meta">Claude Sonnet 4</div></div>
+  </div>
+  <div class="main">
+    <div class="tabs">
+      <div class="tab">API refactor<span class="x">&times;</span></div>
+      <div class="tab active">&#127760; Screen: localhost:3000<span class="x">&times;</span></div>
+      <div class="tab-fill"></div>
+      <div class="tab-actions">
+        <button class="icon-btn" title="Refresh">&#128260;</button>
+        <button class="icon-btn" title="Resize">&#128208;</button>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="messages" style="background: var(--bg-input); padding: 0;">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+          <div style="width:88%;height:88%;background:white;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#333;box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+            <div style="text-align:center;">
+              <div style="font-size:28px;margin-bottom:8px;">&#127760;</div>
+              <div style="font-size:14px;font-weight:500;">Browser preview</div>
+              <div style="font-size:11px;color:#888;margin-top:4px;">localhost:3000</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== COMPARISON ========== -->
+<h2 style="max-width:900px;margin:48px auto 12px;">Comparison</h2>
+
+<div class="compare">
+<table>
+  <tr><th>Aspect</th><th>Current</th><th>Option C</th></tr>
+  <tr><td>Chat header</td><td>~56px with 7+ controls</td><td class="win">0px — eliminated</td></tr>
+  <tr><td>Mode selector</td><td>~35px row below input</td><td class="win">Inline chips (0px extra)</td></tr>
+  <tr><td>Vertical space gained</td><td>—</td><td class="win">+56px for chat</td></tr>
+  <tr><td>Settings access</td><td>Always visible, cramped</td><td class="win">On-demand frosted panel</td></tr>
+  <tr><td>Stop button</td><td>Appears/disappears in input</td><td class="win">Fixed in tab bar (zero shift)</td></tr>
+  <tr><td>Future settings (Fleet)</td><td>Need another row</td><td class="win">Chip in existing row</td></tr>
+  <tr><td>Pins drawer</td><td>Button in input row</td><td class="win">Icon in tab bar, full-height</td></tr>
+  <tr><td>Non-chat tabs</td><td>Irrelevant controls visible</td><td class="win">Contextual controls only</td></tr>
+  <tr><td>State rules (mutex, etc.)</td><td>—</td><td class="same">Identical — same components re-parented</td></tr>
+</table>
+</div>
+
+<div class="note-box green">
+  <strong>Zero risk to state rules.</strong> Every selector component (ModelSelector, ToolsSelector, SubAgentSelector, MCPSelector, SystemPromptEditor)
+  is a self-contained React component. The enable/disable logic lives inside each component via props + Zustand stores.
+  Moving them from <code>&lt;Header&gt;</code> to <code>&lt;SettingsPanel&gt;</code> is just changing the parent div — props and state flow unchanged.
+  Implementation can be incremental: move one control at a time, verify rules after each step.
+</div>
+
+<div class="note-box">
+  <strong>Implementation order:</strong> (1) Create empty SettingsPanel shell + gear toggle, (2) Move model selector → verify, (3) Move tools/agents → verify mutex,
+  (4) Move remaining controls, (5) Add stop button to tab bar, (6) Move mode to chips row, (7) Move pins button to tab bar, (8) Delete Header component.
+</div>
+
+</body>
+</html>
