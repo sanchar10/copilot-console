@@ -86,6 +86,39 @@ export async function setSessionMode(sessionId: string, mode: string): Promise<{
   return response.json();
 }
 
+export interface RuntimeSettings {
+  mode?: string;
+  model?: string;
+  reasoning_effort?: string | null;
+}
+
+export async function updateRuntimeSettings(
+  sessionId: string,
+  settings: RuntimeSettings,
+): Promise<RuntimeSettings> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/runtime-settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to update runtime settings: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+// --- Slash Command APIs ---
+
+export async function compactSession(sessionId: string): Promise<{ success: boolean; detail?: string }> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/compact`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to compact session: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // --- Repo Agent APIs ---
 
 
@@ -130,10 +163,11 @@ export async function sendMessage(
   onError: (error: string) => void,
   isNewSession: boolean = false,
   _onPendingMessages?: () => void,
-  onTurnDone?: () => void,
+  onTurnDone?: (messageId?: string) => void,
   attachments?: AttachmentRef[],
   onModeChanged?: (mode: string) => void,
-  agentMode?: string
+  agentMode?: string,
+  fleet?: boolean
 ): Promise<void> {
   const body: Record<string, unknown> = { content, is_new_session: isNewSession };
   if (attachments && attachments.length > 0) {
@@ -141,6 +175,9 @@ export async function sendMessage(
   }
   if (agentMode) {
     body.agent_mode = agentMode;
+  }
+  if (fleet) {
+    body.fleet = true;
   }
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/messages`, {
     method: 'POST',
@@ -199,7 +236,7 @@ export async function sendMessage(
           } else if (eventName === 'usage_info' && data.tokenLimit !== undefined) {
             onUsageInfo(data);
           } else if (eventName === 'turn_done') {
-            onTurnDone?.();
+            onTurnDone?.(data.messageId);
           } else if (eventName === 'done') {
             // message_id may be undefined for buffer-based responses
             // session_name is included when auto-naming kicks in
@@ -230,7 +267,7 @@ export async function sendMessage(
           const data = JSON.parse(eventData);
           if (eventName === 'delta' && data.content !== undefined) onDelta(data.content);
           if (eventName === 'step' && data.title) onStep(data);
-          if (eventName === 'turn_done') onTurnDone?.();
+          if (eventName === 'turn_done') onTurnDone?.(data.messageId);
           if (eventName === 'done') onDone(data.message_id || '', data.session_name);
         } catch {
           // ignore

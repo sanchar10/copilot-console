@@ -64,11 +64,25 @@ class SessionUpdate(BaseModel):
     tools: AgentTools | None = None
     system_message: dict | None = None
     sub_agents: list[str] | None = None
+    model: str | None = None
+    reasoning_effort: str | None = None
 
 
 class ModeSetRequest(BaseModel):
     """Request to set the agent mode for a session."""
     mode: str = Field(description="Agent mode: 'interactive', 'plan', or 'autopilot'")
+
+
+class RuntimeSettingsRequest(BaseModel):
+    """Request to update runtime settings (RPC-based, changeable anytime)."""
+    mode: str | None = Field(default=None, description="Agent mode: 'interactive', 'plan', or 'autopilot'")
+    model: str | None = Field(default=None, description="Model ID to switch to")
+    reasoning_effort: str | None = Field(default=None, description="Reasoning effort level for models that support it")
+
+
+class FleetRequest(BaseModel):
+    """Request to start fleet mode on a session."""
+    prompt: str | None = Field(default=None, description="Prompt to parallelize across sub-agents")
 
 
 class Session(SessionBase):

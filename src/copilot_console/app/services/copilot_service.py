@@ -26,8 +26,8 @@ import time
 from typing import AsyncGenerator, TYPE_CHECKING
 
 from copilot import CopilotClient
-from copilot.types import Tool
-from copilot.generated.rpc import Mode, SessionModeSetParams
+from copilot.types import Tool, SubprocessConfig
+from copilot.generated.rpc import Mode, SessionModeSetParams, SessionModelSwitchToParams, SessionFleetStartParams
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
 # Import approve_all if available, otherwise provide a fallback for older SDKs.
@@ -128,9 +128,7 @@ class SessionClient:
         if self.started:
             return
         
-        self.client = CopilotClient({
-            "cwd": self.cwd,
-        })
+        self.client = CopilotClient(SubprocessConfig(cwd=self.cwd))
         await self.client.start()
         self.started = True
         self.last_activity = time.time()
@@ -220,7 +218,7 @@ class SessionClient:
         
         session_opts["working_directory"] = self.cwd
         
-        self.session = await self.client.create_session(session_opts)
+        self.session = await self.client.create_session(**session_opts)
         self.touch()
         logger.info(f"[{self.session_id}] Created SDK session with model={model}, working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
         return self.session
@@ -260,7 +258,7 @@ class SessionClient:
             resume_opts["working_directory"] = self.cwd
             
             logger.info(f"[{self.session_id}] Resuming SDK session with custom_agents={len(custom_agents or [])}")
-            self.session = await self.client.resume_session(self.session_id, resume_opts)
+            self.session = await self.client.resume_session(self.session_id, **resume_opts)
             self.touch()
             logger.info(f"[{self.session_id}] Resumed SDK session with mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}")
             return self.session
@@ -294,6 +292,39 @@ class SessionClient:
         self.touch()
         logger.info(f"[{self.session_id}] Mode set to {result.mode.value}")
         return result.mode.value
+
+    async def set_model(self, model_id: str, reasoning_effort: str | None = None) -> str:
+        """Switch the model on the active session. Takes effect from the next message."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to set model on")
+        result = await self.session.rpc.model.switch_to(
+            SessionModelSwitchToParams(model_id=model_id, reasoning_effort=reasoning_effort)
+        )
+        self.touch()
+        logger.info(f"[{self.session_id}] Model set to {result.model_id}")
+        return result.model_id or model_id
+
+    async def start_fleet(self, prompt: str | None = None) -> dict:
+        """Start fleet mode (parallel sub-agents) on the active session."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to start fleet on")
+        result = await self.session.rpc.fleet.start(SessionFleetStartParams(prompt=prompt))
+        self.touch()
+        logger.info(f"[{self.session_id}] Fleet started: {result.started}")
+        return {"started": result.started}
+
+    async def compact(self) -> dict:
+        """Compact the session context (remove old messages to free tokens)."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to compact")
+        result = await self.session.rpc.compaction.compact()
+        self.touch()
+        logger.info(f"[{self.session_id}] Compact: success={result.success}, tokens_removed={result.tokens_removed}, messages_removed={result.messages_removed}")
+        return {
+            "success": result.success,
+            "tokens_removed": result.tokens_removed,
+            "messages_removed": result.messages_removed,
+        }
 
 
 class CopilotService:
@@ -338,10 +369,10 @@ class CopilotService:
                 return
             
             try:
-                self._main_client = CopilotClient({})
+                self._main_client = CopilotClient()
                 await self._main_client.start()
                 self._main_started = True
-                logger.info(f"Main CopilotClient started (CLI: {self._main_client.options.get('cli_path', 'bundled')})")
+                logger.info("Main CopilotClient started")
                 
                 # Start background cleanup task
                 self._cleanup_task = asyncio.create_task(self._idle_cleanup_loop())
@@ -485,7 +516,7 @@ class CopilotService:
                 resume_config: dict = {"streaming": False}
                 if approve_all_permissions:
                     resume_config["on_permission_request"] = approve_all_permissions
-                session = await self._main_client.resume_session(session_id, resume_config)
+                session = await self._main_client.resume_session(session_id, **resume_config)
                 messages = await session.get_messages()
                 logger.info(f"Fetched {len(messages)} messages from session {session_id} (temporary resume)")
                 try:
@@ -502,7 +533,7 @@ class CopilotService:
                     stripped = await self._sanitize_events_jsonl(session_id, error_msg)
                     if stripped:
                         try:
-                            session = await self._main_client.resume_session(session_id, resume_config)
+                            session = await self._main_client.resume_session(session_id, **resume_config)
                             messages = await session.get_messages()
                             logger.info(f"Session {session_id} resumed successfully after sanitization")
                             try:
@@ -654,7 +685,7 @@ class CopilotService:
                 destroy_config: dict = {"streaming": False}
                 if approve_all_permissions:
                     destroy_config["on_permission_request"] = approve_all_permissions
-                session = await self._main_client.resume_session(session_id, destroy_config)
+                session = await self._main_client.resume_session(session_id, **destroy_config)
                 await session.destroy()
                 logger.info(f"[{session_id}] Session destroyed via main client")
             except Exception as e:
@@ -692,7 +723,33 @@ class CopilotService:
                                 excluded_tools: list[str] | None = None,
                                 system_message: dict | None = None,
                                 custom_agents: list[dict] | None = None) -> str:
-        """Set agent mode on a session, activating it if needed."""
+        """Set agent mode on a session, activating it if needed.
+        
+        Deprecated: Use update_runtime_settings() instead.
+        """
+        result = await self.update_runtime_settings(
+            session_id, cwd, mode=mode,
+            mcp_servers=mcp_servers, tools=tools,
+            available_tools=available_tools, excluded_tools=excluded_tools,
+            system_message=system_message, custom_agents=custom_agents,
+        )
+        return result.get("mode", mode)
+
+    async def update_runtime_settings(self, session_id: str, cwd: str, *,
+                                       mode: str | None = None,
+                                       model: str | None = None,
+                                       reasoning_effort: str | None = None,
+                                       mcp_servers: dict[str, dict] | None = None,
+                                       tools: list[Tool] | None = None,
+                                       available_tools: list[str] | None = None,
+                                       excluded_tools: list[str] | None = None,
+                                       system_message: dict | None = None,
+                                       custom_agents: list[dict] | None = None) -> dict:
+        """Update runtime settings (mode, model) on a session, activating it if needed.
+        
+        Runtime settings are RPC-based and can be changed anytime, independent of
+        agent response status. Only provided fields are applied.
+        """
         client = await self.get_session_client(session_id, cwd)
         # Ensure SDK session exists (resume if needed)
         await client.get_or_create_session(
@@ -700,7 +757,48 @@ class CopilotService:
             available_tools=available_tools, excluded_tools=excluded_tools,
             system_message=system_message, custom_agents=custom_agents,
         )
-        return await client.set_mode(mode)
+
+        result: dict = {}
+        if mode is not None:
+            confirmed_mode = await client.set_mode(mode)
+            result["mode"] = confirmed_mode
+        if model is not None:
+            confirmed_model = await client.set_model(model, reasoning_effort)
+            result["model"] = confirmed_model
+            result["reasoning_effort"] = reasoning_effort
+        return result
+
+    async def start_fleet(self, session_id: str, cwd: str, prompt: str | None = None,
+                          mcp_servers: dict[str, dict] | None = None,
+                          tools: list[Tool] | None = None,
+                          available_tools: list[str] | None = None,
+                          excluded_tools: list[str] | None = None,
+                          system_message: dict | None = None,
+                          custom_agents: list[dict] | None = None) -> dict:
+        """Start fleet mode on a session, activating it if needed."""
+        client = await self.get_session_client(session_id, cwd)
+        await client.get_or_create_session(
+            model="", mcp_servers=mcp_servers, tools=tools,
+            available_tools=available_tools, excluded_tools=excluded_tools,
+            system_message=system_message, custom_agents=custom_agents,
+        )
+        return await client.start_fleet(prompt)
+
+    async def compact_session(self, session_id: str, cwd: str,
+                              mcp_servers: dict[str, dict] | None = None,
+                              tools: list[Tool] | None = None,
+                              available_tools: list[str] | None = None,
+                              excluded_tools: list[str] | None = None,
+                              system_message: dict | None = None,
+                              custom_agents: list[dict] | None = None) -> dict:
+        """Compact session context, activating the session if needed."""
+        client = await self.get_session_client(session_id, cwd)
+        await client.get_or_create_session(
+            model="", mcp_servers=mcp_servers, tools=tools,
+            available_tools=available_tools, excluded_tools=excluded_tools,
+            system_message=system_message, custom_agents=custom_agents,
+        )
+        return await client.compact()
 
     async def send_message(
         self,
@@ -719,6 +817,7 @@ class CopilotService:
         custom_agents: list[dict] | None = None,
         reasoning_effort: str | None = None,
         agent_mode: str | None = None,
+        fleet: bool = False,
     ) -> AsyncGenerator[dict, None]:
         """Send a message and stream the response.
 
@@ -795,8 +894,6 @@ class CopilotService:
 
             return ""
 
-        compacting = False  # True while context compaction is in progress
-
         # Track whether compaction is in progress so we keep the stream open
         compacting = False
         idle_received = False
@@ -841,7 +938,14 @@ class CopilotService:
                 # Always emit turn_done so the frontend can finalize this
                 # response — works for both single and enqueued messages.
                 if full_response:
-                    event_queue.put_nowait({"event": "turn_done", "data": {}})
+                    # Extract SDK message ID so frontend can pin this message
+                    msg_id = None
+                    if data:
+                        msg_id = getattr(data, "message_id", None) or getattr(data, "id", None)
+                        if not msg_id and isinstance(data, dict):
+                            msg_id = data.get("message_id") or data.get("id")
+                    logger.debug(f"[{session_id}] turn_done msg_id={msg_id}")
+                    event_queue.put_nowait({"event": "turn_done", "data": {"messageId": msg_id}})
                 full_response.clear()
                 logger.debug(f"[{session_id}] assistant.message — turn boundary emitted")
 
@@ -1019,21 +1123,40 @@ class CopilotService:
             elif event_type == "session.idle":
                 idle_received = True
                 if compacting:
-                    # Compaction in progress — keep stream open until it finishes
                     logger.info(f"[{session_id}] session.idle while compacting — waiting for compaction_complete")
                 else:
-                    # No compaction — terminate immediately
+                    # session.idle = all work done (normal, fleet, enqueued — everything)
                     _terminate_stream()
 
         session.on(on_event)
 
-        send_opts: dict = {"prompt": prompt}
-        if mode:
-            send_opts["mode"] = mode
-        if attachments:
-            send_opts["attachments"] = attachments
-        await session.send(send_opts)
+        # Fleet mode: fire fleet.start() as a concurrent task so it doesn't
+        # block the generator. Events flow through on_event → queue → yield.
+        # session.idle (the last event) terminates the stream.
+        if fleet:
+            logger.info(f"[{session_id}] Starting fleet mode")
 
+            async def _run_fleet() -> None:
+                try:
+                    result = await client.start_fleet(prompt)
+                    logger.info(f"[{session_id}] Fleet RPC returned: started={result.get('started')}")
+                except Exception as e:
+                    logger.error(f"[{session_id}] Fleet RPC error: {e}", exc_info=True)
+                    if not done.is_set():
+                        _terminate_stream()
+
+            asyncio.create_task(_run_fleet())
+        else:
+            send_kwargs: dict = {}
+            if mode:
+                send_kwargs["mode"] = mode
+            if attachments:
+                send_kwargs["attachments"] = attachments
+            await session.send(prompt, **send_kwargs)
+
+        # Main event consumption loop.
+        # Events arrive via on_event → event_queue. For both normal and fleet
+        # messages, session.idle calls _terminate_stream() which pushes None.
         while not done.is_set():
             try:
                 item = await asyncio.wait_for(event_queue.get(), timeout=1.0)
@@ -1070,6 +1193,7 @@ class CopilotService:
         custom_agents: list[dict] | None = None,
         reasoning_effort: str | None = None,
         agent_mode: str | None = None,
+        fleet: bool = False,
     ) -> None:
         """Send a message in a background task that won't be cancelled.
         
@@ -1097,6 +1221,7 @@ class CopilotService:
                 custom_agents=custom_agents,
                 reasoning_effort=reasoning_effort,
                 agent_mode=agent_mode,
+                fleet=fleet,
             ):
                 event_type = evt.get("event")
                 

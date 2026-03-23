@@ -11,7 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from copilot_console.app.config import SESSIONS_DIR
 from copilot_console.app.models.message import MessageCreate
-from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages, ModeSetRequest
+from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages, ModeSetRequest, RuntimeSettingsRequest
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.agent_storage_service import agent_storage_service
 from copilot_console.app.services.mcp_service import mcp_service
@@ -190,6 +190,7 @@ async def disconnect_session(session_id: str) -> dict:
 async def set_session_mode(session_id: str, request: ModeSetRequest) -> dict:
     """Set the agent mode (interactive/plan/autopilot) for a session.
     
+    Deprecated: Use PATCH /{session_id}/runtime-settings instead.
     Activates the session if it is not already active.
     """
     valid_modes = {"interactive", "plan", "autopilot"}
@@ -228,6 +229,105 @@ async def set_session_mode(session_id: str, request: ModeSetRequest) -> dict:
     except Exception as e:
         logger.error(f"[{session_id}] Failed to set mode: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to set mode: {e}")
+
+
+@router.patch("/{session_id}/runtime-settings")
+async def update_runtime_settings(session_id: str, request: RuntimeSettingsRequest) -> dict:
+    """Update runtime settings (mode, model) for a session.
+    
+    Runtime settings are RPC-based and can be changed anytime, independent of
+    agent response status. Only provided fields are applied.
+    Activates the session if it is not already active.
+    """
+    if request.mode is None and request.model is None:
+        raise HTTPException(status_code=400, detail="At least one setting (mode, model) must be provided")
+    
+    valid_modes = {"interactive", "plan", "autopilot"}
+    if request.mode is not None and request.mode not in valid_modes:
+        raise HTTPException(status_code=400, detail=f"Invalid mode: {request.mode}. Must be one of {valid_modes}")
+    
+    session = session_service.get_session_local(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    cwd = session.cwd or os.path.expanduser("~")
+    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
+    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
+    available_tools = session.tools.builtin if session.tools.builtin else None
+    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
+    system_message = None
+    if session.system_message and session.system_message.get("content"):
+        system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
+    custom_agents = None
+    if session.sub_agents:
+        custom_agents = agent_storage_service.convert_to_sdk_custom_agents(session.sub_agents, mcp_service)
+    
+    try:
+        result = await copilot_service.update_runtime_settings(
+            session_id, cwd,
+            mode=request.mode,
+            model=request.model,
+            reasoning_effort=request.reasoning_effort,
+            mcp_servers=mcp_configs,
+            tools=custom_tools if custom_tools else None,
+            available_tools=available_tools,
+            excluded_tools=excluded_tools,
+            system_message=system_message,
+            custom_agents=custom_agents,
+        )
+        
+        # Persist model/reasoning_effort changes to session.json
+        if request.model is not None:
+            update_fields = SessionUpdate(
+                model=result.get("model", request.model),
+                reasoning_effort=request.reasoning_effort,
+            )
+            await session_service.update_session(session_id, update_fields)
+        
+        return result
+    except Exception as e:
+        logger.error(f"[{session_id}] Failed to update runtime settings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update runtime settings: {e}")
+
+
+@router.post("/{session_id}/compact")
+async def compact_session(session_id: str) -> dict:
+    """Compact session context to free tokens.
+    
+    Removes old messages and frees token budget. Activates the session if
+    not already active.
+    """
+    set_session_context(session_id)
+    session = session_service.get_session_local(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    cwd = session.cwd or os.path.expanduser("~")
+    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
+    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
+    available_tools = session.tools.builtin if session.tools.builtin else None
+    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
+    system_message = None
+    if session.system_message and session.system_message.get("content"):
+        system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
+    custom_agents = None
+    if session.sub_agents:
+        custom_agents = agent_storage_service.convert_to_sdk_custom_agents(session.sub_agents, mcp_service)
+
+    try:
+        result = await copilot_service.compact_session(
+            session_id, cwd,
+            mcp_servers=mcp_configs,
+            tools=custom_tools if custom_tools else None,
+            available_tools=available_tools,
+            excluded_tools=excluded_tools,
+            system_message=system_message,
+            custom_agents=custom_agents,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"[{session_id}] Failed to compact session: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to compact session: {e}")
 
 
 @router.post("/{session_id}/enqueue")
@@ -406,6 +506,7 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 custom_agents=custom_agents_sdk,
                 reasoning_effort=reasoning_effort,
                 agent_mode=request.agent_mode,
+                fleet=request.fleet,
             )
             logger.info(f"[Background] Agent completed for session {session_id}")
             
@@ -469,45 +570,18 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
 
     async def generate_events() -> AsyncGenerator[dict, None]:
         """Stream events from the buffer to SSE client."""
-        chunks_sent = 0
-        steps_sent = 0
-        notifications_sent = 0
-        usage_info_sent = False
+        events_sent = 0
 
         try:
             while True:
-                # Send any new chunks
-                while chunks_sent < len(buffer.chunks):
+                # Send all new events in order (chunks, steps, notifications interleaved)
+                while events_sent < len(buffer.ordered_events):
+                    evt = buffer.ordered_events[events_sent]
                     yield {
-                        "event": "delta",
-                        "data": json.dumps({"content": buffer.chunks[chunks_sent]})
+                        "event": evt["event"],
+                        "data": json.dumps(evt["data"])
                     }
-                    chunks_sent += 1
-                
-                # Send any new steps
-                while steps_sent < len(buffer.steps):
-                    yield {
-                        "event": "step",
-                        "data": json.dumps(buffer.steps[steps_sent])
-                    }
-                    steps_sent += 1
-                
-                # Send any new notifications (e.g. pending_messages)
-                while notifications_sent < len(buffer.notifications):
-                    notif = buffer.notifications[notifications_sent]
-                    yield {
-                        "event": notif["event"],
-                        "data": json.dumps(notif["data"])
-                    }
-                    notifications_sent += 1
-                
-                # Send usage_info if available and not yet sent
-                if buffer.usage_info and not usage_info_sent:
-                    yield {
-                        "event": "usage_info",
-                        "data": json.dumps(buffer.usage_info)
-                    }
-                    usage_info_sent = True
+                    events_sent += 1
                 
                 # Check if done
                 if buffer.status == ResponseStatus.COMPLETED:
@@ -565,26 +639,20 @@ async def resume_response_stream(
         raise HTTPException(status_code=404, detail="No active response for this session")
     
     async def generate_events() -> AsyncGenerator[dict, None]:
-        chunks_sent = from_chunk
-        steps_sent = from_step
+        # For resume, skip events that were already sent.
+        # from_chunk/from_step are approximate — use ordered_events count.
+        events_sent = from_chunk + from_step
         
         try:
             while True:
-                # Send any new chunks
-                while chunks_sent < len(buffer.chunks):
+                # Send all new events in order
+                while events_sent < len(buffer.ordered_events):
+                    evt = buffer.ordered_events[events_sent]
                     yield {
-                        "event": "delta",
-                        "data": json.dumps({"content": buffer.chunks[chunks_sent]})
+                        "event": evt["event"],
+                        "data": json.dumps(evt["data"])
                     }
-                    chunks_sent += 1
-                
-                # Send any new steps
-                while steps_sent < len(buffer.steps):
-                    yield {
-                        "event": "step",
-                        "data": json.dumps(buffer.steps[steps_sent])
-                    }
-                    steps_sent += 1
+                    events_sent += 1
                 
                 # Check if done
                 if buffer.status == ResponseStatus.COMPLETED:

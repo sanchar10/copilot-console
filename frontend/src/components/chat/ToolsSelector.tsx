@@ -155,7 +155,7 @@ export function ToolsSelector({
           transition-colors duration-150
           ${disabled 
             ? 'bg-gray-100/80 dark:bg-gray-800/80 text-gray-400 border border-gray-200/60 dark:border-gray-700/60 cursor-not-allowed' 
-            : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-700/60 hover:bg-amber-200/80 dark:hover:bg-amber-800/40 cursor-pointer'
+            : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/60 hover:bg-blue-100 dark:hover:bg-blue-800/40 cursor-pointer'
           }
         `}
         title={disabledReason || `${enabledCount}/${availableTools.length} custom tools${builtinSummary ? `, built-in: ${draftMode}${builtinSummary}` : ''}`}
@@ -165,7 +165,7 @@ export function ToolsSelector({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
         <span>Tools</span>
-        <span className="bg-amber-200 dark:bg-amber-800/40 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold w-[3.5rem] text-center">
+        <span className="bg-blue-200 dark:bg-blue-800/40 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-semibold w-[3.5rem] text-center">
           {enabledCount}/{availableTools.length}{builtinSummary}
         </span>
         <svg
@@ -188,9 +188,9 @@ export function ToolsSelector({
                 </span>
                 {!readOnly && !subAgentsActive && (
                 <div className="flex gap-2">
-                  <button onClick={handleSelectAll} className="text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 font-medium">All</button>
+                  <button onClick={handleSelectAll} className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">All</button>
                   <span className="text-gray-300 dark:text-gray-600">|</span>
-                  <button onClick={handleDeselectAll} className="text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 font-medium">None</button>
+                  <button onClick={handleDeselectAll} className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium">None</button>
                 </div>
                 )}
               </div>
@@ -203,7 +203,7 @@ export function ToolsSelector({
                         type="checkbox"
                         checked={isEnabled}
                         onChange={() => handleToggle(tool.name)}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         disabled={readOnly || subAgentsActive}
                       />
                       <div className="flex-1 min-w-0">
@@ -245,14 +245,14 @@ export function ToolsSelector({
                     value={draftText}
                     onChange={(e) => handleBuiltinTextChange(e.target.value)}
                     placeholder={draftMode === 'include' ? 'e.g. web_search, view, edit' : 'e.g. powershell, sql'}
-                    className={`flex-1 px-2 py-1 border border-white/40 dark:border-gray-600 rounded text-xs ${(onBuiltinToolsChange && !readOnly) ? 'focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50' : 'bg-white/30 dark:bg-gray-800/30 text-gray-500 cursor-default'}`}
+                    className={`flex-1 px-2 py-1 border border-white/40 dark:border-gray-600 rounded text-xs ${(onBuiltinToolsChange && !readOnly) ? 'focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 dark:bg-gray-700/50' : 'bg-white/30 dark:bg-gray-800/30 text-gray-500 cursor-default'}`}
                     disabled={!onBuiltinToolsChange || readOnly}
                     readOnly={!onBuiltinToolsChange || readOnly}
                   />
                   {onBuiltinToolsChange && !readOnly && (
                     <button
                       onClick={applyBuiltinTools}
-                      className="px-2 py-1 text-xs font-medium bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors whitespace-nowrap"
+                      className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
                     >
                       Apply
                     </button>

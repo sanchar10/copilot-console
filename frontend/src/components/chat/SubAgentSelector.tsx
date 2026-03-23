@@ -65,14 +65,14 @@ export function SubAgentSelector({
           transition-colors duration-150
           ${disabled
             ? 'bg-gray-100/80 dark:bg-gray-800/80 text-gray-400 border border-gray-200/60 dark:border-gray-700/60 cursor-not-allowed'
-            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200/60 dark:border-purple-700/60 hover:bg-purple-200/80 dark:hover:bg-purple-800/40 cursor-pointer'
+            : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/60 hover:bg-blue-100 dark:hover:bg-blue-800/40 cursor-pointer'
           }
         `}
         title={disabledReason || `${enabledCount}/${availableAgents.length} sub-agents enabled`}
       >
         <span className="text-sm leading-none">👥</span>
         <span>Sub-Agents</span>
-        <span className="bg-purple-200/80 dark:bg-purple-800/40 text-purple-800 dark:text-purple-300 px-1.5 py-0.5 rounded text-[10px] font-semibold min-w-[2.5rem] text-center">
+        <span className="bg-blue-200/80 dark:bg-blue-800/40 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-semibold min-w-[2.5rem] text-center">
           {enabledCount}/{availableAgents.length}
         </span>
         <svg
@@ -94,14 +94,14 @@ export function SubAgentSelector({
                 <div className="flex gap-1">
                   <button
                     onClick={handleSelectAll}
-                    className="text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 px-1.5 py-0.5"
+                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1.5 py-0.5"
                   >
                     All
                   </button>
                   <span className="text-gray-300 dark:text-gray-600">|</span>
                   <button
                     onClick={handleDeselectAll}
-                    className="text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 px-1.5 py-0.5"
+                    className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1.5 py-0.5"
                   >
                     None
                   </button>
@@ -122,7 +122,7 @@ export function SubAgentSelector({
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => handleToggle(agent.id)}
-                    className="mt-0.5 h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                    className="mt-0.5 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                     disabled={readOnly}
                   />
                   <div className="flex-1 min-w-0">

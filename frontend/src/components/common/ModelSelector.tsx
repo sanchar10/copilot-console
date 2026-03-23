@@ -8,6 +8,8 @@ interface ModelSelectorProps {
   onModelChange: (modelId: string, effort: string | null) => void;
   onReasoningEffortChange?: (effort: string) => void;
   disabled?: boolean;
+  /** When true, dropdown opens but items are non-selectable (grayed out) */
+  readOnly?: boolean;
   /** 'compact' for header badge, 'full' for form-width input */
   variant?: 'compact' | 'full';
 }
@@ -19,6 +21,7 @@ export function ModelSelector({
   onModelChange,
   onReasoningEffortChange,
   disabled = false,
+  readOnly = false,
   variant = 'compact',
 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
@@ -50,6 +53,7 @@ export function ModelSelector({
   };
 
   const handleModelSelect = (m: Model) => {
+    if (readOnly) return;
     const defaultEffort = m.supported_reasoning_efforts?.length
       ? (m.default_reasoning_effort || m.supported_reasoning_efforts[0])
       : null;
@@ -59,6 +63,7 @@ export function ModelSelector({
   };
 
   const handleReasoningSelect = (modelId: string, effort: string) => {
+    if (readOnly) return;
     const m = models.find(mod => mod.id === modelId);
     if (m) onModelChange(m.id, effort);
     if (onReasoningEffortChange) onReasoningEffortChange(effort);
@@ -77,8 +82,8 @@ export function ModelSelector({
         className={isCompact
           ? `min-w-[80px] h-[30px] px-2.5 py-0.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 ${
               !disabled
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 cursor-pointer'
-                : 'bg-gray-100 dark:bg-[#2a2a3c] text-gray-600 dark:text-gray-400 cursor-default'
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer border border-blue-200/60 dark:border-blue-700/60'
+                : 'bg-gray-100 dark:bg-[#2a2a3c] text-gray-600 dark:text-gray-400 cursor-default border border-gray-200/60 dark:border-gray-700/60'
             }`
           : `w-full px-3 py-2 border rounded-lg text-sm flex items-center justify-between transition-colors ${
               !disabled
@@ -121,8 +126,12 @@ export function ModelSelector({
                       handleModelSelect(m);
                     }
                   }}
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-[#32324a] flex items-center justify-between ${
-                    isSelected ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300'
+                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between ${
+                    readOnly
+                      ? 'opacity-50 cursor-default'
+                      : 'hover:bg-gray-100 dark:hover:bg-[#32324a]'
+                  } ${
+                    isSelected ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
                   }`}
                 >
                   <span>{m.name}</span>
@@ -144,7 +153,7 @@ export function ModelSelector({
                           onClick={() => handleReasoningSelect(m.id, level)}
                           className={`px-2 py-0.5 text-[11px] rounded-full border transition-colors ${
                             isExplicitlySelected
-                              ? 'bg-purple-100 dark:bg-purple-900/40 border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300'
+                              ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300'
                               : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#32324a]'
                           }`}
                         >

@@ -153,7 +153,7 @@ function CompactVariant({
         className={`h-[30px] px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 cursor-pointer ${
           disabled
             ? 'bg-gray-100/80 dark:bg-[#32324a] text-gray-600 dark:text-gray-400 border border-gray-200/60 dark:border-gray-600 cursor-default'
-            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-700 hover:bg-blue-200/80 dark:hover:bg-blue-900/50'
+            : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50'
         }`}
         title={hasContent ? `System prompt (${value?.mode || 'replace'})` : 'No custom system prompt — using SDK default'}
       >

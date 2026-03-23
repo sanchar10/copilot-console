@@ -74,7 +74,7 @@ export function MCPSelector({
           transition-colors duration-150
           ${disabled 
             ? 'bg-gray-100/80 dark:bg-gray-800/80 text-gray-400 border border-gray-200/60 dark:border-gray-700/60 cursor-not-allowed' 
-            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/60 hover:bg-blue-200/80 dark:hover:bg-blue-800/40 cursor-pointer'
+            : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/60 hover:bg-blue-100 dark:hover:bg-blue-800/40 cursor-pointer'
           }
         `}
         title={`${enabledCount}/${availableServers.length} MCP servers enabled`}

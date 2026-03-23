@@ -813,6 +813,12 @@ class SessionService:
             if old_sub != request.sub_agents and copilot_service.is_session_active(session_id):
                 need_recreate = True
         
+        # Model/reasoning_effort: persist only (runtime change already handled via RPC)
+        if request.model is not None:
+            session.model = request.model
+        if request.reasoning_effort is not None:
+            session.reasoning_effort = request.reasoning_effort
+        
         # Destroy client so next message resumes with new config
         if need_recreate:
             await copilot_service.destroy_session_client(session_id)

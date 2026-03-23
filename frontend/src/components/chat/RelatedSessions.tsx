@@ -54,7 +54,7 @@ export function RelatedSessions({ sessions, currentSessionId, cwd, openTabs, onS
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="h-[30px] px-2 py-1 text-xs font-medium bg-amber-50/80 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-md hover:bg-amber-100/80 dark:hover:bg-amber-800/30 flex items-center gap-1.5 transition-colors duration-150"
+        className="h-[30px] px-2 py-1 text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-800/40 flex items-center gap-1.5 transition-colors duration-150 border border-blue-200/60 dark:border-blue-700/60"
         title={`${related.length} other session${related.length > 1 ? 's' : ''} in this folder`}
       >
         {/* Layers/stack icon */}

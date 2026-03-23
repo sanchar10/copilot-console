@@ -278,7 +278,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
       </div>
       
       {/* Message content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 group/pin">
         {/* Label */}
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className={`text-sm font-medium ${isUser ? 'text-blue-600' : 'text-emerald-600'}`}>
@@ -295,7 +295,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
         </div>
         
         {/* Message body */}
-        <div ref={bodyRef} onClick={handleFilePathClick} className={`relative group/pin rounded-lg px-4 py-3 ${
+        <div ref={bodyRef} onClick={handleFilePathClick} className={`relative rounded-lg px-4 py-3 ${
           isEnqueued
             ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700'
             : isUser 

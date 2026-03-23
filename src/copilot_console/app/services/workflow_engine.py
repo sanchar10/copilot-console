@@ -30,7 +30,95 @@ from agent_framework import (
     WorkflowViz,
 )
 from agent_framework_declarative import WorkflowFactory
-from agent_framework_github_copilot import GitHubCopilotAgent
+
+# --- SDK 0.2.0 compatibility shim for agent_framework_github_copilot ---
+# The agent framework was built against SDK 0.1.x which used TypedDicts for
+# CopilotClientOptions, SessionConfig, ResumeSessionConfig, MessageOptions.
+# SDK 0.2.0 replaced these with keyword-arg APIs. We inject the missing type
+# aliases so the AF module loads, then wrap the changed SDK methods so dict-
+# based calls from the AF still work.
+import copilot.types as _copilot_types
+import copilot.session as _copilot_session
+import copilot.client as _copilot_client
+
+_SDK_PATCHED = False
+
+def _apply_sdk_compat_shim() -> bool:
+    """Patch SDK 0.2.0 to accept 0.1.x dict-style calls. Returns True if patched."""
+    global _SDK_PATCHED
+    if _SDK_PATCHED:
+        return True
+
+    # 1. Add missing TypedDict aliases (AF only uses them as type annotations)
+    for name in ("CopilotClientOptions", "SessionConfig", "ResumeSessionConfig", "MessageOptions"):
+        if not hasattr(_copilot_types, name):
+            setattr(_copilot_types, name, dict)
+
+    # 2. Wrap CopilotClient.__init__ to accept dict options
+    _orig_init = _copilot_client.CopilotClient.__init__
+    def _patched_init(self, config=None, **kwargs):
+        if isinstance(config, dict):
+            from copilot.types import SubprocessConfig
+            if config:
+                config = SubprocessConfig(**{k: v for k, v in config.items()
+                                            if k in SubprocessConfig.__dataclass_fields__})
+            else:
+                config = None
+        _orig_init(self, config, **kwargs)
+    _copilot_client.CopilotClient.__init__ = _patched_init
+
+    # 3. Wrap create_session to accept dict config
+    _orig_create = _copilot_client.CopilotClient.create_session
+    async def _patched_create(self, config=None, **kwargs):
+        if isinstance(config, dict):
+            return await _orig_create(self, **config)
+        if config is not None:
+            kwargs["config"] = config
+        return await _orig_create(self, **kwargs)
+    _copilot_client.CopilotClient.create_session = _patched_create
+
+    # 4. Wrap resume_session to accept dict config
+    _orig_resume = _copilot_client.CopilotClient.resume_session
+    async def _patched_resume(self, session_id, config=None, **kwargs):
+        if isinstance(config, dict):
+            return await _orig_resume(self, session_id, **config)
+        if config is not None:
+            kwargs["config"] = config
+        return await _orig_resume(self, session_id, **kwargs)
+    _copilot_client.CopilotClient.resume_session = _patched_resume
+
+    # 5. Wrap send_and_wait to accept dict message_options
+    _orig_send_wait = _copilot_session.CopilotSession.send_and_wait
+    async def _patched_send_wait(self, prompt_or_opts, **kwargs):
+        if isinstance(prompt_or_opts, dict):
+            prompt = prompt_or_opts.get("prompt", "")
+            return await _orig_send_wait(self, prompt, **kwargs)
+        return await _orig_send_wait(self, prompt_or_opts, **kwargs)
+    _copilot_session.CopilotSession.send_and_wait = _patched_send_wait
+
+    # 6. Wrap send to accept dict message_options
+    _orig_send = _copilot_session.CopilotSession.send
+    async def _patched_send(self, prompt_or_opts, **kwargs):
+        if isinstance(prompt_or_opts, dict):
+            prompt = prompt_or_opts.pop("prompt", "")
+            return await _orig_send(self, prompt, **prompt_or_opts, **kwargs)
+        return await _orig_send(self, prompt_or_opts, **kwargs)
+    _copilot_session.CopilotSession.send = _patched_send
+
+    _SDK_PATCHED = True
+    return True
+
+try:
+    _apply_sdk_compat_shim()
+    from agent_framework_github_copilot import GitHubCopilotAgent
+except ImportError:
+    logging.getLogger(__name__).warning(
+        "agent_framework_github_copilot not compatible with installed copilot SDK. "
+        "Workflow engine will be unavailable."
+    )
+    class GitHubCopilotAgent:  # type: ignore[no-redef]
+        def __init__(self, **kwargs: Any) -> None:
+            pass
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
 try:

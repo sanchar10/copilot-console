@@ -18,7 +18,7 @@ import { TaskRunDetail } from '../taskboard/TaskRunDetail';
 import { WorkflowLibrary } from '../workflows/WorkflowLibrary';
 import { WorkflowEditor } from '../workflows/WorkflowEditor';
 import { WorkflowRunView } from '../workflows/WorkflowRunView';
-import { updateSession, getSession } from '../../api/sessions';
+import { updateSession, getSession, updateRuntimeSettings } from '../../api/sessions';
 import { getAgent, getEligibleSubAgents } from '../../api/agents';
 import type { AgentTools, SystemMessage, Agent, StarterPrompt } from '../../types/agent';
 
@@ -158,7 +158,7 @@ function PinsDrawer({
 
 const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive }: { sessionId: string; isActive: boolean }) {
   const { sessions, availableMcpServers, availableTools, setSessions, updateSessionMcpServers, updateSessionTools } = useSessionStore();
-  const { messagesPerSession, getStreamingState, getTokenUsage } = useChatStore();
+  const { messagesPerSession, getStreamingState, getTokenUsage, sendingSessionId } = useChatStore();
   const { availableModels } = useUIStore();
   const { tabs, openTab: openGenericTab, switchTab: switchGenericTab } = useTabStore();
   const pins = usePinStore((s) => s.pinsPerSession[sessionId]) || [];
@@ -310,6 +310,24 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
     }
   }, [sessionId, sessions, setSessions]);
 
+  const { updateSessionModel } = useSessionStore();
+  const handleModelChange = useCallback(async (model: string, reasoningEffort?: string | null) => {
+    // Optimistic update
+    updateSessionModel(sessionId, model, reasoningEffort ?? null);
+    try {
+      await updateRuntimeSettings(sessionId, {
+        model,
+        reasoning_effort: reasoningEffort ?? undefined,
+      });
+    } catch (error) {
+      console.error('Failed to update model:', error);
+      // Revert on failure
+      if (session) {
+        updateSessionModel(sessionId, session.model, session.reasoning_effort ?? null);
+      }
+    }
+  }, [sessionId, session, updateSessionModel]);
+
   // Fetch eligible sub-agents (exclude session's own agent)
   useEffect(() => {
     const agentId = session?.agent_id;
@@ -373,11 +391,13 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
         systemMessage={session?.system_message}
         tokenUsage={tokenUsage}
         hasActiveResponse={isStreaming}
+        isActivating={sendingSessionId === sessionId}
         sessions={sessions}
         currentSessionId={sessionId}
         openTabs={tabs.filter((t) => t.type === 'session' && t.sessionId).map((t) => t.sessionId!)}
         onRelatedSessionClick={handleRelatedSessionClick}
         onNameChange={handleNameChange}
+        onModelChange={handleModelChange}
         onCwdChange={handleCwdChange}
         onMcpSelectionsChange={handleMcpSelectionsChange}
         onToolSelectionsChange={handleToolSelectionsChange}

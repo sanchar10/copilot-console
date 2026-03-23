@@ -50,6 +50,7 @@ class MessageCreate(BaseModel):
     mode: Literal["enqueue", "immediate"] | None = None  # Message delivery mode
     attachments: list[AttachmentRef] | None = None  # File/directory attachments
     agent_mode: str | None = None  # Agent mode to set before sending (interactive/plan/autopilot)
+    fleet: bool = False  # True to use fleet mode (parallel sub-agents)
 
 
 class MessageDelta(BaseModel):

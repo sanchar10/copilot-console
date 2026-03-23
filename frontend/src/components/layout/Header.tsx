@@ -44,6 +44,7 @@ interface HeaderProps {
   systemMessage?: SystemMessage | null;
   tokenUsage?: { tokenLimit: number; currentTokens: number; messagesLength: number } | null;
   hasActiveResponse?: boolean;
+  isActivating?: boolean;
   sessions?: Session[];
   currentSessionId?: string;
   openTabs?: string[];
@@ -76,6 +77,7 @@ export function Header({
   systemMessage,
   tokenUsage = null,
   hasActiveResponse = false,
+  isActivating = false,
   sessions = [],
   currentSessionId,
   openTabs = [],
@@ -167,7 +169,17 @@ export function Header({
             {/* Separator */}
             <div className="h-5 w-[2px] bg-gray-300 dark:bg-gray-600 mx-0.5" />
 
-            {/* Model badge - clickable dropdown for new sessions, static for existing */}
+            {/* System Prompt — locked after session creation */}
+            {onSystemMessageChange && (
+              <SystemPromptEditor
+                value={systemMessage}
+                onChange={onSystemMessageChange}
+                variant="compact"
+                disabled={!isNewSession || hasActiveResponse}
+              />
+            )}
+
+            {/* Model badge - changeable anytime */}
             {model && (
               <ModelSelector
                 models={availableModels}
@@ -177,18 +189,9 @@ export function Header({
                   if (onModelChange) onModelChange(modelId, effort);
                 }}
                 onReasoningEffortChange={onReasoningEffortChange}
-                disabled={!isNewSession}
+                disabled={false}
+                readOnly={isActivating}
                 variant="compact"
-              />
-            )}
-
-            {/* System Prompt */}
-            {onSystemMessageChange && (
-              <SystemPromptEditor
-                value={systemMessage}
-                onChange={onSystemMessageChange}
-                variant="compact"
-                disabled={!isNewSession || hasActiveResponse}
               />
             )}
 
@@ -236,10 +239,10 @@ export function Header({
             {cwd && (
               <button
                 onClick={() => !hasActiveResponse && onCwdChange && setShowFolderBrowser(true)}
-                className={`h-[30px] px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 min-w-0 max-w-[200px] ${
+                className={`h-[30px] px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 min-w-0 max-w-[200px] bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/60 ${
                   hasActiveResponse || !onCwdChange
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-500 cursor-default'
-                    : 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                    ? 'cursor-default'
+                    : 'hover:bg-blue-100 dark:hover:bg-blue-900/50'
                 }`}
                 title={`${cwd}\nClick to change folder`}
                 disabled={hasActiveResponse || !onCwdChange}

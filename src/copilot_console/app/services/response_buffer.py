@@ -38,6 +38,8 @@ class ResponseBuffer:
     updated_session_name: Optional[str] = None
     # Stable SDK messageId for the most recently completed turn (if available)
     last_message_id: Optional[str] = None
+    # Ordered event stream — all events in the order they were produced
+    ordered_events: list[dict] = field(default_factory=list)
     
     # For SSE consumers to wait on new data (no polling!)
     _new_data_event: asyncio.Event = field(default_factory=asyncio.Event)
@@ -45,16 +47,19 @@ class ResponseBuffer:
     def add_chunk(self, content: str) -> None:
         """Add a content chunk and signal waiting consumers."""
         self.chunks.append(content)
+        self.ordered_events.append({"event": "delta", "data": {"content": content}})
         self._new_data_event.set()
     
     def add_step(self, step: dict) -> None:
         """Add a step and signal waiting consumers."""
         self.steps.append(step)
+        self.ordered_events.append({"event": "step", "data": step})
         self._new_data_event.set()
     
     def add_usage_info(self, usage: dict) -> None:
         """Add token usage information and signal waiting consumers."""
         self.usage_info = usage
+        self.ordered_events.append({"event": "usage_info", "data": usage})
         self._new_data_event.set()
     
     def add_notification(self, event: str, data: dict | None = None) -> None:
@@ -65,6 +70,7 @@ class ResponseBuffer:
             if isinstance(msg_id, str) and msg_id.strip():
                 self.last_message_id = msg_id
         self.notifications.append({"event": event, "data": payload})
+        self.ordered_events.append({"event": event, "data": payload})
         self._new_data_event.set()
     
     def complete(self) -> None:

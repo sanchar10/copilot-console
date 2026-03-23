@@ -43,6 +43,7 @@ interface SessionState {
   updateSessionMcpServers: (sessionId: string, mcpServers: string[]) => void;
   updateSessionTools: (sessionId: string, tools: AgentTools) => void;
   updateSessionName: (sessionId: string, name: string) => void;
+  updateSessionModel: (sessionId: string, model: string, reasoningEffort: string | null) => void;
   refreshMcpServers: () => Promise<MCPServer[]>;
   refreshTools: () => Promise<ToolInfo[]>;
 }
@@ -146,6 +147,14 @@ export const useSessionStore = create<SessionState>((set) => ({
       sessions: state.sessions.map((s) =>
         s.session_id === sessionId
           ? { ...s, session_name: name }
+          : s
+      ),
+    })),
+  updateSessionModel: (sessionId: string, model: string, reasoningEffort: string | null) =>
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.session_id === sessionId
+          ? { ...s, model, reasoning_effort: reasoningEffort }
           : s
       ),
     })),

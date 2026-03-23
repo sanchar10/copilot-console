@@ -16,6 +16,8 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: true,
+    host: true, // Listen on all local IPs
     port: 5173,
     proxy: {
       '/api': {

@@ -5,11 +5,14 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
-import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, setSessionMode } from '../../api/sessions';
+import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings, compactSession } from '../../api/sessions';
 import type { AttachmentRef, UploadedFile } from '../../api/sessions';
 import { Button } from '../common/Button';
 import { ModeSelector, type AgentMode } from './ModeSelector';
 import { PinnedIcon } from './PinIcons';
+import { SlashCommandPalette } from './SlashCommandPalette';
+import type { SlashCommand } from './slashCommands';
+import { SLASH_COMMANDS } from './slashCommands';
 
 // Sessions whose backend SessionClient is confirmed ready.
 // Resets on page refresh — correct since backend clients are also destroyed.
@@ -77,6 +80,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   const [isUploading, setIsUploading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Slash command state
+  const [showSlashPalette, setShowSlashPalette] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [activeCommand, setActiveCommand] = useState<SlashCommand | null>(null);
   const { isNewSession, newSessionSettings, addSession, moveSessionToTop, updateSessionTimestamp, updateSessionName } = useSessionStore();
   const { defaultModel, defaultCwd } = useUIStore();
   const { setAgentActive, markViewed } = useViewedStore();
@@ -117,12 +124,12 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
       // New session: just update store memory
       useSessionStore.getState().updateNewSessionSettings({ agentMode: newMode });
     } else if (sessionId) {
-      // Existing session: call backend (which activates session if needed)
+      // Existing session: call backend via runtime-settings endpoint
       setSessionMode_(newMode);
       sessionModes.set(sessionId, newMode); // Persist across mount/unmount
       try {
-        const result = await setSessionMode(sessionId, newMode);
-        const confirmed = result.mode as AgentMode;
+        const result = await updateRuntimeSettings(sessionId, { mode: newMode });
+        const confirmed = (result.mode ?? newMode) as AgentMode;
         setSessionMode_(confirmed);
         sessionModes.set(sessionId, confirmed);
         readySessions.add(sessionId);
@@ -133,6 +140,69 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
       }
     }
   }, [isNewSession, sessionId, sessionMode]);
+
+  // --- Slash command handlers ---
+
+  const handleSlashSelect = useCallback((cmd: SlashCommand) => {
+    setShowSlashPalette(false);
+    setSlashQuery('');
+    if (cmd.executeImmediately) {
+      // /help: show available commands as a system message
+      if (cmd.name === 'help') {
+        const helpLines = SLASH_COMMANDS.map(c => `${c.icon} **/${c.name}** — ${c.description}`).join('\n');
+        const helpContent = `Available commands:\n${helpLines}`;
+        if (sessionId) {
+          addMessage(sessionId, {
+            id: `system-help-${Date.now()}`,
+            role: 'system',
+            content: helpContent,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+      return;
+    }
+    // Set the chip and clear input text
+    setActiveCommand(cmd);
+    setInput('');
+    textareaRef.current?.focus();
+  }, [sessionId, addMessage]);
+
+  const handleSlashDismiss = useCallback(() => {
+    setShowSlashPalette(false);
+    setSlashQuery('');
+  }, []);
+
+  const clearActiveCommand = useCallback(() => {
+    setActiveCommand(null);
+  }, []);
+
+  // Execute a slash command via API (compact only — fleet goes through normal sendMessage)
+  const executeSlashCommand = useCallback(async (cmd: SlashCommand, prompt: string) => {
+    if (!sessionId) return;
+    try {
+      if (cmd.name === 'compact') {
+        const result = await compactSession(sessionId);
+        const detail = result.success
+          ? `tokens freed: ${result.tokens_removed ?? '?'}`
+          : 'compaction failed';
+        addMessage(sessionId, {
+          id: `system-compact-${Date.now()}`,
+          role: 'system',
+          content: `📦 Compact: ${detail}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error(`Failed to execute /${cmd.name}:`, err);
+      addMessage(sessionId, {
+        id: `system-error-${Date.now()}`,
+        role: 'system',
+        content: `❌ Failed to execute /${cmd.name}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }, [sessionId, addMessage]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -232,7 +302,27 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
 
   const handleSubmit = async (overrideText?: string) => {
     const trimmedInput = (overrideText || input).trim();
-    if ((!trimmedInput && attachments.length === 0 && pendingFiles.length === 0) || isDisabled) return;
+
+    // Slash command dispatch — if a command chip is active
+    let isFleet = false;
+    if (activeCommand) {
+      if (activeCommand.name === 'fleet') {
+        // Fleet goes through the normal sendMessage pipeline with fleet flag
+        if (!trimmedInput) return; // Fleet requires a prompt
+        isFleet = true;
+        setActiveCommand(null);
+        // Fall through to normal message flow below
+      } else {
+        // Non-fleet commands (compact, help) use executeSlashCommand
+        if (activeCommand.requiresPrompt && !trimmedInput) return;
+        setInput('');
+        setActiveCommand(null);
+        await executeSlashCommand(activeCommand, trimmedInput);
+        return;
+      }
+    }
+
+    if ((!isFleet && !trimmedInput && attachments.length === 0 && pendingFiles.length === 0) || isDisabled) return;
 
     // If agent is already running, enqueue the follow-up message.
     // Read currentSessionId from store directly (not the prop) to avoid
@@ -360,6 +450,16 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     onMessageSent?.();
     updateSessionTimestamp(activeSessionId);
     setStreaming(activeSessionId, true);
+
+    // Fleet indicator — show "Fleet deployed" system message
+    if (isFleet) {
+      addMessage(activeSessionId, {
+        id: `system-fleet-${Date.now()}`,
+        role: 'system',
+        content: `🚀 Fleet deployed: "${resolvedPrompt}"`,
+        timestamp: new Date().toISOString(),
+      });
+    }
     
     // Mark as viewed NOW so we have a baseline timestamp for unread detection
     // This ensures that when agent completes, updated_at > lastViewed
@@ -430,14 +530,15 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         },
         isCreatingNewSession,  // Skip resume attempt for brand new sessions
         undefined,  // onPendingMessages — not needed, finalizeTurn handles mode clearing
-        () => {
+        (messageId?: string) => {
           // turn_done — agent finished responding to one message, more queued.
           // Insert the assistant response before the next queued user message.
-          finalizeTurn(activeSessionId!);
+          finalizeTurn(activeSessionId!, messageId);
         },
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
         (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) sessionModes.set(activeSessionId, mode as AgentMode); },
-        initialAgentMode
+        initialAgentMode,
+        isFleet
       );
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -450,11 +551,43 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // If palette is open, let it handle navigation keys
+    if (showSlashPalette) {
+      if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
+        // Handled by the palette's global keydown listener
+        return;
+      }
+    }
+    // Backspace on empty input clears the active command chip
+    if (e.key === 'Backspace' && input === '' && activeCommand) {
+      e.preventDefault();
+      clearActiveCommand();
+      return;
+    }
+    // Escape dismisses the command chip
+    if (e.key === 'Escape' && activeCommand) {
+      e.preventDefault();
+      clearActiveCommand();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
     }
   };
+
+  // Handle input changes — detect slash command typing
+  const handleInputChange = useCallback((value: string) => {
+    setInput(value);
+    if (!activeCommand && value.startsWith('/') && !value.includes(' ')) {
+      // Show palette and filter by typed query
+      setShowSlashPalette(true);
+      setSlashQuery(value.slice(1));
+    } else if (showSlashPalette) {
+      setShowSlashPalette(false);
+      setSlashQuery('');
+    }
+  }, [activeCommand, showSlashPalette]);
 
   return (
     <div
@@ -491,7 +624,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">Uploading...</div>
         )}
         {/* Input row — mirrors message layout: flex gap-3 [avatar-col w-8] [content flex-1] */}
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-3 items-center relative">
           {/* Avatar column: attach icon (aligns with avatars), mode selector floats left */}
           <div className="w-8 flex-shrink-0 relative flex items-center justify-center">
             {/* Mode selector — floats to the left of the avatar column */}
@@ -519,28 +652,64 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             </button>
           </div>
           {/* Content column — aligns with message bubble content */}
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder={isSending
-                ? "Activating session, please wait..."
-                : isStreaming 
-                  ? "Type a follow-up... (will be queued for the agent)" 
-                  : "Type a message... (Enter to send, Shift+Enter for new line)"}
-              className={`flex-1 resize-none rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[48px] max-h-[200px] dark:bg-[#2a2a3c] dark:text-gray-100 dark:placeholder-gray-500 ${
-                isDragOver ? 'border-blue-400' : isStreaming ? 'border-amber-300 bg-amber-50 dark:border-amber-600 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'
-              }`}
-              rows={1}
-              disabled={isDisabled}
-            />
+          <div className="flex-1 min-w-0 relative">
+            {/* Slash command palette — floats above the input */}
+            {showSlashPalette && (
+              <SlashCommandPalette
+                query={slashQuery}
+                onSelect={(cmd) => { handleSlashSelect(cmd); setInput(''); }}
+                onDismiss={handleSlashDismiss}
+              />
+            )}
+            <div className="flex items-center gap-2">
+              {/* Slash button or command chip — left inside the textarea row */}
+              {activeCommand ? (
+                <button
+                  onClick={clearActiveCommand}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-500/25 dark:text-blue-100 border border-blue-200 dark:border-blue-400/30 hover:bg-blue-200 dark:hover:bg-blue-500/35 transition-colors flex-shrink-0"
+                  title={`Remove /${activeCommand.name} command`}
+                >
+                  <span>{activeCommand.icon}</span>
+                  <span>/{activeCommand.name}</span>
+                  <span className="ml-0.5 text-blue-400 dark:text-blue-300">×</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setShowSlashPalette(!showSlashPalette); setSlashQuery(''); }}
+                  disabled={isDisabled}
+                  className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-lg hover:bg-gray-100 dark:hover:bg-[#33334a] transition-colors flex-shrink-0"
+                  title="Slash commands"
+                >
+                  <span className="text-sm font-bold">/</span>
+                </button>
+              )}
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder={activeCommand
+                  ? (activeCommand.placeholder || `Press Send to execute /${activeCommand.name}`)
+                  : isSending
+                    ? "Activating session, please wait..."
+                    : isStreaming 
+                      ? "Type a follow-up... (will be queued for the agent)" 
+                      : "Type a message... (Enter to send, Shift+Enter for new line)"}
+                className={`flex-1 resize-none rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[48px] max-h-[200px] dark:bg-[#2a2a3c] dark:text-gray-100 dark:placeholder-gray-500 ${
+                  isDragOver ? 'border-blue-400' : activeCommand ? 'border-blue-300 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-900/10' : isStreaming ? 'border-amber-300 bg-amber-50 dark:border-amber-600 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'
+                }`}
+                rows={1}
+                disabled={isDisabled}
+              />
             {/* Send button */}
             <Button
               onClick={() => handleSubmit()}
-              disabled={(!input.trim() && attachments.length === 0 && pendingFiles.length === 0) || isDisabled}
+              disabled={
+                activeCommand
+                  ? (activeCommand.requiresPrompt && !input.trim()) || isDisabled
+                  : (!input.trim() && attachments.length === 0 && pendingFiles.length === 0) || isDisabled
+              }
               className="h-12 w-12 p-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -562,27 +731,26 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 <rect x="6" y="6" width="12" height="12" rx="1" />
               </svg>
             </Button>
-            {/* Pin drawer toggle — pinned top-view icon with count badge */}
-            {onPinsToggle && (
-              <button
-                type="button"
-                onClick={onPinsToggle}
-                className={`relative h-12 w-12 flex items-center justify-center rounded-lg transition-colors ${
-                  pinsOpen
-                    ? 'bg-red-50 dark:bg-red-900/30 ring-1 ring-red-200 dark:ring-red-800'
-                    : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                title={pinsOpen ? 'Close pins drawer' : 'Open pins drawer'}
-              >
-                <PinnedIcon size={20} />
-                {(pinsCount ?? 0) > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                    {pinsCount}
-                  </span>
-                )}
-              </button>
-            )}
+            </div>
           </div>
+          {/* Pin drawer toggle — absolutely positioned right of stop button, outside bubble boundary */}
+          {onPinsToggle && (pinsCount ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={onPinsToggle}
+              className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 h-12 w-12 flex items-center justify-center rounded-lg transition-colors ${
+                pinsOpen
+                  ? 'bg-red-50 dark:bg-red-900/30 ring-1 ring-red-200 dark:ring-red-800'
+                  : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              title={pinsOpen ? 'Close pins drawer' : 'Open pins drawer'}
+            >
+              <PinnedIcon size={20} />
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {pinsCount}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>
