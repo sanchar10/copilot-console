@@ -48,7 +48,7 @@ export async function markSessionViewed(sessionId: string): Promise<void> {
       headers: getAuthHeaders(),
     });
     if (response.ok) {
-      const data = await response.json();
+      await response.json();
     } else {
       console.error(`[Viewed API] Failed: ${response.status}`);
     }

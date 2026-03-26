@@ -109,7 +109,7 @@ export async function updateRuntimeSettings(
 
 // --- Slash Command APIs ---
 
-export async function compactSession(sessionId: string): Promise<{ success: boolean; detail?: string }> {
+export async function compactSession(sessionId: string): Promise<{ success: boolean; detail?: string; tokens_removed?: number }> {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/compact`, {
     method: 'POST',
   });

@@ -20,11 +20,9 @@ export function MobileSessionList({ onNotification }: Props) {
   const navigate = useNavigate();
   const sessions = useSessionStore(s => s.sessions);
   const setSessions = useSessionStore(s => s.setSessions);
-  const updateSessionTimestamp = useSessionStore(s => s.updateSessionTimestamp);
   const viewedStore = useViewedStore();
   const activeAgents = useViewedStore(s => s.activeAgents);
   const setActiveAgentIds = useViewedStore(s => s.setActiveAgentIds);
-  const setAgentActive = useViewedStore(s => s.setAgentActive);
   const [loading, setLoading] = useState(!sessions.length);
   const [refreshing, setRefreshing] = useState(false);
 

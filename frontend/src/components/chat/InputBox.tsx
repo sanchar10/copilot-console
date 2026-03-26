@@ -178,7 +178,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   }, []);
 
   // Execute a slash command via API (compact only — fleet goes through normal sendMessage)
-  const executeSlashCommand = useCallback(async (cmd: SlashCommand, prompt: string) => {
+  const executeSlashCommand = useCallback(async (cmd: SlashCommand, _prompt: string) => {
     if (!sessionId) return;
     try {
       if (cmd.name === 'compact') {
