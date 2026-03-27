@@ -50,7 +50,7 @@ Start Copilot Console with `--expose --no-sleep`, scan the QR code from Settings
 
 **Works for native CLI sessions.** Get notified on your phone when *any* Copilot CLI terminal session finishes. Continue the conversation from mobile.
 
-<!-- TODO: screenshot of CLI notification on phone -->
+<img src="docs/screenshots/cli.jpg" alt="CLI with notifications enabled" height="250">
 
 Zero config — the installer adds a CLI hook. Enable the setting to receive notifications for all CLI sessions. A standalone feature for CLI users even without using Console.
 
