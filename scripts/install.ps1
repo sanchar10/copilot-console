@@ -338,7 +338,7 @@ if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
         Write-Host "  [OK] devtunnel installed" -ForegroundColor Green
         Write-Host ""
         Write-Host "  Signing in to devtunnel..." -ForegroundColor Yellow
-        Write-Host "  TIP: Use a work or school (Entra ID) account for best iOS/Safari support." -ForegroundColor DarkGray
+        Write-Host "  TIP: Use a work or school (Entra ID) account for best iOS/Safari support." -ForegroundColor Yellow
         Write-Host "  If you only have a personal account, use --allow-anonymous mode instead." -ForegroundColor DarkGray
         devtunnel user login
         if ($LASTEXITCODE -eq 0) {
