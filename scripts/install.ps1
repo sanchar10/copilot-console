@@ -53,26 +53,6 @@ if (-not $copilot) {
 $copilotVer = ((copilot --version 2>&1) | Select-Object -First 1) -replace '.*?(\d+\.\d+\.\d+[-\d]*).*', '$1'
 Write-Host "  [OK] Copilot CLI $copilotVer" -ForegroundColor Green
 
-# --- Check/Install ripgrep (rg) ---
-$rg = Get-Command rg -ErrorAction SilentlyContinue
-if (-not $rg) {
-    Write-Host "  Installing ripgrep (for cross-session search)..." -ForegroundColor Yellow
-    $winget = Get-Command winget -ErrorAction SilentlyContinue
-    if ($winget) {
-        winget install BurntSushi.ripgrep.MSVC --accept-source-agreements --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-        $rg = Get-Command rg -ErrorAction SilentlyContinue
-    }
-    if (-not $rg) {
-        Write-Host "  [ERROR] ripgrep install failed. Install manually: winget install BurntSushi.ripgrep.MSVC" -ForegroundColor Red
-        exit 1
-    } else {
-        Write-Host "  [OK] ripgrep installed" -ForegroundColor Green
-    }
-} else {
-    Write-Host "  [OK] ripgrep $(rg --version | Select-Object -First 1)" -ForegroundColor Green
-}
-
 # --- Check Copilot auth ---
 Write-Host ""
 $copilotConfig = "$env:USERPROFILE\.copilot\config.json"
@@ -223,6 +203,27 @@ if ($ac) {
 } else {
     Write-Host "  [OK] Installed" -ForegroundColor Green
     Write-Host "  [NOTE] Restart your terminal, then run 'copilot-console'." -ForegroundColor Yellow
+}
+
+# --- Install ripgrep (for cross-session search) ---
+$rg = Get-Command rg -ErrorAction SilentlyContinue
+if (-not $rg) {
+    Write-Host ""
+    Write-Host "  Installing ripgrep (for cross-session search)..." -ForegroundColor Yellow
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if ($winget) {
+        winget install BurntSushi.ripgrep.MSVC --accept-source-agreements --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        $rg = Get-Command rg -ErrorAction SilentlyContinue
+    }
+    if (-not $rg) {
+        Write-Host "  [WARN] ripgrep install failed. Cross-session content search will not work." -ForegroundColor Yellow
+        Write-Host "     Install manually: winget install BurntSushi.ripgrep.MSVC" -ForegroundColor Yellow
+    } else {
+        Write-Host "  [OK] ripgrep installed" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  [OK] ripgrep $(rg --version | Select-Object -First 1)" -ForegroundColor Green
 }
 
 # --- Optional: CLI Session Notifications ---
