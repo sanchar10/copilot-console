@@ -11,6 +11,7 @@ Before installing Copilot Console, ensure the following are available. All comma
 | **Node.js** | 18 or higher | `node --version` |
 | **GitHub Copilot CLI** | Latest | `copilot --version` |
 | **GitHub Copilot subscription** | Active | [github.com/settings/copilot](https://github.com/settings/copilot) |
+| **ripgrep** | Latest | `rg --version` |
 | **devtunnel** *(optional)* | Latest | `devtunnel --version` |
 
 ### Step 1: Install Python
@@ -51,7 +52,20 @@ Authenticate with GitHub (required before first use):
 copilot login
 ```
 
-### Step 4: Install devtunnel (Optional — for Mobile Companion)
+### Step 4: Install ripgrep
+
+Required for cross-session search. Install via winget:
+
+```powershell
+winget install BurntSushi.ripgrep.MSVC
+```
+
+Verify:
+```powershell
+rg --version
+```
+
+### Step 5: Install devtunnel (Optional — for Mobile Companion)
 
 Only needed if you want to access Copilot Console from your phone via `--expose`.
 
