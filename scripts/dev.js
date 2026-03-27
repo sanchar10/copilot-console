@@ -53,7 +53,7 @@ async function main() {
     console.error('Install instructions: https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-in-the-command-line');
     console.error('');
     console.error('After installing, authenticate with:');
-    console.error('  copilot auth login');
+    console.error('  copilot login');
     process.exit(1);
   }
   console.log('\x1b[32m✓ Copilot CLI found\x1b[0m');
@@ -61,8 +61,8 @@ async function main() {
   // Check Copilot SDK (required prerequisite)
   if (!checkPythonPackage('copilot')) {
     console.error('\x1b[31mError: copilot-sdk not installed.\x1b[0m');
-    console.error('\x1b[33mInstall from GitHub:\x1b[0m');
-    console.error('  pip install "copilot-sdk @ git+https://github.com/github/copilot-sdk.git#subdirectory=python"');
+    console.error('\x1b[33mInstall from PyPI:\x1b[0m');
+    console.error('  pip install github-copilot-sdk');
     process.exit(1);
   }
   console.log('\x1b[32m✓ Copilot SDK found\x1b[0m');
@@ -85,7 +85,7 @@ async function main() {
   
   if (missingDeps.length > 0) {
     console.log(`Installing backend dependencies (missing: ${missingDeps.join(', ')})...`);
-    run('pip install -e .', ROOT);  // installs deps from pyproject.toml
+    run('pip install -e . --pre', ROOT);  // --pre needed for agent-framework pre-release
     console.log('');
   } else {
     console.log('\x1b[32m✓ Backend dependencies OK\x1b[0m');

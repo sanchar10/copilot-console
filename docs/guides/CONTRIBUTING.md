@@ -29,6 +29,9 @@ uv sync --prerelease=allow
 # Install frontend dependencies
 npm install --prefix frontend
 
+# Ensure Copilot CLI is authenticated
+copilot login
+
 # Start in development mode
 uv run npm run dev
 ```
@@ -52,6 +55,9 @@ pip install -e ".[dev]" --pre
 
 # Install frontend dependencies
 npm install --prefix frontend
+
+# Ensure Copilot CLI is authenticated
+copilot login
 
 # Start in development mode
 npm run dev
