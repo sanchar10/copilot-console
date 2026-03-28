@@ -160,7 +160,7 @@ Run `copilot-console --help` for all options.
 
 Get notified on your phone when any Copilot CLI terminal session finishes — even sessions started from the terminal outside Console.
 
-Enable via the CLI:
+Enable from the command line:
 ```powershell
 cli-notify on
 ```

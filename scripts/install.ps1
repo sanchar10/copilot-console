@@ -341,7 +341,7 @@ if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
         }
     }
 } else {
-    Write-Host "  Skipped. Enable later — see docs/guides/MOBILE-COMPANION.md" -ForegroundColor DarkGray
+    Write-Host "  Skipped. Enable later with 'cli-notify on' or see docs/guides/MOBILE-COMPANION.md" -ForegroundColor DarkGray
 }
 
 # --- Done ---
