@@ -309,15 +309,15 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     if (!prefillText) return;
     setInput((prev) => prev.trim() ? `${prev}\n${prefillText}` : prefillText);
     onPrefillConsumed?.();
-    // Focus and trigger auto-resize after state update
-    requestAnimationFrame(() => {
+    // Double rAF: first waits for React commit, second for DOM paint
+    requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (el) {
         el.focus();
-        el.style.height = 'auto';
-        el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+        el.selectionStart = el.selectionEnd = el.value.length;
+        el.scrollTop = el.scrollHeight;
       }
-    });
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillText]);
 
@@ -351,10 +351,11 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     const currentId = sessionId || useTabStore.getState().getActiveSessionId();
     if (isStreaming && currentId) {
       const enqueueAttachments = attachments.map((a) => a.attachmentRef);
+      const resolvedContent = trimmedInput || (enqueueAttachments.length > 0 ? 'See attached file(s).' : '');
       const userMessage = {
         id: `temp-${Date.now()}`,
         role: 'user' as const,
-        content: trimmedInput || '',
+        content: resolvedContent,
         timestamp: new Date().toISOString(),
         mode: 'enqueue' as const,
         attachments: enqueueAttachments.length > 0 ? enqueueAttachments.map((a) => ({ type: a.type, path: a.path, displayName: a.displayName })) : undefined,
@@ -365,7 +366,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
       setAttachments([]);
 
       try {
-        await enqueueMessage(currentId, trimmedInput || '(see attached files)', enqueueAttachments.length > 0 ? enqueueAttachments : undefined);
+        await enqueueMessage(currentId, resolvedContent, enqueueAttachments.length > 0 ? enqueueAttachments : undefined);
       } catch (err) {
         console.error('Failed to enqueue message:', err);
       }
@@ -705,7 +706,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             {/* Attach button — aligns with message avatars */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isDisabled}
               className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-full"
               title="Attach files"
             >
@@ -756,7 +756,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                         : "Type a message... (Enter to send, Shift+Enter for new line)"}
                   className="flex-1 resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                   rows={1}
-                  disabled={isDisabled}
                 />
               </div>
             {/* Send button */}

@@ -155,7 +155,7 @@ def setup_logging(level: int = logging.INFO) -> None:
     console_handler = logging.StreamHandler(utf8_stdout)
     console_handler.setLevel(console_level)
     console_handler.setFormatter(
-        logging.Formatter("%(levelname)-7s | %(name)s - %(message)s")
+        logging.Formatter("%(asctime)s %(levelname)-7s | %(name)s - %(message)s", datefmt="%H:%M:%S")
     )
     root_logger.addHandler(console_handler)
 
