@@ -52,16 +52,33 @@ jobs:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: Copilot Console ${{ steps.version.outputs.TAG }}
           body: |
+            ### ✨ New Features
+            - **[Ask] button on pins** — quote a pinned message + your note directly into the chat input
+            - **Auto-open pins drawer** — creating a pin opens the drawer and focuses the note field
+            - **Textarea auto-sizing** — pin notes grow from 1 to 5 lines as you type
+
+            ### 🔧 Improvements
+            - **Inline delete confirmation** for pins (✕ → "Delete? Yes · Cancel")
+            - **Folder picker** — selecting the same folder is now a no-op; dialog stays accessible during agent responses
+            - **Startup resilience** — retry with backoff for session list and read/unread state on dev server restart
+            - **Cleaner server logs** — console shows only important messages; full debug in log files
+            - **`--verbose` flag** to enable debug console output
+            - **App update banner** shows the correct one-line installer command in case there is a newer version
+
+            ### 🐛 Bug Fixes
+            - Fixed all sessions showing as unread (blue dot) after dev server restart
+            - Fixed Sidebar test failures (missing mock for `subscribeToActiveAgents`)
+
+            ---
+
             ## Installation
 
             ```powershell
-            # Recommended (using pipx)
-            pip install pipx
-            pipx ensurepath
-            pipx install https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.TAG }}/copilot_console-${{ steps.version.outputs.VERSION_NUMBER }}-py3-none-any.whl
+            # One-line installer (recommended)
+            irm https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.ps1 | iex
 
-            # Alternative (using pip)
-            pip install https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.TAG }}/copilot_console-${{ steps.version.outputs.VERSION_NUMBER }}-py3-none-any.whl
+            # Or manual install with pipx
+            pipx install --force https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.TAG }}/copilot_console-${{ steps.version.outputs.VERSION_NUMBER }}-py3-none-any.whl
             ```
 
             See [README](https://github.com/${{ github.repository }}#readme) for full setup instructions.
