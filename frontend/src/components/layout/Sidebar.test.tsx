@@ -80,6 +80,7 @@ vi.mock('../../api/settings', () => ({
 
 vi.mock('../../api/activeAgents', () => ({
   getActiveAgents: vi.fn().mockResolvedValue({ count: 0 }),
+  subscribeToActiveAgents: vi.fn().mockReturnValue({ abort: vi.fn() }),
 }));
 
 

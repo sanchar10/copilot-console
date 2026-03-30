@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   message: Message;
   cwd?: string | null;
   sessionId?: string;
+  onPinCreated?: () => void;
 }
 
 function fileIcon(filename: string): string {
@@ -235,7 +236,7 @@ function useSearchHighlight(ref: React.RefObject<HTMLElement | null>, term: stri
   }, [ref, term]);
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, cwd, sessionId }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, cwd, sessionId, onPinCreated }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isEnqueued = isUser && message.mode === 'enqueue';
@@ -325,7 +326,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
                   sdk_message_id: mid,
                   title: oneLine.slice(0, 80) || undefined,
                   excerpt: oneLine.slice(0, 160) || undefined,
-                }).catch((err) => console.error('Failed to pin:', err));
+                }).then(() => onPinCreated?.()).catch((err) => console.error('Failed to pin:', err));
               }}
             >
               {isPinned ? <PinnedIcon size={16} /> : <UnpinnedIcon size={16} />}

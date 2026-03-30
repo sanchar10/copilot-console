@@ -132,7 +132,7 @@ class SessionClient:
         await self.client.start()
         self.started = True
         self.last_activity = time.time()
-        logger.info(f"[{self.session_id}] Started per-session client with cwd={self.cwd}")
+        logger.debug(f"[{self.session_id}] Started per-session client with cwd={self.cwd}")
     
     async def stop(self) -> None:
         """Stop the client and destroy session."""
@@ -153,7 +153,7 @@ class SessionClient:
         
         self.client = None
         self.started = False
-        logger.info(f"[{self.session_id}] Stopped per-session client")
+        logger.debug(f"[{self.session_id}] Stopped per-session client")
     
     def touch(self) -> None:
         """Update last activity timestamp."""
@@ -211,7 +211,7 @@ class SessionClient:
                 if wa["name"] not in existing_names:
                     existing.append(wa)
             session_opts["custom_agents"] = existing
-            logger.info(f"[{self.session_id}] Discovered {len(workspace_agents)} workspace agents")
+            logger.debug(f"[{self.session_id}] Discovered {len(workspace_agents)} workspace agents")
         
         if reasoning_effort:
             session_opts["reasoning_effort"] = reasoning_effort
@@ -223,7 +223,7 @@ class SessionClient:
             timeout=30,
         )
         self.touch()
-        logger.info(f"[{self.session_id}] Created SDK session with model={model}, working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
+        logger.debug(f"[{self.session_id}] Created SDK session with model={model}, working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
         return self.session
     
     async def resume_session(self, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, custom_agents: list[dict] | None = None) -> object:
@@ -260,13 +260,13 @@ class SessionClient:
             
             resume_opts["working_directory"] = self.cwd
             
-            logger.info(f"[{self.session_id}] Resuming SDK session with custom_agents={len(custom_agents or [])}")
+            logger.debug(f"[{self.session_id}] Resuming SDK session with custom_agents={len(custom_agents or [])}")
             self.session = await asyncio.wait_for(
                 self.client.resume_session(self.session_id, **resume_opts),
                 timeout=30,
             )
             self.touch()
-            logger.info(f"[{self.session_id}] Resumed SDK session with mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}")
+            logger.debug(f"[{self.session_id}] Resumed SDK session with mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}")
             return self.session
         except asyncio.TimeoutError:
             logger.error(f"[{self.session_id}] Session resume timed out after 30s (MCP server may be unresponsive)")
@@ -286,7 +286,7 @@ class SessionClient:
         
         if is_new_session:
             # New session — create directly
-            logger.info(f"[{self.session_id}] New session - creating")
+            logger.debug(f"[{self.session_id}] New session - creating")
             try:
                 return await self.create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents, reasoning_effort)
             except asyncio.TimeoutError:
@@ -296,7 +296,7 @@ class SessionClient:
                 )
         
         # Existing session — resume only, never create
-        logger.info(f"[{self.session_id}] Attempting to resume existing session")
+        logger.debug(f"[{self.session_id}] Attempting to resume existing session")
         session = await self.resume_session(mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents)
         if session:
             return session
@@ -311,7 +311,7 @@ class SessionClient:
             raise RuntimeError(f"[{self.session_id}] No active session to set mode on")
         result = await self.session.rpc.mode.set(SessionModeSetParams(mode=Mode(mode)))
         self.touch()
-        logger.info(f"[{self.session_id}] Mode set to {result.mode.value}")
+        logger.debug(f"[{self.session_id}] Mode set to {result.mode.value}")
         return result.mode.value
 
     async def set_model(self, model_id: str, reasoning_effort: str | None = None) -> str:
@@ -322,7 +322,7 @@ class SessionClient:
             SessionModelSwitchToParams(model_id=model_id, reasoning_effort=reasoning_effort)
         )
         self.touch()
-        logger.info(f"[{self.session_id}] Model set to {result.model_id}")
+        logger.debug(f"[{self.session_id}] Model set to {result.model_id}")
         return result.model_id or model_id
 
     async def start_fleet(self, prompt: str | None = None) -> dict:
@@ -331,7 +331,7 @@ class SessionClient:
             raise RuntimeError(f"[{self.session_id}] No active session to start fleet on")
         result = await self.session.rpc.fleet.start(SessionFleetStartParams(prompt=prompt))
         self.touch()
-        logger.info(f"[{self.session_id}] Fleet started: {result.started}")
+        logger.debug(f"[{self.session_id}] Fleet started: {result.started}")
         return {"started": result.started}
 
     async def compact(self) -> dict:
@@ -340,7 +340,7 @@ class SessionClient:
             raise RuntimeError(f"[{self.session_id}] No active session to compact")
         result = await self.session.rpc.compaction.compact()
         self.touch()
-        logger.info(f"[{self.session_id}] Compact: success={result.success}, tokens_removed={result.tokens_removed}, messages_removed={result.messages_removed}")
+        logger.debug(f"[{self.session_id}] Compact: success={result.success}, tokens_removed={result.tokens_removed}, messages_removed={result.messages_removed}")
         return {
             "success": result.success,
             "tokens_removed": result.tokens_removed,
@@ -477,7 +477,7 @@ class CopilotService:
                 result.append(entry)
             self._models_cache = result
             self._models_cache_time = now
-            logger.info(f"Listed {len(result)} models from SDK")
+            logger.debug(f"Listed {len(result)} models from SDK")
             return result
         except Exception as e:
             logger.warning(f"Failed to list models from SDK: {e}, using defaults")
@@ -490,7 +490,7 @@ class CopilotService:
         
         try:
             sessions = await self._main_client.list_sessions()
-            logger.info(f"Listed {len(sessions)} sessions from SDK")
+            logger.debug(f"Listed {len(sessions)} sessions from SDK")
             # Populate metadata cache
             self._sdk_metadata_cache = {}
             for s in sessions:
@@ -539,7 +539,7 @@ class CopilotService:
                     resume_config["on_permission_request"] = approve_all_permissions
                 session = await self._main_client.resume_session(session_id, **resume_config)
                 messages = await session.get_messages()
-                logger.info(f"Fetched {len(messages)} messages from session {session_id} (temporary resume)")
+                logger.debug(f"Fetched {len(messages)} messages from session {session_id} (temporary resume)")
                 try:
                     await session.destroy()
                 except Exception:
@@ -556,7 +556,7 @@ class CopilotService:
                         try:
                             session = await self._main_client.resume_session(session_id, **resume_config)
                             messages = await session.get_messages()
-                            logger.info(f"Session {session_id} resumed successfully after sanitization")
+                            logger.debug(f"Session {session_id} resumed successfully after sanitization")
                             try:
                                 await session.destroy()
                             except Exception:
@@ -642,7 +642,7 @@ class CopilotService:
             tmp.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
             tmp.replace(events_file)
             removed_count = len(removed_redirect)
-            logger.info(f"Sanitized events.jsonl for session {session_id}: removed {removed_count} '{bad_type}' event(s), retrying resume")
+            logger.debug(f"Sanitized events.jsonl for session {session_id}: removed {removed_count} '{bad_type}' event(s), retrying resume")
             return True
         except Exception as e:
             logger.warning(f"Failed to sanitize events.jsonl for session {session_id}: {e}")
@@ -659,7 +659,7 @@ class CopilotService:
                 client = self._session_clients[session_id]
                 # If CWD changed, need to recreate client
                 if client.cwd != cwd:
-                    logger.info(f"[{session_id}] CWD changed from {client.cwd} to {cwd}, recreating client")
+                    logger.debug(f"[{session_id}] CWD changed from {client.cwd} to {cwd}, recreating client")
                     await client.stop()
                     client = SessionClient(session_id, cwd)
                     self._session_clients[session_id] = client
@@ -844,7 +844,7 @@ class CopilotService:
 
         Uses per-session client with the given CWD.
         """
-        logger.info(f"User prompt: {prompt}")
+        logger.debug(f"User prompt: {prompt}")
 
         # Get or create per-session client
         client = await self.get_session_client(session_id, cwd)
@@ -1050,7 +1050,7 @@ class CopilotService:
             elif event_type == "session.compaction_start":
                 compacting = True
                 _enqueue_step("⟳ Compacting context", "Background compaction started — summarizing older messages to free context space. You can continue chatting.")
-                logger.info(f"[{session_id}] Compaction started")
+                logger.debug(f"[{session_id}] Compaction started")
 
             elif event_type == "session.compaction_complete":
                 compacting = False
@@ -1086,7 +1086,7 @@ class CopilotService:
                 else:
                     error = getattr(data, "error", None)
                     _enqueue_step("✗ Compaction failed", str(error) if error else "Compaction did not succeed.")
-                logger.info(f"[{session_id}] Compaction complete: success={success}, tokens_removed={tokens_removed}")
+                logger.debug(f"[{session_id}] Compaction complete: success={success}, tokens_removed={tokens_removed}")
 
                 # If idle already arrived, now we can terminate
                 if idle_received:
@@ -1139,12 +1139,12 @@ class CopilotService:
                         "event": "mode_changed",
                         "data": {"mode": mode_val, "previous_mode": prev_val}
                     })
-                    logger.info(f"[{session_id}] Mode changed: {prev_val} → {mode_val}")
+                    logger.debug(f"[{session_id}] Mode changed: {prev_val} → {mode_val}")
 
             elif event_type == "session.idle":
                 idle_received = True
                 if compacting:
-                    logger.info(f"[{session_id}] session.idle while compacting — waiting for compaction_complete")
+                    logger.debug(f"[{session_id}] session.idle while compacting — waiting for compaction_complete")
                 else:
                     # session.idle = all work done (normal, fleet, enqueued — everything)
                     _terminate_stream()
@@ -1155,12 +1155,12 @@ class CopilotService:
         # block the generator. Events flow through on_event → queue → yield.
         # session.idle (the last event) terminates the stream.
         if fleet:
-            logger.info(f"[{session_id}] Starting fleet mode")
+            logger.debug(f"[{session_id}] Starting fleet mode")
 
             async def _run_fleet() -> None:
                 try:
                     result = await client.start_fleet(prompt)
-                    logger.info(f"[{session_id}] Fleet RPC returned: started={result.get('started')}")
+                    logger.debug(f"[{session_id}] Fleet RPC returned: started={result.get('started')}")
                 except Exception as e:
                     logger.error(f"[{session_id}] Fleet RPC error: {e}", exc_info=True)
                     if not done.is_set():
@@ -1223,7 +1223,7 @@ class CopilotService:
         
         Results are written to the buffer, which SSE consumers read from.
         """
-        logger.info(f"[{session_id}] Background task started for prompt: {prompt[:100]}...")
+        logger.debug(f"[{session_id}] Background task started for prompt: {prompt[:100]}...")
         
         try:
             async for evt in self.send_message(
@@ -1278,7 +1278,7 @@ class CopilotService:
         # The caller (run_agent) is responsible for calling buffer.complete()
         # after any post-processing (e.g., auto-naming) so the SSE done event
         # includes all computed data.
-        logger.info(f"[{session_id}] Background task finished streaming")
+        logger.debug(f"[{session_id}] Background task finished streaming")
 
     async def enqueue_message(self, session_id: str, prompt: str, attachments: list[dict] | None = None) -> dict:
         """Enqueue a message to an already-active session.
@@ -1300,7 +1300,7 @@ class CopilotService:
         if attachments:
             send_opts["attachments"] = attachments
         message_id = await session.send(send_opts)
-        logger.info(f"[{session_id}] Enqueued message: {prompt[:100]}... -> {message_id}")
+        logger.debug(f"[{session_id}] Enqueued message: {prompt[:100]}... -> {message_id}")
         return {"status": "enqueued", "message_id": message_id}
 
     async def abort_session(self, session_id: str) -> dict:
@@ -1317,7 +1317,7 @@ class CopilotService:
 
         session = client.session
         await session.abort()
-        logger.info(f"[{session_id}] Aborted current message")
+        logger.debug(f"[{session_id}] Aborted current message")
         return {"status": "aborted"}
 
 

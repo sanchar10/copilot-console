@@ -238,14 +238,14 @@ export function Header({
             {/* CWD badge - single button, click opens folder browser */}
             {cwd && (
               <button
-                onClick={() => !hasActiveResponse && onCwdChange && setShowFolderBrowser(true)}
+                onClick={() => onCwdChange && setShowFolderBrowser(true)}
                 className={`h-[30px] px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 min-w-0 max-w-[200px] bg-blue-50 dark:bg-blue-900/[0.18] text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-500/35 ${
-                  hasActiveResponse || !onCwdChange
+                  !onCwdChange
                     ? 'cursor-default'
                     : 'hover:bg-blue-100 dark:hover:bg-blue-900/50'
                 }`}
                 title={`${cwd}\nClick to change folder`}
-                disabled={hasActiveResponse || !onCwdChange}
+                disabled={!onCwdChange}
               >
                 <svg className="w-3.5 h-3.5 flex-shrink-0 translate-y-[0.5px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
@@ -263,6 +263,8 @@ export function Header({
                   onCwdChange(path);
                 }}
                 initialPath={cwd}
+                disableSelect={hasActiveResponse || isActivating}
+                disableSelectReason={isActivating ? 'Please wait, session is activating...' : hasActiveResponse ? 'Please wait, agent is responding...' : undefined}
               />
             )}
 

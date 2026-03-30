@@ -11,6 +11,7 @@ Log structure:
 """
 
 import logging
+import os
 import sys
 from contextvars import ContextVar
 from typing import Optional
@@ -129,13 +130,19 @@ _session_file_handler: Optional[SessionFileHandler] = None
 def setup_logging(level: int = logging.INFO) -> None:
     """Configure logging with both console and session file output.
 
-    Call this once at application startup.
+    Console level defaults to INFO for clean user-facing output.
+    File logging always uses the provided level (DEBUG for comprehensive logs).
+    Set COPILOT_VERBOSE=1 env var to enable DEBUG output on console too.
     """
     global _session_file_handler
 
     ensure_log_dirs()
 
-    # Get root logger
+    # Check if verbose console output is requested
+    verbose = os.environ.get("COPILOT_VERBOSE", "").strip() == "1"
+    console_level = logging.DEBUG if verbose else logging.INFO
+
+    # Get root logger — set to lowest level so file handlers get everything
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
 
@@ -146,13 +153,13 @@ def setup_logging(level: int = logging.INFO) -> None:
     # when agent responses contain Unicode characters (arrows, emoji, etc.)
     utf8_stdout = open(sys.stdout.fileno(), mode='w', encoding='utf-8', errors='replace', closefd=False)
     console_handler = logging.StreamHandler(utf8_stdout)
-    console_handler.setLevel(level)
+    console_handler.setLevel(console_level)
     console_handler.setFormatter(
         logging.Formatter("%(levelname)-7s | %(name)s - %(message)s")
     )
     root_logger.addHandler(console_handler)
 
-    # Session file handler
+    # Session file handler — always uses the full level for comprehensive logs
     _session_file_handler = SessionFileHandler()
     _session_file_handler.setLevel(level)
     root_logger.addHandler(_session_file_handler)

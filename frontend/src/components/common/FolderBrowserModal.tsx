@@ -11,9 +11,13 @@ interface FolderBrowserModalProps {
   onSelect: (path: string) => void;
   initialPath?: string;
   showProjectName?: boolean;
+  /** When true, the Select button is disabled (e.g. during session activation or agent response). */
+  disableSelect?: boolean;
+  /** Tooltip text explaining why Select is disabled. */
+  disableSelectReason?: string;
 }
 
-export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, showProjectName = true }: FolderBrowserModalProps) {
+export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, showProjectName = true, disableSelect = false, disableSelectReason }: FolderBrowserModalProps) {
   const [currentPath, setCurrentPath] = useState('');
   const [pathInput, setPathInput] = useState('');
   const [parentPath, setParentPath] = useState<string | null>(null);
@@ -92,14 +96,14 @@ export function FolderBrowserModal({ isOpen, onClose, onSelect, initialPath, sho
           <Button variant="secondary" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSelect} disabled={!currentPath}>
+          <Button size="sm" onClick={handleSelect} disabled={!currentPath || disableSelect} title={disableSelect ? disableSelectReason : undefined}>
             Select
           </Button>
         </>
       }
     >
       <div className="space-y-3" onKeyDown={(e) => {
-        if (e.key === 'Enter' && currentPath) {
+        if (e.key === 'Enter' && currentPath && !disableSelect) {
           const tag = (e.target as HTMLElement).tagName;
           // Don't intercept Enter on input fields — they handle it themselves
           if (tag !== 'INPUT') {

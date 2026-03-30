@@ -31,8 +31,7 @@ export interface ViewedTimestamps {
 export async function getViewedTimestamps(): Promise<ViewedTimestamps> {
   const response = await fetch(`${getApiBase()}/viewed`, { headers: getAuthHeaders() });
   if (!response.ok) {
-    console.error('[Viewed API] Failed to fetch viewed timestamps');
-    return {};
+    throw new Error(`Failed to fetch viewed timestamps: ${response.status}`);
   }
   const data = await response.json();
   return data;

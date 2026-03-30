@@ -54,16 +54,44 @@ function formatPinTimestamp(ts: string) {
   }
 }
 
+/** Compose the pre-fill text for the [Ask] button. */
+function composeAskPrefill(messageContent: string, note: string): string {
+  const truncated = messageContent.slice(0, 500);
+  const quoted = truncated
+    .split('\n')
+    .map(line => `> ${line}`)
+    .join('\n');
+  const suffix = messageContent.length > 500 ? '\n> ...' : '';
+  const noteSection = note.trim() ? `\n\n${note.trim()}` : '\n\n';
+  return `Following up on your earlier response:\n\n${quoted}${suffix}${noteSection}`;
+}
+
+/** Auto-resize a textarea up to a max height (5 lines ≈ 120px). */
+function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+}
+
 function PinsDrawer({
   sessionId,
   pins,
   onClose,
+  onAsk,
+  focusPinId,
+  onFocusConsumed,
 }: {
   sessionId: string;
   pins: { id: string; sdk_message_id: string; created_at: string; title?: string | null; excerpt?: string | null; note?: string | null }[];
   onClose: () => void;
+  onAsk?: (prefillText: string) => void;
+  focusPinId?: string | null;
+  onFocusConsumed?: () => void;
 }) {
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [scrollFailedPin, setScrollFailedPin] = useState<string | null>(null);
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   useEffect(() => {
     setDraftNotes((prev) => {
@@ -75,10 +103,55 @@ function PinsDrawer({
     });
   }, [pins]);
 
+  // Reset delete confirmation when pins change
+  useEffect(() => {
+    setConfirmingDelete(null);
+  }, [pins]);
+
+  // Auto-resize all textareas on mount / drawer reopen
+  useEffect(() => {
+    for (const el of Object.values(textareaRefs.current)) {
+      autoResizeTextarea(el);
+    }
+  }, [pins]);
+
+  // Focus the textarea of a newly created pin (after React renders it)
+  useEffect(() => {
+    if (!focusPinId) return;
+    const el = textareaRefs.current[focusPinId];
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    onFocusConsumed?.();
+  }, [focusPinId, pins, onFocusConsumed]);
+
   const sortedPins = [...pins].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
 
+  const handleAsk = (p: typeof pins[0]) => {
+    const baseNote = p.note ?? '';
+    const note = draftNotes[p.id] ?? baseNote;
+    const isDirty = note !== baseNote;
+
+    // Auto-save dirty note before asking
+    const savePromise = isDirty
+      ? usePinStore.getState().updatePin(sessionId, p.id, { note }).catch((e) => console.error('Failed to save note:', e))
+      : Promise.resolve();
+
+    savePromise.then(() => {
+      // Look up full message from chatStore, fallback to excerpt
+      const messages = useChatStore.getState().messagesPerSession[sessionId] || [];
+      const fullMsg = messages.find((m) => m.sdk_message_id === p.sdk_message_id);
+      const content = fullMsg?.content || p.excerpt || '';
+
+      if (!content) return;
+      const prefill = composeAskPrefill(content, note);
+      onAsk?.(prefill);
+    });
+  };
+
   return (
-    <aside className="w-96 border-l border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-[#1f1f2e]/90 backdrop-blur p-3 overflow-y-auto">
+    <aside data-pins-drawer className="w-96 border-l border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-[#1f1f2e]/90 backdrop-blur p-3 overflow-y-auto">
       <div className="flex items-center justify-between gap-2">
         <div className="font-semibold text-sm text-gray-800 dark:text-gray-100 flex items-center gap-1.5"><PinnedIcon size={16} /> Pins ({pins.length})</div>
         <button
@@ -107,33 +180,79 @@ function PinsDrawer({
                   <button
                     type="button"
                     className="flex-1 text-left"
-                    onClick={() => scrollToMessageBySdkId(p.sdk_message_id)}
+                    onClick={() => {
+                      const el = scrollToMessageBySdkId(p.sdk_message_id);
+                      if (!el) {
+                        setScrollFailedPin(p.id);
+                        setTimeout(() => setScrollFailedPin(null), 2000);
+                      }
+                    }}
                     title={title}
                   >
                     <div className="text-xs text-gray-500 dark:text-gray-400">{formatPinTimestamp(p.created_at)}</div>
                     <div className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline line-clamp-2">{title}</div>
+                    {scrollFailedPin === p.id && (
+                      <div className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Message not available</div>
+                    )}
                   </button>
-                  <button
-                    type="button"
-                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                    title="Unpin"
-                    onClick={() => {
-                      usePinStore.getState().deletePin(sessionId, p.id).catch((e) => console.error('Failed to unpin:', e));
-                    }}
-                  >
-                    Delete
-                  </button>
+                  {/* Inline delete confirmation */}
+                  {confirmingDelete === p.id ? (
+                    <span className="text-xs flex items-center gap-1 whitespace-nowrap">
+                      <span className="text-gray-500 dark:text-gray-400">Delete?</span>
+                      <button
+                        type="button"
+                        className="text-red-600 dark:text-red-400 hover:underline"
+                        onClick={() => {
+                          usePinStore.getState().deletePin(sessionId, p.id).catch((e) => console.error('Failed to unpin:', e));
+                          setConfirmingDelete(null);
+                        }}
+                      >
+                        Yes
+                      </button>
+                      <span className="text-gray-400 dark:text-gray-500">·</span>
+                      <button
+                        type="button"
+                        className="text-gray-500 dark:text-gray-400 hover:underline"
+                        onClick={() => setConfirmingDelete(null)}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-xs text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 px-1"
+                      title="Delete pin"
+                      onClick={() => setConfirmingDelete(p.id)}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-2">
                   <textarea
-                    className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-[#1f1f2e]/60 px-2 py-1.5 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500"
-                    rows={3}
+                    ref={(el) => { textareaRefs.current[p.id] = el; }}
+                    className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-[#1f1f2e]/60 px-2 py-1.5 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 resize-y overflow-y-auto"
+                    rows={1}
+                    style={{ minHeight: '1.75rem', maxHeight: '18.75rem' }}
                     placeholder="Add a note (optional)"
                     value={note}
-                    onChange={(e) => setDraftNotes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                    onChange={(e) => {
+                      setDraftNotes((prev) => ({ ...prev, [p.id]: e.target.value }));
+                      autoResizeTextarea(e.target);
+                    }}
                   />
                   <div className="mt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={!p.excerpt && !p.title}
+                      className="text-xs px-2 py-1 rounded border transition-colors border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:border-emerald-300 dark:hover:border-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={() => handleAsk(p)}
+                      title="Pre-fill input with this pin's context"
+                    >
+                      Ask
+                    </button>
                     <button
                       type="button"
                       disabled={!isDirty}
@@ -171,6 +290,8 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   const [eligibleSubAgents, setEligibleSubAgents] = useState<Agent[]>([]);
   const [starterPrompts, setStarterPrompts] = useState<StarterPrompt[]>([]);
   const [promptToSend, setPromptToSend] = useState<string | null>(null);
+  const [askPrefill, setAskPrefill] = useState<string | null>(null);
+  const [focusPinId, setFocusPinId] = useState<string | null>(null);
 
   const session = sessions.find((s) => s.session_id === sessionId);
   const rawMessages = messagesPerSession[sessionId];
@@ -178,6 +299,15 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   const messages = rawMessages || [];
   const { content: streamingContent, steps: streamingSteps, isStreaming } = getStreamingState(sessionId);
   const tokenUsage = getTokenUsage(sessionId);
+
+  // Feature 2: open drawer + set focus target — PinsDrawer's useEffect handles actual focus after render
+  const handlePinCreated = useCallback(() => {
+    setPinsOpen(true);
+    // Find the newest pin (just created) to focus its textarea
+    const currentPins = usePinStore.getState().pinsPerSession[sessionId] || [];
+    const newest = [...currentPins].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
+    if (newest) setFocusPinId(newest.id);
+  }, [sessionId]);
 
   // Show spinner only after 300ms delay to avoid flash on fast loads
   const [showSpinner, setShowSpinner] = useState(false);
@@ -252,6 +382,9 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   }, [sessionId, sessions, setSessions]);
 
   const handleCwdChange = useCallback(async (newCwd: string) => {
+    // Same folder selected — no-op
+    const currentCwd = sessions.find(s => s.session_id === sessionId)?.cwd;
+    if (newCwd === currentCwd) return;
     try {
       const updatedSession = await updateSession(sessionId, { cwd: newCwd });
       setSessions(sessions.map(s =>
@@ -445,7 +578,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                   ) : (
                     <>
                       {messages.map((message) => (
-                        <MessageBubble key={message.id} message={message} cwd={session?.cwd} sessionId={sessionId} />
+                        <MessageBubble key={message.id} message={message} cwd={session?.cwd} sessionId={sessionId} onPinCreated={handlePinCreated} />
                       ))}
                       {isStreaming && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
                     </>
@@ -473,11 +606,13 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
             pinsCount={pins.length}
             pinsOpen={pinsOpen}
             onPinsToggle={() => setPinsOpen((v) => !v)}
+            prefillText={askPrefill}
+            onPrefillConsumed={() => setAskPrefill(null)}
           />
         </div>
 
         {/* Pins Drawer — full height beside chat + input */}
-        {pinsOpen && <PinsDrawer sessionId={sessionId} pins={pins} onClose={() => setPinsOpen(false)} />}
+        {pinsOpen && <PinsDrawer sessionId={sessionId} pins={pins} onClose={() => setPinsOpen(false)} onAsk={setAskPrefill} focusPinId={focusPinId} onFocusConsumed={() => setFocusPinId(null)} />}
       </div>
     </div>
   );

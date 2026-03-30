@@ -55,6 +55,10 @@ interface InputBoxProps {
   pinsOpen?: boolean;
   /** Toggle the pins drawer open/closed */
   onPinsToggle?: () => void;
+  /** When set, appends this text to the textarea without auto-submitting. */
+  prefillText?: string | null;
+  /** Called after prefillText has been consumed (appended to input). */
+  onPrefillConsumed?: () => void;
 }
 
 function fileIcon(filename: string): string {
@@ -72,7 +76,7 @@ function fileIcon(filename: string): string {
   return '📄';
 }
 
-export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent, pinsCount, pinsOpen, onPinsToggle }: InputBoxProps) {
+export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent, pinsCount, pinsOpen, onPinsToggle, prefillText, onPrefillConsumed }: InputBoxProps) {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<(UploadedFile & { attachmentRef: AttachmentRef })[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -299,6 +303,23 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptToSend]);
+
+  // Prefill textarea from [Ask] button — appends to existing input, does NOT auto-submit
+  useEffect(() => {
+    if (!prefillText) return;
+    setInput((prev) => prev.trim() ? `${prev}\n${prefillText}` : prefillText);
+    onPrefillConsumed?.();
+    // Focus and trigger auto-resize after state update
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillText]);
 
   const handleSubmit = async (overrideText?: string) => {
     const trimmedInput = (overrideText || input).trim();

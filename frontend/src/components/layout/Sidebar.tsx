@@ -13,6 +13,7 @@ import { getSettings } from '../../api/settings';
 import { subscribeToActiveAgents } from '../../api/activeAgents';
 import { apiClient } from '../../api/client';
 import { useViewedStore } from '../../stores/viewedStore';
+import { withRetry } from '../../utils/retry';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
 import { SearchModal } from '../search/SearchModal';
@@ -87,11 +88,9 @@ export function Sidebar() {
     async function loadData() {
       setLoading(true);
       try {
-        const [sessionsData, modelsData, settingsData] = await Promise.all([
-          listSessions(),
-          fetchModels(),
-          getSettings(),
-        ]);
+        const [sessionsData, modelsData, settingsData] = await withRetry(() =>
+          Promise.all([listSessions(), fetchModels(), getSettings()])
+        );
         setSessions(sessionsData);
         setAvailableModels(modelsData);
         setDefaultModel(settingsData.default_model);
@@ -103,28 +102,7 @@ export function Sidebar() {
         fetchAutomations();
         loadProjects();
       } catch (err) {
-        // Backend may not be ready yet (dev mode race) — retry once after 2s
-        console.warn('Initial load failed, retrying in 2s...', err);
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          const [sessionsData, modelsData, settingsData] = await Promise.all([
-            listSessions(),
-            fetchModels(),
-            getSettings(),
-          ]);
-          setSessions(sessionsData);
-          setAvailableModels(modelsData);
-          setDefaultModel(settingsData.default_model);
-          if (settingsData.default_cwd) {
-            setDefaultCwd(settingsData.default_cwd);
-          }
-          fetchAgents();
-          fetchWorkflows();
-          fetchAutomations();
-          loadProjects();
-        } catch (retryErr) {
-          setError(retryErr instanceof Error ? retryErr.message : 'Failed to load data');
-        }
+        setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
         setLoading(false);
       }

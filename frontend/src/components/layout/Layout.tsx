@@ -10,20 +10,16 @@ interface UpdateInfo {
   release_url?: string;
 }
 
-function UpdateBanner({ info, onDismiss }: { info: UpdateInfo; onDismiss: () => void }) {
-  const pipxCmd = info.wheel_url
-    ? `pipx install --force ${info.wheel_url}`
-    : '';
+const INSTALL_CMD = 'irm https://raw.githubusercontent.com/sanchar10/copilot-agent-console/main/scripts/install.ps1 | iex';
 
+function UpdateBanner({ info, onDismiss }: { info: UpdateInfo; onDismiss: () => void }) {
   return (
     <div className="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 text-sm flex items-center justify-between">
       <div className="flex items-center gap-2">
         <span>🎉</span>
         <span>
           Version <strong>{info.latest_version}</strong> is available (current: {info.current_version}).
-          {pipxCmd && (
-            <> Run: <code className="bg-blue-700 dark:bg-blue-800 px-1.5 py-0.5 rounded text-xs font-mono">{pipxCmd}</code></>
-          )}
+          {' '}Run: <code className="bg-blue-700 dark:bg-blue-800 px-1.5 py-0.5 rounded text-xs font-mono">{INSTALL_CMD}</code>
         </span>
         {info.release_url && (
           <a

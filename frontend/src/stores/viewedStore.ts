@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getViewedTimestamps, markSessionViewed as apiMarkViewed } from '../api/viewed';
 import { getActiveAgents } from '../api/activeAgents';
+import { withRetry } from '../utils/retry';
 
 interface ViewedState {
   // Map of sessionId -> Unix timestamp (seconds) when last viewed
@@ -35,11 +36,11 @@ export const useViewedStore = create<ViewedState>((set, get) => ({
 
   loadViewedTimestamps: async () => {
     try {
-      const timestamps = await getViewedTimestamps();
+      const timestamps = await withRetry(() => getViewedTimestamps());
       set({ lastViewed: timestamps, isLoaded: true });
     } catch (error) {
-      console.error('[ViewedStore] Failed to load viewed timestamps:', error);
-      set({ isLoaded: true }); // Still mark as loaded so UI doesn't wait forever
+      console.error('[ViewedStore] Failed to load viewed timestamps after retries:', error);
+      set({ isLoaded: true }); // Give up — user can refresh
     }
   },
 
