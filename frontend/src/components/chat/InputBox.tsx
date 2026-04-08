@@ -102,6 +102,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     addStreamingStep,
     setTokenUsage,
     finalizeTurn,
+    setElicitation,
   } = useChatStore();
 
   // Check if streaming is happening for the current session
@@ -581,7 +582,12 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
         (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) sessionModes.set(activeSessionId, mode as AgentMode); },
         initialAgentMode,
-        isFleet
+        isFleet,
+        (data) => {
+          if (activeSessionId) {
+            setElicitation(activeSessionId, data);
+          }
+        },
       );
     } catch (err) {
       if (activationTimer) clearTimeout(activationTimer);

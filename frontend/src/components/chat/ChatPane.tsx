@@ -6,6 +6,7 @@ import { useTabStore } from '../../stores/tabStore';
 import { MessageBubble } from './MessageBubble';
 import { usePinStore } from '../../stores/pinStore';
 import { StreamingMessage } from './StreamingMessage';
+import { ElicitationCard, ResolvedElicitationCard } from './ElicitationCard';
 import { InputBox, clearReadySession } from './InputBox';
 import { TabBar } from './TabBar';
 import { Header } from '../layout/Header';
@@ -277,7 +278,7 @@ function PinsDrawer({
 
 const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive }: { sessionId: string; isActive: boolean }) {
   const { sessions, availableMcpServers, availableTools, setSessions, updateSessionMcpServers, updateSessionTools } = useSessionStore();
-  const { messagesPerSession, getStreamingState, getTokenUsage, sendingSessionId } = useChatStore();
+  const { messagesPerSession, getStreamingState, getTokenUsage, sendingSessionId, pendingElicitation, resolvedElicitations } = useChatStore();
   const { availableModels } = useUIStore();
   const { tabs, openTab: openGenericTab, switchTab: switchGenericTab } = useTabStore();
   const pins = usePinStore((s) => s.pinsPerSession[sessionId]) || [];
@@ -581,6 +582,14 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                         <MessageBubble key={message.id} message={message} cwd={session?.cwd} sessionId={sessionId} onPinCreated={handlePinCreated} />
                       ))}
                       {isStreaming && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
+                      {/* Resolved elicitations */}
+                      {(resolvedElicitations[sessionId] || []).map((re, i) => (
+                        <ResolvedElicitationCard key={`resolved-${i}`} resolved={re} />
+                      ))}
+                      {/* Pending elicitation card */}
+                      {pendingElicitation[sessionId] && (
+                        <ElicitationCard sessionId={sessionId} data={pendingElicitation[sessionId]!} />
+                      )}
                     </>
                   )}
                   <div ref={messagesEndRef} />

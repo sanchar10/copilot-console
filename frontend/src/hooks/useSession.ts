@@ -56,7 +56,11 @@ export function useSession(sessionId: string | null) {
             console.error('[Session] Resume stream error:', error);
             setStreaming(id, false);
             setAgentActive(id, false);
-          }
+          },
+          (data) => {
+            const { setElicitation } = useChatStore.getState();
+            setElicitation(id, data);
+          },
         );
       }
       
