@@ -52,22 +52,14 @@ jobs:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: Copilot Console ${{ steps.version.outputs.TAG }}
           body: |
-            ### ✨ New Features
-            - **[Ask] button on pins** — quote a pinned message + your note directly into the chat input
-            - **Auto-open pins drawer** — creating a pin opens the drawer and focuses the note field
-            - **Textarea auto-sizing** — pin notes grow from 1 to 5 lines as you type
-
             ### 🔧 Improvements
-            - **Inline delete confirmation** for pins (✕ → "Delete? Yes · Cancel")
-            - **Folder picker** — selecting the same folder is now a no-op; dialog stays accessible during agent responses
-            - **Startup resilience** — retry with backoff for session list and read/unread state on dev server restart
-            - **Cleaner server logs** — console shows only important messages; full debug in log files
-            - **`--verbose` flag** to enable debug console output
-            - **App update banner** shows the correct one-line installer command in case there is a newer version
-
-            ### 🐛 Bug Fixes
-            - Fixed all sessions showing as unread (blue dot) after dev server restart
-            - Fixed Sidebar test failures (missing mock for `subscribeToActiveAgents`)
+            - **Session card hover actions** — info and delete buttons appear as a full-height overlay on hover with solid background matching card state
+            - **Scrollbar alignment** — session list scrollbar sits flush at sidebar right edge, matching chat scrollbar style
+            - **Info card improvements** — fixed width (320px), added session name field, viewport-aware positioning, fixed working directory font color
+            - **Dropdown truncation** — long project names left-trimmed with `…` prefix (max 40 chars), full path in tooltip
+            - **Status indicators** — blue dot and spinner absolute-positioned, cleanly hidden when hover actions appear
+            - **Input stays editable** — textarea and attach button remain enabled while a session is activating
+            - **Console log timestamps** — server logs now include HH:MM:SS timestamps
 
             ---
 
