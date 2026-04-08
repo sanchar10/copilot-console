@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
-import { Select } from '../common/Select';
+import { ModelSelector } from '../common/ModelSelector';
 import { FolderBrowserModal } from '../common/FolderBrowserModal';
 import { useUIStore } from '../../stores/uiStore';
 import { updateSettings, getSettings } from '../../api/settings';
@@ -15,13 +15,16 @@ export function SettingsModal() {
     closeSettingsModal, 
     availableModels, 
     defaultModel, 
+    defaultReasoningEffort,
     setDefaultModel,
+    setDefaultReasoningEffort,
     defaultCwd,
     setDefaultCwd 
   } = useUIStore();
   
   const { theme, setTheme } = useTheme();
   const [selectedModel, setSelectedModel] = useState(defaultModel);
+  const [selectedEffort, setSelectedEffort] = useState<string | null>(defaultReasoningEffort);
   const [selectedCwd, setSelectedCwd] = useState(defaultCwd);
   const [cliNotifications, setCliNotifications] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -30,6 +33,7 @@ export function SettingsModal() {
 
   useEffect(() => {
     setSelectedModel(defaultModel);
+    setSelectedEffort(defaultReasoningEffort);
     setSelectedCwd(defaultCwd);
     setError(null);
     if (isSettingsModalOpen) {
@@ -37,7 +41,7 @@ export function SettingsModal() {
         setCliNotifications(s.cli_notifications ?? false);
       }).catch(() => {});
     }
-  }, [defaultModel, defaultCwd, isSettingsModalOpen]);
+  }, [defaultModel, defaultReasoningEffort, defaultCwd, isSettingsModalOpen]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -45,9 +49,11 @@ export function SettingsModal() {
     try {
       await updateSettings({ 
         default_model: selectedModel,
+        default_reasoning_effort: selectedEffort,
         default_cwd: selectedCwd || undefined
       });
       setDefaultModel(selectedModel);
+      setDefaultReasoningEffort(selectedEffort);
       if (selectedCwd) {
         setDefaultCwd(selectedCwd);
       }
@@ -59,11 +65,6 @@ export function SettingsModal() {
       setIsSaving(false);
     }
   };
-
-  const modelOptions = availableModels.map((model) => ({
-    value: model.id,
-    label: model.name,
-  }));
 
   return (
     <Modal
@@ -114,11 +115,19 @@ export function SettingsModal() {
         </div>
 
         <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
-          <Select
-            label="Default Model"
-            options={modelOptions}
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Default Model
+          </label>
+          <ModelSelector
+            models={availableModels}
+            selectedModelId={selectedModel}
+            reasoningEffort={selectedEffort}
+            onModelChange={(modelId, effort) => {
+              setSelectedModel(modelId);
+              setSelectedEffort(effort);
+            }}
+            onReasoningEffortChange={(effort) => setSelectedEffort(effort)}
+            variant="full"
           />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             This model will be used for all new sessions.

@@ -114,9 +114,9 @@ describe('InputBox integration — activation lock lifecycle', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    // 5. Textarea should now be LOCKED (sendingSessionId === 'session-1')
+    // 5. Textarea stays enabled but placeholder changes; submit is locked
     await waitFor(() => {
-      expect(textarea).toBeDisabled();
+      expect(textarea).not.toBeDisabled();
       expect(textarea.placeholder).toBe('Activating session, please wait...');
     });
 
@@ -146,7 +146,7 @@ describe('InputBox integration — activation lock lifecycle', () => {
     });
   });
 
-  it('locks input after clearReadySession + send, unlocks on first SSE step', async () => {
+  it('shows activation state after clearReadySession + send, clears on first SSE step', async () => {
     clearReadySession('session-1');
 
     render(<InputBox sessionId="session-1" />);
@@ -158,15 +158,18 @@ describe('InputBox integration — activation lock lifecycle', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    await waitFor(() => expect(textarea).toBeDisabled());
+    // Textarea stays enabled but placeholder indicates activation
+    await waitFor(() => {
+      expect(textarea.placeholder).toBe('Activating session, please wait...');
+    });
 
-    // First event is a step, not a delta — should still unlock
+    // First event is a step, not a delta — should still clear activation state
     act(() => {
       captured!.onStep({ title: 'Thinking...' });
     });
 
     await waitFor(() => {
-      expect(textarea).not.toBeDisabled();
+      expect(useChatStore.getState().sendingSessionId).toBeNull();
     });
 
     expect(isSessionReady('session-1')).toBe(true);
@@ -218,7 +221,10 @@ describe('InputBox integration — activation lock lifecycle', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    await waitFor(() => expect(textarea1).toBeDisabled());
+    // Session-1 textarea stays enabled but shows activation placeholder
+    await waitFor(() => {
+      expect(textarea1.placeholder).toBe('Activating session, please wait...');
+    });
 
     // Now render InputBox for session-2 alongside
     unmount();

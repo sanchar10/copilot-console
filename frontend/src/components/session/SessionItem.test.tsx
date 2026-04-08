@@ -10,47 +10,67 @@ vi.mock('../../utils/formatters', () => ({
   formatDateTime: (d: string) => 'dt-' + d,
 }));
 
+const mockSessionStoreState = {
+  removeSession: vi.fn(),
+  setSessions: vi.fn(),
+  sessions: [],
+  refreshMcpServers: vi.fn().mockResolvedValue([]),
+  updateSessionMcpServers: vi.fn(),
+  updateSessionTimestamp: vi.fn(),
+  clearNewSession: mockClearNewSession,
+};
+
 vi.mock('../../stores/sessionStore', () => ({
-  useSessionStore: () => ({
-    removeSession: vi.fn(),
-    setSessions: vi.fn(),
-    sessions: [],
-    refreshMcpServers: vi.fn().mockResolvedValue([]),
-    updateSessionMcpServers: vi.fn(),
-    updateSessionTimestamp: vi.fn(),
-    clearNewSession: mockClearNewSession,
-  }),
+  useSessionStore: Object.assign(
+    () => mockSessionStoreState,
+    { getState: () => mockSessionStoreState }
+  ),
 }));
+
+const mockChatStoreState = {
+  messagesPerSession: {},
+  setMessages: vi.fn(),
+  clearSessionMessages: vi.fn(),
+  setStreaming: vi.fn(),
+  appendStreamingContent: vi.fn(),
+  addStreamingStep: vi.fn(),
+  finalizeStreaming: vi.fn(),
+};
 
 vi.mock('../../stores/chatStore', () => ({
-  useChatStore: () => ({
-    messagesPerSession: {},
-    setMessages: vi.fn(),
-    clearSessionMessages: vi.fn(),
-    setStreaming: vi.fn(),
-    appendStreamingContent: vi.fn(),
-    addStreamingStep: vi.fn(),
-    finalizeStreaming: vi.fn(),
-  }),
+  useChatStore: Object.assign(
+    () => mockChatStoreState,
+    { getState: () => mockChatStoreState }
+  ),
 }));
+
+const mockViewedStoreState = {
+  isAgentActive: () => false,
+  setAgentActive: vi.fn(),
+  markViewed: mockMarkViewed,
+  hasUnread: () => false,
+};
 
 vi.mock('../../stores/viewedStore', () => ({
-  useViewedStore: () => ({
-    isAgentActive: () => false,
-    setAgentActive: vi.fn(),
-    markViewed: mockMarkViewed,
-    hasUnread: () => false,
-  }),
+  useViewedStore: Object.assign(
+    () => mockViewedStoreState,
+    { getState: () => mockViewedStoreState }
+  ),
 }));
 
+const mockTabStoreState = {
+  tabs: [],
+  activeTabId: null,
+  openTab: vi.fn(),
+  switchTab: mockSwitchTab,
+  closeTab: vi.fn(),
+};
+
 vi.mock('../../stores/tabStore', () => ({
-  useTabStore: () => ({
-    tabs: [],
-    activeTabId: null,
-    openTab: vi.fn(),
-    switchTab: mockSwitchTab,
-    closeTab: vi.fn(),
-  }),
+  useTabStore: Object.assign(
+    () => mockTabStoreState,
+    { getState: () => mockTabStoreState }
+  ),
   tabId: { session: (id: string) => `session:${id}` },
 }));
 

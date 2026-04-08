@@ -12,7 +12,9 @@ vi.mock('../../stores/uiStore', () => ({
       { id: 'claude-3', name: 'Claude 3' },
     ],
     defaultModel: 'gpt-4',
+    defaultReasoningEffort: null,
     setDefaultModel: vi.fn(),
+    setDefaultReasoningEffort: vi.fn(),
     defaultCwd: '/home/user',
     setDefaultCwd: vi.fn(),
   }),
@@ -26,6 +28,7 @@ vi.mock('../../hooks/useTheme', () => ({
 }));
 
 vi.mock('../../api/settings', () => ({
+  getSettings: vi.fn().mockResolvedValue({ default_model: 'gpt-4', default_reasoning_effort: null, default_cwd: '/home/user', cli_notifications: false }),
   updateSettings: vi.fn().mockResolvedValue({}),
 }));
 
@@ -56,9 +59,8 @@ describe('SettingsModal', () => {
   it('renders model selector with options', () => {
     render(<SettingsModal />);
     expect(screen.getByText('Default Model')).toBeInTheDocument();
-    // The Select component renders <option> elements
+    // ModelSelector renders a button showing the selected model name
     expect(screen.getByText('GPT-4')).toBeInTheDocument();
-    expect(screen.getByText('Claude 3')).toBeInTheDocument();
   });
 
   it('renders working directory input', () => {

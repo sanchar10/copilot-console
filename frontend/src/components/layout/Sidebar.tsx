@@ -20,7 +20,7 @@ import { SearchModal } from '../search/SearchModal';
 
 export function Sidebar() {
   const { sessions, setSessions, startNewSession, setLoading, setError } = useSessionStore();
-  const { setAvailableModels, setDefaultModel, setDefaultCwd, openSettingsModal, defaultModel, defaultCwd } = useUIStore();
+  const { setAvailableModels, setDefaultModel, setDefaultReasoningEffort, setDefaultCwd, openSettingsModal, defaultModel, defaultReasoningEffort, defaultCwd } = useUIStore();
   const { activeTabId, openTab } = useTabStore();
   const { setOpen: setAgentMonitorOpen, activeCount, setActiveCount } = useAgentMonitorStore();
   const { agents, fetchAgents } = useAgentStore();
@@ -94,6 +94,7 @@ export function Sidebar() {
         setSessions(sessionsData);
         setAvailableModels(modelsData);
         setDefaultModel(settingsData.default_model);
+        setDefaultReasoningEffort(settingsData.default_reasoning_effort ?? null);
         if (settingsData.default_cwd) {
           setDefaultCwd(settingsData.default_cwd);
         }
@@ -112,11 +113,11 @@ export function Sidebar() {
     apiClient.get<{ current_version: string }>('/settings/update-check')
       .then(info => setAppVersion(info.current_version))
       .catch(() => {});
-  }, [setSessions, setAvailableModels, setDefaultModel, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
+  }, [setSessions, setAvailableModels, setDefaultModel, setDefaultReasoningEffort, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
 
   const handleNewSession = async () => {
     // startNewSession now refreshes MCP servers automatically and enables all by default
-    await startNewSession(defaultModel, defaultCwd);
+    await startNewSession(defaultModel, defaultCwd, defaultReasoningEffort);
   };
 
   return (

@@ -91,8 +91,9 @@ describe('InputBox — per-session sending lock', () => {
     setupChat({ sendingSessionId: 'session-A' });
     render(<InputBox sessionId="session-A" />);
 
+    // Textarea stays enabled (editable) but shows activating placeholder
     const textarea = screen.getByPlaceholderText(/Activating session/);
-    expect(textarea).toBeDisabled();
+    expect(textarea).not.toBeDisabled();
   });
 
   it('is NOT disabled when sendingSessionId is a different session', () => {

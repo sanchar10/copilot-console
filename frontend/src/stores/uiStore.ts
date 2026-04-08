@@ -6,6 +6,7 @@ interface UIState {
   isSettingsModalOpen: boolean;
   availableModels: Model[];
   defaultModel: string;
+  defaultReasoningEffort: string | null;
   defaultCwd: string;
   searchHighlightTerm: string | null;
 
@@ -14,6 +15,7 @@ interface UIState {
   closeSettingsModal: () => void;
   setAvailableModels: (models: Model[]) => void;
   setDefaultModel: (model: string) => void;
+  setDefaultReasoningEffort: (effort: string | null) => void;
   setDefaultCwd: (cwd: string) => void;
   setSearchHighlight: (term: string | null) => void;
 }
@@ -23,6 +25,7 @@ export const useUIStore = create<UIState>((set) => ({
   isSettingsModalOpen: false,
   availableModels: [],
   defaultModel: 'gpt-4.1',
+  defaultReasoningEffort: null,
   defaultCwd: '',
   searchHighlightTerm: null,
 
@@ -32,6 +35,7 @@ export const useUIStore = create<UIState>((set) => ({
   closeSettingsModal: () => set({ isSettingsModalOpen: false }),
   setAvailableModels: (models) => set({ availableModels: models }),
   setDefaultModel: (model) => set({ defaultModel: model }),
+  setDefaultReasoningEffort: (effort) => set({ defaultReasoningEffort: effort }),
   setDefaultCwd: (cwd) => set({ defaultCwd: cwd }),
   setSearchHighlight: (term) => set({ searchHighlightTerm: term }),
 }));

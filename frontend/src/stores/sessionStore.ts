@@ -31,7 +31,7 @@ interface SessionState {
   setSessions: (sessions: Session[]) => void;
   addSession: (session: Session) => void;
   removeSession: (sessionId: string) => void;
-  startNewSession: (defaultModel: string, defaultCwd: string) => Promise<void>;
+  startNewSession: (defaultModel: string, defaultCwd: string, defaultReasoningEffort?: string | null) => Promise<void>;
   updateNewSessionSettings: (settings: Partial<NewSessionSettings>) => void;
   clearNewSession: () => void;
   moveSessionToTop: (sessionId: string) => void;
@@ -68,7 +68,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => ({
       sessions: state.sessions.filter((s) => s.session_id !== sessionId),
     })),
-  startNewSession: async (defaultModel, defaultCwd) => {
+  startNewSession: async (defaultModel, defaultCwd, defaultReasoningEffort) => {
     // Refresh MCP servers and tools from disk when starting new session
     const state = useSessionStore.getState();
     const [servers, toolsConfig] = await Promise.all([
@@ -91,7 +91,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       newSessionSettings: {
         name: 'New Session',
         model: defaultModel,
-        reasoningEffort: null,
+        reasoningEffort: defaultReasoningEffort ?? null,
         cwd: defaultCwd,
         mcpServers: defaultMcpServers,
         tools: defaultTools,

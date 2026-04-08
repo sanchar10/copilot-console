@@ -17,6 +17,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 class SettingsUpdate(BaseModel):
     default_model: str | None = None
+    default_reasoning_effort: str | None = None
     default_cwd: str | None = None
     workflow_step_timeout: int | None = None
     cli_notifications: bool | None = None
@@ -34,6 +35,9 @@ async def update_settings(request: SettingsUpdate) -> dict:
     updates = {}
     if request.default_model is not None:
         updates["default_model"] = request.default_model
+    # Always save reasoning effort when model is updated (can be null to clear it)
+    if "default_reasoning_effort" in (request.model_dump(exclude_unset=True)):
+        updates["default_reasoning_effort"] = request.default_reasoning_effort
     if request.default_cwd is not None:
         # Validate CWD path exists
         if not os.path.isdir(request.default_cwd):

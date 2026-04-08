@@ -26,13 +26,14 @@ import time
 from typing import AsyncGenerator, TYPE_CHECKING
 
 from copilot import CopilotClient
-from copilot.types import Tool, SubprocessConfig
+from copilot.tools import Tool
+from copilot import SubprocessConfig
 from copilot.generated.rpc import Mode, SessionModeSetParams, SessionModelSwitchToParams, SessionFleetStartParams
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
 # Import approve_all if available, otherwise provide a fallback for older SDKs.
 try:
-    from copilot.types import PermissionHandler
+    from copilot.session import PermissionHandler
     approve_all_permissions = PermissionHandler.approve_all
 except (ImportError, AttributeError):
     approve_all_permissions = None

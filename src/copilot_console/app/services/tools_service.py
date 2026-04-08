@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-from copilot.types import Tool, ToolInvocation, ToolResult as SDKToolResult
+from copilot.tools import Tool, ToolInvocation, ToolResult as SDKToolResult
 
 from copilot_console.app.models.tools import ToolInfo, ToolSpecWithHandler, ToolResult, ToolsConfig
 from copilot_console.app.config import TOOLS_DIR

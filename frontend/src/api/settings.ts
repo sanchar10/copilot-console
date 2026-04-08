@@ -2,6 +2,7 @@ const API_BASE = '/api';
 
 export interface Settings {
   default_model: string;
+  default_reasoning_effort: string | null;
   default_cwd: string;
   cli_notifications?: boolean;
 }

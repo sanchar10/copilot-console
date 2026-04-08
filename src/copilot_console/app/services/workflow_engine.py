@@ -37,7 +37,7 @@ from agent_framework_declarative import WorkflowFactory
 # SDK 0.2.0 replaced these with keyword-arg APIs. We inject the missing type
 # aliases so the AF module loads, then wrap the changed SDK methods so dict-
 # based calls from the AF still work.
-import copilot.types as _copilot_types
+import copilot.tools as _copilot_types
 import copilot.session as _copilot_session
 import copilot.client as _copilot_client
 
@@ -58,7 +58,7 @@ def _apply_sdk_compat_shim() -> bool:
     _orig_init = _copilot_client.CopilotClient.__init__
     def _patched_init(self, config=None, **kwargs):
         if isinstance(config, dict):
-            from copilot.types import SubprocessConfig
+            from copilot import SubprocessConfig
             if config:
                 config = SubprocessConfig(**{k: v for k, v in config.items()
                                             if k in SubprocessConfig.__dataclass_fields__})
@@ -122,7 +122,7 @@ except ImportError:
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
 try:
-    from copilot.types import PermissionHandler
+    from copilot.session import PermissionHandler
     approve_all_permissions = PermissionHandler.approve_all
 except (ImportError, AttributeError):
     approve_all_permissions = None
