@@ -121,6 +121,8 @@ function setupStores(overrides?: { openTabs?: string[]; currentSessionId?: strin
     getTokenUsage: () => null,
     clearTokenUsage: vi.fn(),
     sendingSessionId: null,
+    pendingElicitation: {},
+    resolvedElicitations: {},
     setSending: vi.fn(),
     setStreaming: vi.fn(),
     addMessage: vi.fn(),
