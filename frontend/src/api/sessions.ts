@@ -8,6 +8,30 @@ export interface ChatStep {
   detail?: string;
 }
 
+export interface ElicitationRequest {
+  request_id: string;
+  message: string;
+  schema: Record<string, unknown>;
+  source: string;
+}
+
+export async function respondToElicitation(
+  sessionId: string,
+  requestId: string,
+  action: 'accept' | 'decline' | 'cancel',
+  content?: Record<string, unknown>,
+): Promise<{ status: string; action: string }> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/elicitation-response`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request_id: requestId, action, content }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to respond to elicitation: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export async function createSession(request: CreateSessionRequest): Promise<Session> {
   const response = await fetch(`${API_BASE}/sessions`, {
     method: 'POST',
@@ -167,7 +191,8 @@ export async function sendMessage(
   attachments?: AttachmentRef[],
   onModeChanged?: (mode: string) => void,
   agentMode?: string,
-  fleet?: boolean
+  fleet?: boolean,
+  onElicitation?: (data: ElicitationRequest) => void,
 ): Promise<void> {
   const body: Record<string, unknown> = { content, is_new_session: isNewSession };
   if (attachments && attachments.length > 0) {
@@ -245,6 +270,8 @@ export async function sendMessage(
             onError(data.error);
           } else if (eventName === 'mode_changed' && data.mode) {
             onModeChanged?.(data.mode);
+          } else if (eventName === 'elicitation' && data.request_id) {
+            onElicitation?.(data as ElicitationRequest);
           }
         } catch (e) {
           console.error('Failed to parse SSE data:', eventData, e);
@@ -269,6 +296,7 @@ export async function sendMessage(
           if (eventName === 'step' && data.title) onStep(data);
           if (eventName === 'turn_done') onTurnDone?.(data.messageId);
           if (eventName === 'done') onDone(data.message_id || '', data.session_name);
+          if (eventName === 'elicitation' && data.request_id) onElicitation?.(data as ElicitationRequest);
         } catch {
           // ignore
         }
@@ -346,7 +374,8 @@ export async function resumeResponseStream(
   onDelta: (content: string) => void,
   onStep: (step: ChatStep) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  onElicitation?: (data: ElicitationRequest) => void,
 ): Promise<void> {
   const response = await fetch(
     `${API_BASE}/sessions/${sessionId}/response-stream?from_chunk=${fromChunk}&from_step=${fromStep}`
@@ -402,6 +431,8 @@ export async function resumeResponseStream(
             onDone();
           } else if (eventName === 'error' && data.error !== undefined) {
             onError(data.error);
+          } else if (eventName === 'elicitation' && data.request_id) {
+            onElicitation?.(data as ElicitationRequest);
           }
         } catch (e) {
           console.error('Failed to parse SSE data:', eventData, e);
