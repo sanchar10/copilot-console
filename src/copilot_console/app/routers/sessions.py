@@ -396,7 +396,32 @@ async def abort_session(session_id: str) -> dict:
         raise HTTPException(status_code=500, detail=error_msg)
 
 
-@router.post("/{session_id}/messages")
+@router.post("/{session_id}/elicitation-response")
+async def elicitation_response(session_id: str, request: dict) -> dict:
+    """Respond to a pending elicitation request.
+    
+    Body: { request_id: str, action: "accept"|"decline"|"cancel", content?: {...} }
+    """
+    set_session_context(session_id)
+    request_id = request.get("request_id")
+    action = request.get("action", "cancel")
+    content = request.get("content", {})
+
+    if not request_id:
+        raise HTTPException(status_code=400, detail="request_id is required")
+    if action not in ("accept", "decline", "cancel"):
+        raise HTTPException(status_code=400, detail="action must be accept, decline, or cancel")
+
+    result = {"action": action}
+    if action == "accept" and content:
+        result["content"] = content
+
+    resolved = copilot_service.resolve_elicitation(session_id, request_id, result)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Elicitation request not found or already resolved")
+
+    logger.info(f"[{session_id}] Elicitation {request_id} resolved with action={action}")
+    return {"status": "resolved", "action": action}
 async def send_message(session_id: str, request: MessageCreate) -> EventSourceResponse:
     """Send a message and stream the assistant's response via SSE.
     
