@@ -239,7 +239,7 @@ export function Sidebar() {
       </div>
 
       {/* Session List - grows to fill space, overflow hidden for virtual scroll */}
-      <div className="flex-1 overflow-hidden p-3 flex flex-col">
+      <div className="flex-1 overflow-hidden pl-4 pt-3 pb-3 flex flex-col">
         {/* Folder filter */}
         {sessions.length > 0 && (() => {
           // Build unique folder entries: { name, cwd (shortest path for that name) }
@@ -262,13 +262,16 @@ export function Sidebar() {
             <select
               value={selectedProject || ''}
               onChange={e => selectProject(e.target.value || null)}
-              className="mb-2 flex-shrink-0 w-full min-w-0 max-w-full px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 overflow-hidden text-ellipsis"
+              className="mb-2 flex-shrink-0 min-w-0 max-w-full mr-4 px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 overflow-hidden text-ellipsis"
             >
               <option value="">All Projects ({folderEntries.length}) · {totalNonAutoSessions} sessions</option>
               {folderEntries.map(({ name, fullPath }) => {
                 const count = sessions.filter(s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === name).length;
+                const suffix = ` · ${count} sessions`;
+                const maxNameLen = 40 - suffix.length;
+                const displayName = name.length > maxNameLen ? '…' + name.slice(-maxNameLen + 1) : name;
                 return (
-                  <option key={name} value={name} title={fullPath}>{name} · {count} sessions</option>
+                  <option key={name} value={name} title={fullPath}>{displayName}{suffix}</option>
                 );
               })}
             </select>

@@ -35,16 +35,27 @@ export function SessionItem({ session }: SessionItemProps) {
   // Blue dot: unread if session was modified after we last viewed it
   const hasUnreadMessages = !isActive && hasUnread(session.session_id, session.updated_at, session.created_at);
 
-  // Position popover when shown
+  // Position popover when shown — adjusts if it would overflow viewport
   useEffect(() => {
     if (showInfo && infoButtonRef.current) {
       const rect = infoButtonRef.current.getBoundingClientRect();
-      setPopoverPosition({
-        top: rect.top,
-        left: rect.right + 8,
-      });
+      const left = rect.right + 8;
+      let top = rect.top;
+      setPopoverPosition({ top, left });
     }
   }, [showInfo]);
+
+  // Adjust position after popover renders to keep it in viewport
+  useEffect(() => {
+    if (!showInfo) return;
+    const el = infoRef.current;
+    if (!el) return;
+    const popoverRect = el.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    if (popoverRect.bottom > viewportHeight - 8) {
+      setPopoverPosition(prev => ({ ...prev, top: viewportHeight - popoverRect.height - 8 }));
+    }
+  });
 
   // Close info popover when clicking outside
   useEffect(() => {
@@ -134,7 +145,7 @@ export function SessionItem({ session }: SessionItemProps) {
             : 'border border-transparent hover:bg-gray-50 hover:border-gray-200 dark:hover:bg-[#32324a] dark:hover:border-gray-700'
         }`}
       >
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-4">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
             {session.session_name}
           </p>
@@ -143,39 +154,45 @@ export function SessionItem({ session }: SessionItemProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-1">
-          {/* Status indicators */}
-          {isRunning ? (
-            /* Spinner for active agent */
-            <div className="p-1.5" title="Agent is processing...">
-              <svg className="w-4 h-4 text-emerald-500 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            </div>
-          ) : hasUnreadMessages ? (
-            /* Blue dot for unread messages */
-            <div className="p-1.5" title="New messages">
-              <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
-            </div>
-          ) : null}
-          
-          {/* Info button */}
+        {/* Status indicator — absolute right, hides on hover to reveal action buttons */}
+        {(isRunning || hasUnreadMessages) && (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 group-hover:opacity-0 transition-opacity">
+            {isRunning ? (
+              <div title="Agent is processing...">
+                <svg className="w-4 h-4 text-emerald-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </div>
+            ) : (
+              <div title="New messages">
+                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hover actions — overlayed on right side with solid background */}
+        <div className={`absolute right-0 top-0 bottom-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity rounded-r-lg px-1 ${
+          isActive
+            ? 'bg-blue-50 dark:bg-[#1a2744]'
+            : isOpen
+            ? 'bg-gray-100 dark:bg-[#33334a]'
+            : 'bg-gray-50 dark:bg-[#32324a]'
+        }`}>
           <button
             ref={infoButtonRef}
             onClick={handleInfoClick}
-            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-[#32324a] rounded transition-all"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-[#32324a] rounded transition-all"
             title="Session info"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>
-
-          {/* Delete button */}
           <button
             onClick={handleDeleteClick}
-            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#32324a] rounded transition-all"
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-[#32324a] rounded transition-all"
             title="Delete session"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -190,7 +207,7 @@ export function SessionItem({ session }: SessionItemProps) {
         <div 
           ref={infoRef}
           style={{ top: popoverPosition.top, left: popoverPosition.left }}
-          className="fixed z-[9999] bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-[#3a3a4e] rounded-lg shadow-xl p-3 min-w-[280px] text-sm"
+          className="fixed z-[9999] bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-[#3a3a4e] rounded-lg shadow-xl p-3 w-[320px] text-sm"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="space-y-2">
@@ -213,13 +230,18 @@ export function SessionItem({ session }: SessionItemProps) {
             </div>
 
             <div>
+              <span className="text-gray-500 dark:text-gray-400 text-xs">Session Name</span>
+              <p className="text-gray-700 dark:text-gray-300 break-words">{session.session_name}</p>
+            </div>
+
+            <div>
               <span className="text-gray-500 dark:text-gray-400 text-xs">Model</span>
               <p className="text-gray-700 dark:text-gray-300">{session.model || '(not set)'}</p>
             </div>
 
             <div>
               <span className="text-gray-500 dark:text-gray-400 text-xs">Working Directory</span>
-              <p className="text-gray-200 dark:text-gray-400 break-all">{session.cwd || '(not adopted)'}</p>
+              <p className="text-gray-700 dark:text-gray-300 break-all">{session.cwd || '(not adopted)'}</p>
             </div>
 
             <div>

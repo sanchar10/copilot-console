@@ -46,7 +46,7 @@ export function SessionList({ sessions }: SessionListProps) {
   return (
     <div
       ref={parentRef}
-      className="h-full overflow-auto dark-scrollbar"
+      className="h-full overflow-y-auto"
       style={{ contain: 'strict' }}
     >
       <ul
@@ -60,7 +60,7 @@ export function SessionList({ sessions }: SessionListProps) {
           return (
             <li
               key={session.session_id}
-              className="absolute top-0 left-0 w-full px-1"
+              className="absolute top-0 left-0 w-full pr-2"
               style={{
                 height: `${virtualItem.size}px`,
                 transform: `translateY(${virtualItem.start}px)`,
