@@ -22,6 +22,7 @@ interface StreamingState {
 export interface ResolvedElicitation {
   requestId: string;
   message: string;
+  schema?: Record<string, unknown>;
   action: 'accept' | 'decline' | 'cancel';
   values?: Record<string, unknown>;
 }
@@ -254,6 +255,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const resolved: ResolvedElicitation = {
         requestId: pending?.request_id || '',
         message: pending?.message || '',
+        schema: pending?.schema,
         action,
         values,
       };

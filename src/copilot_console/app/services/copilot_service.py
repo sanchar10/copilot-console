@@ -189,6 +189,7 @@ class SessionClient:
         
         if on_elicitation_request:
             session_opts["on_elicitation_request"] = on_elicitation_request
+            logger.info(f"[{self.session_id}] Elicitation handler registered for session creation")
         
         if mcp_servers:
             session_opts["mcp_servers"] = mcp_servers

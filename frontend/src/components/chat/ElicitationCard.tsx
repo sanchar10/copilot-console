@@ -249,6 +249,14 @@ export function ElicitationCard({ sessionId, data }: ElicitationCardProps) {
 
   const fieldEntries = Object.entries(properties);
 
+  // Check if all required fields have values
+  const hasRequiredValues = requiredFields.every(key => {
+    const val = values[key];
+    if (val === undefined || val === null || val === '') return false;
+    if (Array.isArray(val) && val.length === 0) return false;
+    return true;
+  });
+
   return (
     <div className="my-2 border-l-3 border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 rounded-r-lg p-3">
       <div className="flex items-center gap-2 mb-2">
@@ -300,8 +308,9 @@ export function ElicitationCard({ sessionId, data }: ElicitationCardProps) {
         <button
           type="button"
           onClick={() => handleAction('accept')}
-          disabled={submitting}
-          className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+          disabled={submitting || !hasRequiredValues}
+          className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={!hasRequiredValues ? 'Fill in all required fields' : undefined}
         >
           {submitting ? 'Sending...' : 'Accept ✓'}
         </button>
@@ -343,9 +352,12 @@ export function ResolvedElicitationCard({ resolved, schema }: ResolvedCardProps)
       </div>
       {resolved.values && Object.keys(resolved.values).length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {Object.entries(resolved.values).map(([key, val]) => (
+          {/* Render in schema property order if available, else value order */}
+          {(properties ? Object.keys(properties) : Object.keys(resolved.values))
+            .filter(key => resolved.values![key] !== undefined && resolved.values![key] !== '' && !(Array.isArray(resolved.values![key]) && (resolved.values![key] as unknown[]).length === 0))
+            .map(key => (
             <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
-              <span className="font-medium">{getLabel(key)}:</span> {formatValue(key, val)}
+              <span className="font-medium">{getLabel(key)}:</span> {formatValue(key, resolved.values![key])}
             </span>
           ))}
         </div>

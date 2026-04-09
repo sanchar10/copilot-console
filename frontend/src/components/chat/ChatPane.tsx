@@ -584,7 +584,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                       {isStreaming && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
                       {/* Resolved elicitations */}
                       {(resolvedElicitations[sessionId] || []).map((re, i) => (
-                        <ResolvedElicitationCard key={`resolved-${i}`} resolved={re} />
+                        <ResolvedElicitationCard key={`resolved-${i}`} resolved={re} schema={re.schema} />
                       ))}
                       {/* Pending elicitation card */}
                       {pendingElicitation[sessionId] && (
