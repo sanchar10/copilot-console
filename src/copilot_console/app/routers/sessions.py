@@ -429,15 +429,26 @@ async def user_input_response(session_id: str, request: dict) -> dict:
     """Respond to a pending ask_user request.
     
     Body: { request_id: str, answer: str, wasFreeform: bool }
+    Or to cancel: { request_id: str, cancelled: true }
     """
     set_session_context(session_id)
     request_id = request.get("request_id")
-    answer = request.get("answer", "")
-    was_freeform = request.get("wasFreeform", True)
 
     if not request_id:
         raise HTTPException(status_code=400, detail="request_id is required")
 
+    if request.get("cancelled"):
+        # Cancel the Future — SDK handler will raise, agent sees "User cancelled"
+        key = (session_id, request_id)
+        future = copilot_service._pending_elicitations.pop(key, None)
+        if future and not future.done():
+            future.cancel()
+            logger.info(f"[{session_id}] User input {request_id} cancelled by user")
+            return {"status": "cancelled"}
+        raise HTTPException(status_code=404, detail="User input request not found or already resolved")
+
+    answer = request.get("answer", "")
+    was_freeform = request.get("wasFreeform", True)
     result = {"answer": answer, "wasFreeform": was_freeform}
 
     resolved = copilot_service.resolve_elicitation(session_id, request_id, result)

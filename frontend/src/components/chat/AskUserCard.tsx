@@ -34,7 +34,7 @@ export function AskUserCard({ sessionId, data }: AskUserCardProps) {
   const handleSkip = useCallback(async () => {
     setSubmitting(true);
     try {
-      await respondToUserInput(sessionId, data.request_id, '', true);
+      await respondToUserInput(sessionId, data.request_id, '', true, true);
       clearAskUser(sessionId);
     } catch (err) {
       console.error('Failed to skip ask_user:', err);

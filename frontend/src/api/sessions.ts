@@ -44,11 +44,19 @@ export async function respondToUserInput(
   requestId: string,
   answer: string,
   wasFreeform: boolean,
+  cancelled?: boolean,
 ): Promise<{ status: string }> {
+  const body: Record<string, unknown> = { request_id: requestId };
+  if (cancelled) {
+    body.cancelled = true;
+  } else {
+    body.answer = answer;
+    body.wasFreeform = wasFreeform;
+  }
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/user-input-response`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ request_id: requestId, answer, wasFreeform }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw new Error(`Failed to respond to user input: ${response.statusText}`);

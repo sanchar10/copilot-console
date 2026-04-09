@@ -488,7 +488,7 @@ class CopilotService:
                 return result
             except asyncio.CancelledError:
                 logger.debug(f"[{session_id}] ask_user cancelled: {request_id}")
-                return {"answer": "", "wasFreeform": True}
+                return {"answer": "User cancelled the request.", "wasFreeform": True}
             finally:
                 self._pending_elicitations.pop(key, None)
                 if client:
