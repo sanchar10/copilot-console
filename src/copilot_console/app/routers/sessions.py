@@ -428,14 +428,13 @@ async def elicitation_response(session_id: str, request: dict) -> dict:
 async def test_elicitation(session_id: str) -> dict:
     """DEV ONLY: Simulate an elicitation event for UI testing.
     
-    Pushes a fake elicitation event into the session's SSE queue so the
-    frontend can render and respond to it without needing the agent to
-    call ask_user.
+    Pushes a fake elicitation event through both the event queue (if streaming)
+    and the ResponseBuffer (for reconnect), so it works regardless of stream state.
     """
     import uuid
     client = copilot_service._session_clients.get(session_id)
-    if not client or not client.event_queue:
-        raise HTTPException(status_code=404, detail="No active session with event queue")
+    if not client:
+        raise HTTPException(status_code=404, detail="No active session client")
 
     request_id = str(uuid.uuid4())
     elicitation_data = {
@@ -486,7 +485,19 @@ async def test_elicitation(session_id: str) -> dict:
     future = loop.create_future()
     copilot_service._pending_elicitations[(session_id, request_id)] = future
 
-    client.event_queue.put_nowait({"event": "elicitation", "data": elicitation_data})
+    evt = {"event": "elicitation", "data": elicitation_data}
+
+    # Push to active event queue if streaming
+    if client.event_queue:
+        client.event_queue.put_nowait(evt)
+
+    # Also push to ResponseBuffer so reconnect/SSE consumer picks it up
+    buffer = await response_buffer_manager.get_buffer(session_id)
+    if not buffer:
+        # Create a buffer that stays open for the elicitation
+        buffer = await response_buffer_manager.create_buffer(session_id)
+    buffer.add_notification("elicitation", elicitation_data)
+
     logger.info(f"[{session_id}] Test elicitation pushed: {request_id}")
     return {"status": "pushed", "request_id": request_id}
 

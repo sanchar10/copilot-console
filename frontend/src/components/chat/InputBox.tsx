@@ -758,7 +758,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                     : isSending
                       ? "Activating session, please wait..."
                       : isStreaming 
-                        ? "Type a follow-up... (will be queued for the agent)" 
+                        ? "Agent is responding… queue a follow-up message" 
                         : "Type a message... (Enter to send, Shift+Enter for new line)"}
                   className="flex-1 resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                   rows={1}

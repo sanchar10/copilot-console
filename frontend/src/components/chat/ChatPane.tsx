@@ -581,7 +581,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                       {messages.map((message) => (
                         <MessageBubble key={message.id} message={message} cwd={session?.cwd} sessionId={sessionId} onPinCreated={handlePinCreated} />
                       ))}
-                      {isStreaming && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
+                      {isStreaming && (streamingContent || streamingSteps.length > 0) && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
                       {/* Resolved elicitations */}
                       {(resolvedElicitations[sessionId] || []).map((re, i) => (
                         <ResolvedElicitationCard key={`resolved-${i}`} resolved={re} schema={re.schema} />

@@ -271,7 +271,6 @@ export function StreamingMessage({ content, steps, cwd }: StreamingMessageProps)
                 <StreamingCodeBlock key={i} segment={seg} />
               )
             )}
-            <span className="inline-block w-2 h-4 ml-1 bg-emerald-400 animate-pulse" />
           </div>
         </div>
       </div>
