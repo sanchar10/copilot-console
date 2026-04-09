@@ -424,6 +424,73 @@ async def elicitation_response(session_id: str, request: dict) -> dict:
     return {"status": "resolved", "action": action}
 
 
+@router.post("/{session_id}/test-elicitation")
+async def test_elicitation(session_id: str) -> dict:
+    """DEV ONLY: Simulate an elicitation event for UI testing.
+    
+    Pushes a fake elicitation event into the session's SSE queue so the
+    frontend can render and respond to it without needing the agent to
+    call ask_user.
+    """
+    import uuid
+    client = copilot_service._session_clients.get(session_id)
+    if not client or not client.event_queue:
+        raise HTTPException(status_code=404, detail="No active session with event queue")
+
+    request_id = str(uuid.uuid4())
+    elicitation_data = {
+        "request_id": request_id,
+        "message": "Please configure your project settings:",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "title": "Database",
+                    "enum": ["PostgreSQL", "MySQL", "SQLite"],
+                    "description": "Which database engine to use"
+                },
+                "projectName": {
+                    "type": "string",
+                    "title": "Project Name",
+                    "description": "Name of your project"
+                },
+                "port": {
+                    "type": "integer",
+                    "title": "Port",
+                    "default": 5432,
+                    "minimum": 1024,
+                    "maximum": 65535
+                },
+                "enableCaching": {
+                    "type": "boolean",
+                    "title": "Enable Caching",
+                    "default": True
+                },
+                "features": {
+                    "type": "array",
+                    "title": "Features",
+                    "items": {
+                        "enum": ["auth", "logging", "metrics", "rate-limiting"]
+                    }
+                }
+            },
+            "required": ["database", "projectName"]
+        },
+        "source": "test-endpoint",
+    }
+
+    # Store a future so the response endpoint works
+    import asyncio
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+    copilot_service._pending_elicitations[(session_id, request_id)] = future
+
+    client.event_queue.put_nowait({"event": "elicitation", "data": elicitation_data})
+    logger.info(f"[{session_id}] Test elicitation pushed: {request_id}")
+    return {"status": "pushed", "request_id": request_id}
+
+
 @router.post("/{session_id}/messages")
 async def send_message(session_id: str, request: MessageCreate) -> EventSourceResponse:
     """Send a message and stream the assistant's response via SSE.
