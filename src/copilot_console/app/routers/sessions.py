@@ -422,6 +422,9 @@ async def elicitation_response(session_id: str, request: dict) -> dict:
 
     logger.info(f"[{session_id}] Elicitation {request_id} resolved with action={action}")
     return {"status": "resolved", "action": action}
+
+
+@router.post("/{session_id}/messages")
 async def send_message(session_id: str, request: MessageCreate) -> EventSourceResponse:
     """Send a message and stream the assistant's response via SSE.
     
