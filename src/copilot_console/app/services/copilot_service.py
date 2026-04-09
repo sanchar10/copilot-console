@@ -231,6 +231,9 @@ class SessionClient:
             timeout=30,
         )
         self.touch()
+        # Log capabilities to verify elicitation support
+        if hasattr(self.session, 'capabilities'):
+            logger.info(f"[{self.session_id}] Session capabilities: {self.session.capabilities}")
         logger.debug(f"[{self.session_id}] Created SDK session with model={model}, working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
         return self.session
     
@@ -955,6 +958,7 @@ class CopilotService:
         done = asyncio.Event()
         full_response: list[str] = []
         reasoning_buffer: list[str] = []
+        pending_turn_msg_id: list[str | None] = [None]  # mutable container for closure
         
         # Helper to log all events
         def _clean_text(text: str) -> str:
@@ -1033,6 +1037,9 @@ class CopilotService:
             
             event_type = event.type.value if hasattr(event.type, "value") else str(event.type)
             data = getattr(event, "data", None)
+            
+            # Trace all events to understand ordering
+            logger.info(f"[{session_id}] SDK event: {event_type} | response_len={len(full_response)} reasoning_len={len(reasoning_buffer)}")
 
             if event_type == "assistant.message_delta":
                 delta = _get_text(data)
@@ -1049,20 +1056,15 @@ class CopilotService:
                         full_response.append(content)
                         event_queue.put_nowait({"event": "delta", "data": {"content": content}})
 
-                # assistant.message is the SDK's per-response turn boundary.
-                # Always emit turn_done so the frontend can finalize this
-                # response — works for both single and enqueued messages.
-                if full_response:
-                    # Extract SDK message ID so frontend can pin this message
-                    msg_id = None
-                    if data:
-                        msg_id = getattr(data, "message_id", None) or getattr(data, "id", None)
-                        if not msg_id and isinstance(data, dict):
-                            msg_id = data.get("message_id") or data.get("id")
-                    logger.debug(f"[{session_id}] turn_done msg_id={msg_id}")
-                    event_queue.put_nowait({"event": "turn_done", "data": {"messageId": msg_id}})
-                full_response.clear()
-                logger.debug(f"[{session_id}] assistant.message — turn boundary emitted")
+                # Capture message_id for turn_done, but don't finalize yet —
+                # assistant.reasoning and other post-message events may follow.
+                # Finalization happens on assistant.turn_end.
+                if full_response and data:
+                    msg_id = getattr(data, "message_id", None) or getattr(data, "id", None)
+                    if not msg_id and isinstance(data, dict):
+                        msg_id = data.get("message_id") or data.get("id")
+                    pending_turn_msg_id[0] = msg_id
+                    logger.debug(f"[{session_id}] assistant.message — captured msg_id={msg_id}, deferring turn_done to turn_end")
 
             elif event_type == "assistant.reasoning_delta":
                 text = _get_text(data)
@@ -1082,6 +1084,17 @@ class CopilotService:
                 intent = getattr(data, "intent", None)
                 if isinstance(intent, str) and intent.strip():
                     _enqueue_step("Intent", intent)
+
+            elif event_type == "assistant.turn_end":
+                # True turn boundary — all sub-events (reasoning, usage) are done.
+                # Now emit turn_done so the frontend finalizes with complete data.
+                if full_response or pending_turn_msg_id[0]:
+                    msg_id = pending_turn_msg_id[0]
+                    logger.debug(f"[{session_id}] turn_done msg_id={msg_id} (from turn_end)")
+                    event_queue.put_nowait({"event": "turn_done", "data": {"messageId": msg_id}})
+                full_response.clear()
+                reasoning_buffer.clear()
+                pending_turn_msg_id[0] = None
 
             elif event_type == "tool.execution_start":
                 tool = getattr(data, "tool_name", None) or getattr(data, "name", None)
