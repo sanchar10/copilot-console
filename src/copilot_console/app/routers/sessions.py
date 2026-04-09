@@ -424,6 +424,30 @@ async def elicitation_response(session_id: str, request: dict) -> dict:
     return {"status": "resolved", "action": action}
 
 
+@router.post("/{session_id}/user-input-response")
+async def user_input_response(session_id: str, request: dict) -> dict:
+    """Respond to a pending ask_user request.
+    
+    Body: { request_id: str, answer: str, wasFreeform: bool }
+    """
+    set_session_context(session_id)
+    request_id = request.get("request_id")
+    answer = request.get("answer", "")
+    was_freeform = request.get("wasFreeform", True)
+
+    if not request_id:
+        raise HTTPException(status_code=400, detail="request_id is required")
+
+    result = {"answer": answer, "wasFreeform": was_freeform}
+
+    resolved = copilot_service.resolve_elicitation(session_id, request_id, result)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="User input request not found or already resolved")
+
+    logger.info(f"[{session_id}] User input {request_id} resolved: answer={answer[:50]}")
+    return {"status": "resolved"}
+
+
 @router.post("/{session_id}/test-elicitation")
 async def test_elicitation(session_id: str) -> dict:
     """DEV ONLY: Simulate an elicitation event for UI testing.

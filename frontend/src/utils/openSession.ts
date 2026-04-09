@@ -86,6 +86,10 @@ export async function openSessionTab(session: Session): Promise<void> {
             const { setElicitation } = useChatStore.getState();
             setElicitation(sessionId, data);
           },
+          (data) => {
+            const { setAskUser } = useChatStore.getState();
+            setAskUser(sessionId, data);
+          },
         );
         return true; // Active response found and resumed
       }

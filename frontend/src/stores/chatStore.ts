@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Message } from '../types/message';
-import type { ElicitationRequest } from '../api/sessions';
+import type { ElicitationRequest, AskUserRequest } from '../api/sessions';
 
 export interface ChatStep {
   title: string;
@@ -40,6 +40,9 @@ interface ChatState {
   pendingElicitation: Record<string, ElicitationRequest | null>;
   resolvedElicitations: Record<string, ResolvedElicitation[]>;
 
+  // Ask user state per session
+  pendingAskUser: Record<string, AskUserRequest | null>;
+
   // Getters
   getStreamingState: (sessionId: string | null) => StreamingState;
   getTokenUsage: (sessionId: string | null) => TokenUsage | null;
@@ -62,6 +65,10 @@ interface ChatState {
   setElicitation: (sessionId: string, data: ElicitationRequest) => void;
   clearElicitation: (sessionId: string) => void;
   resolveElicitation: (sessionId: string, action: 'accept' | 'decline' | 'cancel', values?: Record<string, unknown>) => void;
+
+  // Ask user
+  setAskUser: (sessionId: string, data: AskUserRequest) => void;
+  clearAskUser: (sessionId: string) => void;
 }
 
 const emptyStreamingState: StreamingState = { content: '', steps: [], isStreaming: false };
@@ -73,6 +80,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendingSessionId: null,
   pendingElicitation: {},
   resolvedElicitations: {},
+  pendingAskUser: {},
 
   getStreamingState: (sessionId) => {
     if (!sessionId) return emptyStreamingState;
@@ -268,5 +276,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [sessionId]: [...(state.resolvedElicitations[sessionId] || []), resolved],
         },
       };
+    }),
+
+  setAskUser: (sessionId, data) =>
+    set((state) => ({
+      pendingAskUser: { ...state.pendingAskUser, [sessionId]: data },
+    })),
+
+  clearAskUser: (sessionId) =>
+    set((state) => {
+      const updated = { ...state.pendingAskUser };
+      delete updated[sessionId];
+      return { pendingAskUser: updated };
     }),
 }));

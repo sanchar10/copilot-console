@@ -163,7 +163,7 @@ class SessionClient:
         """Update last activity timestamp."""
         self.last_activity = time.time()
     
-    async def create_session(self, model: str, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, custom_agents: list[dict] | None = None, reasoning_effort: str | None = None, on_elicitation_request=None) -> object:
+    async def create_session(self, model: str, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, custom_agents: list[dict] | None = None, reasoning_effort: str | None = None, on_elicitation_request=None, on_user_input_request=None) -> object:
         """Create a new SDK session.
         
         Args:
@@ -190,6 +190,10 @@ class SessionClient:
         if on_elicitation_request:
             session_opts["on_elicitation_request"] = on_elicitation_request
             logger.info(f"[{self.session_id}] Elicitation handler registered for session creation")
+        
+        if on_user_input_request:
+            session_opts["on_user_input_request"] = on_user_input_request
+            logger.info(f"[{self.session_id}] User input (ask_user) handler registered for session creation")
         
         if mcp_servers:
             session_opts["mcp_servers"] = mcp_servers
@@ -237,7 +241,7 @@ class SessionClient:
         logger.debug(f"[{self.session_id}] Created SDK session with model={model}, working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, custom_agents={len(custom_agents or [])}")
         return self.session
     
-    async def resume_session(self, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, custom_agents: list[dict] | None = None, on_elicitation_request=None) -> object:
+    async def resume_session(self, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, custom_agents: list[dict] | None = None, on_elicitation_request=None, on_user_input_request=None) -> object:
         """Resume an existing SDK session."""
         await self.start()
         assert self.client is not None
@@ -248,6 +252,8 @@ class SessionClient:
                 resume_opts["on_permission_request"] = approve_all_permissions
             if on_elicitation_request:
                 resume_opts["on_elicitation_request"] = on_elicitation_request
+            if on_user_input_request:
+                resume_opts["on_user_input_request"] = on_user_input_request
             if mcp_servers:
                 resume_opts["mcp_servers"] = mcp_servers
             if tools:
@@ -291,7 +297,7 @@ class SessionClient:
             logger.warning(f"[{self.session_id}] Could not resume session: {e}")
             raise RuntimeError(f"Failed to resume session: {e}")
     
-    async def get_or_create_session(self, model: str, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, is_new_session: bool = False, custom_agents: list[dict] | None = None, reasoning_effort: str | None = None, on_elicitation_request=None) -> object:
+    async def get_or_create_session(self, model: str, mcp_servers: dict[str, dict] | None = None, tools: list[Tool] | None = None, available_tools: list[str] | None = None, excluded_tools: list[str] | None = None, system_message: dict | None = None, is_new_session: bool = False, custom_agents: list[dict] | None = None, reasoning_effort: str | None = None, on_elicitation_request=None, on_user_input_request=None) -> object:
         """Get existing session or create/resume one."""
         if self.session:
             self.touch()
@@ -301,7 +307,7 @@ class SessionClient:
             # New session — create directly
             logger.debug(f"[{self.session_id}] New session - creating")
             try:
-                return await self.create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents, reasoning_effort, on_elicitation_request)
+                return await self.create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents, reasoning_effort, on_elicitation_request, on_user_input_request)
             except asyncio.TimeoutError:
                 raise RuntimeError(
                     f"Session creation timed out after 30s. "
@@ -310,7 +316,7 @@ class SessionClient:
         
         # Existing session — resume only, never create
         logger.debug(f"[{self.session_id}] Attempting to resume existing session")
-        session = await self.resume_session(mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents, on_elicitation_request)
+        session = await self.resume_session(mcp_servers, tools, available_tools, excluded_tools, system_message, custom_agents, on_elicitation_request, on_user_input_request)
         if session:
             return session
         raise RuntimeError(
@@ -443,6 +449,52 @@ class CopilotService:
                     client.touch()
 
         return handle_elicitation
+
+    def _make_user_input_handler(self, session_id: str):
+        """Create a user input handler for a session.
+        
+        The handler is called by the SDK when the agent uses the ask_user tool.
+        It pushes an ask_user event to the SSE stream and waits for the user
+        to respond via the user-input-response endpoint.
+        """
+        loop = asyncio.get_event_loop()
+
+        async def handle_user_input(request: dict, invocation: dict) -> dict:
+            request_id = str(uuid.uuid4())
+            future: asyncio.Future = loop.create_future()
+
+            key = (session_id, request_id)
+            self._pending_elicitations[key] = future
+
+            client = self._session_clients.get(session_id)
+            if client:
+                client.touch()
+
+            ask_data = {
+                "request_id": request_id,
+                "question": request.get("question", ""),
+                "choices": request.get("choices"),
+                "allowFreeform": request.get("allowFreeform", True),
+            }
+            evt = {"event": "ask_user", "data": ask_data}
+
+            if client and client.event_queue:
+                client.event_queue.put_nowait(evt)
+            logger.debug(f"[{session_id}] ask_user requested: {request_id} question={ask_data['question'][:80]}")
+
+            try:
+                result = await future
+                logger.debug(f"[{session_id}] ask_user resolved: {request_id}")
+                return result
+            except asyncio.CancelledError:
+                logger.debug(f"[{session_id}] ask_user cancelled: {request_id}")
+                return {"answer": "", "wasFreeform": True}
+            finally:
+                self._pending_elicitations.pop(key, None)
+                if client:
+                    client.touch()
+
+        return handle_user_input
 
     def resolve_elicitation(self, session_id: str, request_id: str, result: dict) -> bool:
         """Resolve a pending elicitation with the user's response.
@@ -941,12 +993,13 @@ class CopilotService:
         # Get or create per-session client
         client = await self.get_session_client(session_id, cwd)
         
-        # Create elicitation handler and set up event queue on client
+        # Create handlers and set up event queue on client
         elicitation_handler = self._make_elicitation_handler(session_id)
+        user_input_handler = self._make_user_input_handler(session_id)
         event_queue: asyncio.Queue[dict | None] = asyncio.Queue()
         client.event_queue = event_queue
         
-        session = await client.get_or_create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, is_new_session, custom_agents, reasoning_effort, on_elicitation_request=elicitation_handler)
+        session = await client.get_or_create_session(model, mcp_servers, tools, available_tools, excluded_tools, system_message, is_new_session, custom_agents, reasoning_effort, on_elicitation_request=elicitation_handler, on_user_input_request=user_input_handler)
 
         # Set agent mode if explicitly requested (e.g. user changed to plan/autopilot before first message)
         if agent_mode and agent_mode != "interactive":
@@ -1374,6 +1427,8 @@ class CopilotService:
                     buffer.add_notification("mode_changed", evt.get("data") or {})
                 elif event_type == "elicitation":
                     buffer.add_notification("elicitation", evt.get("data") or {})
+                elif event_type == "ask_user":
+                    buffer.add_notification("ask_user", evt.get("data") or {})
         except asyncio.CancelledError:
             logger.warning(f"[{session_id}] Background task was cancelled")
             buffer.fail("Task was cancelled")

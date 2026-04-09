@@ -103,6 +103,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     setTokenUsage,
     finalizeTurn,
     setElicitation,
+    setAskUser,
   } = useChatStore();
 
   // Check if streaming is happening for the current session
@@ -586,6 +587,11 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         (data) => {
           if (activeSessionId) {
             setElicitation(activeSessionId, data);
+          }
+        },
+        (data) => {
+          if (activeSessionId) {
+            setAskUser(activeSessionId, data);
           }
         },
       );

@@ -123,6 +123,7 @@ function setupStores(overrides?: { openTabs?: string[]; currentSessionId?: strin
     sendingSessionId: null,
     pendingElicitation: {},
     resolvedElicitations: {},
+    pendingAskUser: {},
     setSending: vi.fn(),
     setStreaming: vi.fn(),
     addMessage: vi.fn(),

@@ -7,6 +7,7 @@ import { MessageBubble } from './MessageBubble';
 import { usePinStore } from '../../stores/pinStore';
 import { StreamingMessage } from './StreamingMessage';
 import { ElicitationCard, ResolvedElicitationCard } from './ElicitationCard';
+import { AskUserCard } from './AskUserCard';
 import { InputBox, clearReadySession } from './InputBox';
 import { TabBar } from './TabBar';
 import { Header } from '../layout/Header';
@@ -278,7 +279,7 @@ function PinsDrawer({
 
 const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive }: { sessionId: string; isActive: boolean }) {
   const { sessions, availableMcpServers, availableTools, setSessions, updateSessionMcpServers, updateSessionTools } = useSessionStore();
-  const { messagesPerSession, getStreamingState, getTokenUsage, sendingSessionId, pendingElicitation, resolvedElicitations } = useChatStore();
+  const { messagesPerSession, getStreamingState, getTokenUsage, sendingSessionId, pendingElicitation, resolvedElicitations, pendingAskUser } = useChatStore();
   const { availableModels } = useUIStore();
   const { tabs, openTab: openGenericTab, switchTab: switchGenericTab } = useTabStore();
   const pins = usePinStore((s) => s.pinsPerSession[sessionId]) || [];
@@ -589,6 +590,10 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                       {/* Pending elicitation card */}
                       {pendingElicitation[sessionId] && (
                         <ElicitationCard sessionId={sessionId} data={pendingElicitation[sessionId]!} />
+                      )}
+                      {/* Pending ask_user card */}
+                      {pendingAskUser[sessionId] && (
+                        <AskUserCard sessionId={sessionId} data={pendingAskUser[sessionId]!} />
                       )}
                     </>
                   )}
