@@ -179,6 +179,9 @@ async def disconnect_session(session_id: str) -> dict:
     logger.info(f"[Disconnect] Session {session_id}: has_active_response={has_active}")
     
     if has_active:
+        # Cancel any pending ask_user/elicitation — the UI is gone and can't respond.
+        # This unblocks the agent immediately so it can finish while the page reloads.
+        copilot_service.cancel_pending_elicitations(session_id)
         logger.info(f"[Disconnect] Session {session_id} has active response, NOT destroying client")
         return {"success": True, "deferred": True}
     
@@ -794,11 +797,15 @@ async def resume_response_stream(
                 # Send all new events in order
                 while events_sent < len(buffer.ordered_events):
                     evt = buffer.ordered_events[events_sent]
+                    events_sent += 1
+                    # Skip interactive events — they were cancelled on reconnect
+                    # and should not render as ghost cards
+                    if evt["event"] in ("ask_user", "elicitation"):
+                        continue
                     yield {
                         "event": evt["event"],
                         "data": json.dumps(evt["data"])
                     }
-                    events_sent += 1
                 
                 # Check if done
                 if buffer.status == ResponseStatus.COMPLETED:

@@ -2,15 +2,13 @@ import { useCallback } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
 import { useChatStore } from '../stores/chatStore';
 import { useViewedStore } from '../stores/viewedStore';
-import { useTabStore, tabId } from '../stores/tabStore';
-import { getSession, connectSession, disconnectSession, getResponseStatus, resumeResponseStream } from '../api/sessions';
+import { getSession, connectSession, getResponseStatus, resumeResponseStream } from '../api/sessions';
 
 /**
  * Hook for managing session lifecycle.
  */
-export function useSession(sessionId: string | null) {
+export function useSession() {
   const updateSessionTimestamp = useSessionStore((s) => s.updateSessionTimestamp);
-  const { switchTab } = useTabStore();
   const { setMessages, appendStreamingContent, addStreamingStep, addMessage, setStreaming, finalizeStreaming } = useChatStore();
   const { setAgentActive, markViewed } = useViewedStore();
 
@@ -75,17 +73,5 @@ export function useSession(sessionId: string | null) {
     }
   }, [setMessages, appendStreamingContent, addStreamingStep, addMessage, setStreaming, finalizeStreaming, setAgentActive, markViewed, updateSessionTimestamp]);
 
-  const switchSession = useCallback(async (newSessionId: string | null) => {
-    // Disconnect current session
-    if (sessionId) {
-      await disconnectSession(sessionId).catch(() => {});
-    }
-
-    if (newSessionId) {
-      await loadSession(newSessionId);
-      switchTab(tabId.session(newSessionId));
-    }
-  }, [sessionId, switchTab, loadSession]);
-
-  return { loadSession, switchSession };
+  return { loadSession };
 }

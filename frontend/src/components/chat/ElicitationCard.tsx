@@ -132,7 +132,7 @@ function FormField({ fieldKey, prop, value, onChange, required }: {
         {prop.description && <p className="text-xs text-gray-500 dark:text-gray-500 mb-1">{prop.description}</p>}
         <input
           type="number"
-          value={value !== undefined && value !== null ? value : ''}
+          value={value !== undefined && value !== null ? String(value) : ''}
           onChange={e => {
             const v = e.target.value;
             if (v === '') { onChange(undefined); return; }
