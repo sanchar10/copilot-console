@@ -107,15 +107,61 @@ function createMarkdownComponents(cwd?: string | null): Components {
     }
     
     return (
-      <SyntaxHighlighter
-        style={oneDark as any}
-        language={language || 'text'}
-        PreTag="div"
-        className="rounded-lg !my-3"
-        customStyle={{ fontSize: '0.9rem', lineHeight: '1.5' }}
-      >
-        {codeContent}
-      </SyntaxHighlighter>
+      <div className="relative group my-3">
+        <div className="absolute top-2 right-2 flex flex-col items-center z-10 group/copy">
+          <button
+            onClick={(e) => {
+              navigator.clipboard.writeText(codeContent).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = codeContent;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+              });
+
+              const btn = e.currentTarget as HTMLElement;
+              const icon = btn.querySelector('.copy-icon');
+              const check = btn.querySelector('.check-icon');
+              const label = btn.parentElement?.querySelector('.copy-label');
+              if (icon) icon.classList.add('hidden');
+              if (check) check.classList.remove('hidden');
+              if (label) label.classList.add('hidden');
+              setTimeout(() => {
+                if (icon) icon.classList.remove('hidden');
+                if (check) check.classList.add('hidden');
+                if (label) label.classList.remove('hidden');
+              }, 1500);
+            }}
+            className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-600/80 transition-colors"
+          >
+            <svg className="copy-icon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2" strokeWidth="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="2" />
+            </svg>
+            <svg className="check-icon w-4 h-4 hidden text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <span className="copy-label text-[11px] text-gray-400 opacity-0 group-hover/copy:opacity-100 transition-opacity">Copy</span>
+        </div>
+        {language && (
+          <span className="absolute top-2 left-3 text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            {language}
+          </span>
+        )}
+        <SyntaxHighlighter
+          style={oneDark as any}
+          language={language || 'text'}
+          PreTag="div"
+          className="rounded-lg !my-0"
+          customStyle={{ fontSize: '0.9rem', lineHeight: '1.5' }}
+        >
+          {codeContent}
+        </SyntaxHighlighter>
+      </div>
     );
   },
   table({ children }) {

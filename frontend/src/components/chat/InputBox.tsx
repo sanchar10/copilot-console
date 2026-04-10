@@ -783,7 +783,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                           : "Type a message... (Enter to send, Shift+Enter for new line)"}
                     className="w-full resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                     rows={1}
-                    rows={1}
                   />
                 </div>
               </div>
