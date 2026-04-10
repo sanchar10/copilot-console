@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { AskUserRequest } from '../../api/sessions';
 import { respondToUserInput } from '../../api/sessions';
 import { useChatStore } from '../../stores/chatStore';
@@ -50,7 +52,9 @@ export function AskUserCard({ sessionId, data }: AskUserCardProps) {
         <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Agent is asking</span>
       </div>
 
-      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{data.question}</p>
+      <div className="text-sm text-gray-700 dark:text-gray-300 mb-3 prose prose-sm max-w-none dark:prose-invert">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.question}</ReactMarkdown>
+      </div>
 
       {/* Choice buttons */}
       {data.choices && data.choices.length > 0 && (

@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { ElicitationRequest } from '../../api/sessions';
 import { respondToElicitation } from '../../api/sessions';
 import { useChatStore, type ResolvedElicitation } from '../../stores/chatStore';
@@ -268,7 +270,9 @@ export function ElicitationCard({ sessionId, data }: ElicitationCardProps) {
       </div>
 
       {data.message && (
-        <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{data.message}</p>
+        <div className="text-sm text-gray-700 dark:text-gray-300 mb-3 prose prose-sm max-w-none dark:prose-invert">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.message}</ReactMarkdown>
+        </div>
       )}
 
       {fieldEntries.length > 0 ? (

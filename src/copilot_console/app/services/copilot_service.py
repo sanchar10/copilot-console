@@ -132,7 +132,16 @@ class SessionClient:
         if self.started:
             return
         
-        self.client = CopilotClient(SubprocessConfig(cwd=self.cwd))
+        # Try system CLI first (may have newer features like elicitation),
+        # fall back to SDK-bundled CLI
+        import shutil
+        system_cli = shutil.which("copilot")
+        config = SubprocessConfig(cwd=self.cwd)
+        if system_cli:
+            config = SubprocessConfig(cwd=self.cwd, cli_path=system_cli)
+            logger.debug(f"[{self.session_id}] Using system CLI: {system_cli}")
+        
+        self.client = CopilotClient(config)
         await self.client.start()
         self.started = True
         self.last_activity = time.time()
@@ -532,7 +541,13 @@ class CopilotService:
                 return
             
             try:
-                self._main_client = CopilotClient()
+                import shutil
+                system_cli = shutil.which("copilot")
+                if system_cli:
+                    self._main_client = CopilotClient(SubprocessConfig(cli_path=system_cli))
+                    logger.info(f"Main CopilotClient using system CLI: {system_cli}")
+                else:
+                    self._main_client = CopilotClient()
                 await self._main_client.start()
                 self._main_started = True
                 logger.info("Main CopilotClient started")
