@@ -251,11 +251,14 @@ export function StreamingMessage({ content, steps, cwd }: StreamingMessageProps)
               <div className="text-gray-600 dark:text-gray-400 font-medium mb-2">
                 Steps ({steps.length})
               </div>
-              <div ref={stepsRef} onScroll={handleStepsScroll} className="space-y-2 text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
+              <div ref={stepsRef} onScroll={handleStepsScroll} className="text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
                 {steps.map((s, idx) => (
-                  <div key={idx} className="border-l-2 border-emerald-300 pl-3">
-                    <div className="font-medium">{s.title}</div>
-                    {s.detail && <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{s.detail}</pre>}
+                  <div key={idx}>
+                    {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
+                    <div className="border-l-2 border-emerald-300 pl-3 py-1">
+                      <div className="font-medium">{s.title}</div>
+                      {s.detail && <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{s.detail}</pre>}
+                    </div>
                   </div>
                 ))}
               </div>

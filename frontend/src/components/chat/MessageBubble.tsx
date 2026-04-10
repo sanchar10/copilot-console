@@ -332,21 +332,105 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
               {isPinned ? <PinnedIcon size={16} /> : <UnpinnedIcon size={16} />}
             </button>
           )}
-          {!isUser && message.steps && message.steps.length > 0 && (
-            <details className="mb-2 text-sm">
-              <summary className="cursor-pointer text-gray-600 dark:text-gray-400 select-none">
-                Steps ({message.steps.length})
-              </summary>
-              <div className="mt-2 space-y-2 text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
-                {message.steps.map((s, idx) => (
-                  <div key={idx} className="border-l-2 border-gray-300 dark:border-gray-600 pl-3">
-                    <div className="font-medium">{s.title}</div>
-                    {s.detail && <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{s.detail}</pre>}
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
+          {!isUser && message.steps && message.steps.length > 0 && (() => {
+            // Parse ask_user/elicitation tool pairs for styled rendering
+            const steps = message.steps;
+            type ParsedStep = { type: 'regular'; step: typeof steps[0] } | { type: 'ask_user'; question: string; answer: string } | { type: 'elicitation'; message: string; response: string };
+            const parsed: ParsedStep[] = [];
+            const consumed = new Set<number>();
+
+            for (let i = 0; i < steps.length; i++) {
+              if (consumed.has(i)) continue;
+              const s = steps[i];
+              if (s.title === 'Tool: ask_user' || s.title === 'Tool: elicitation') {
+                let question = '';
+                let toolId = '';
+                if (s.detail) {
+                  const idMatch = s.detail.match(/^id=(\S+)/);
+                  if (idMatch) toolId = idMatch[1];
+                  const inputMatch = s.detail.match(/Input:\s*(\{[\s\S]*\})/);
+                  if (inputMatch) {
+                    try {
+                      const input = JSON.parse(inputMatch[1]);
+                      question = input.question || input.message || '';
+                    } catch { /* ignore */ }
+                  }
+                }
+                let answer = '';
+                if (toolId) {
+                  for (let j = i + 1; j < steps.length; j++) {
+                    if (consumed.has(j)) continue;
+                    const done = steps[j];
+                    if ((done.title === 'Tool done' || done.title?.startsWith('Tool done:')) && done.detail?.includes(toolId)) {
+                      const respMatch = done.detail.match(/User responded:\s*(.+?)(?:',|$)/);
+                      const selMatch = done.detail.match(/User selected:\s*(.+?)(?:',|$)/);
+                      const contentMatch = done.detail.match(/content='([^']*?)'/);
+                      answer = respMatch?.[1] || selMatch?.[1] || contentMatch?.[1] || '';
+                      answer = answer.replace(/['"]$/, '').trim();
+                      consumed.add(j);
+                      break;
+                    }
+                  }
+                }
+                consumed.add(i);
+                if (question) {
+                  parsed.push(s.title === 'Tool: ask_user'
+                    ? { type: 'ask_user', question, answer: answer || '(no response)' }
+                    : { type: 'elicitation', message: question, response: answer || '(no response)' });
+                  continue;
+                }
+              }
+              parsed.push({ type: 'regular', step: s });
+            }
+
+            const userInputCount = parsed.filter(p => p.type === 'ask_user' || p.type === 'elicitation').length;
+            const displayCount = parsed.length;
+
+            return (
+              <details className="mb-2 text-sm">
+                <summary className="cursor-pointer text-gray-600 dark:text-gray-400 select-none">
+                  Steps ({displayCount}){userInputCount > 0 && <span className="text-amber-600 dark:text-amber-400"> · {userInputCount} user input{userInputCount > 1 ? 's' : ''}</span>}
+                </summary>
+                <div className="mt-2 text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
+                  {parsed.map((p, idx) => {
+                    if (p.type === 'ask_user') {
+                      return (
+                        <div key={idx}>
+                          {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
+                          <div className="border-l-2 border-amber-400 dark:border-amber-600 pl-3 py-1">
+                            <div className="text-xs font-medium text-amber-700 dark:text-amber-400">💬 Asked user</div>
+                            <div className="text-sm mt-0.5">{p.question}</div>
+                            <div className="text-sm mt-1 text-emerald-700 dark:text-emerald-400">→ {p.answer}</div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (p.type === 'elicitation') {
+                      return (
+                        <div key={idx}>
+                          {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
+                          <div className="border-l-2 border-blue-400 dark:border-blue-600 pl-3 py-1">
+                            <div className="text-xs font-medium text-blue-700 dark:text-blue-400">📋 Agent asked</div>
+                            <div className="text-sm mt-0.5">{p.message}</div>
+                            <div className="text-sm mt-1 text-emerald-700 dark:text-emerald-400">→ {p.response}</div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx}>
+                        {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
+                        <div className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 py-1">
+                          <div className="font-medium">{p.step.title}</div>
+                          {p.step.detail && <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{p.step.detail}</pre>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            );
+          })()}
           {isUser ? (
             <>
               <div className="whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100">{message.content || (message.attachments?.length ? '' : message.content)}</div>
