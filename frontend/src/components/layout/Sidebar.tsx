@@ -103,6 +103,13 @@ export function Sidebar() {
         fetchWorkflows();
         fetchAutomations();
         loadProjects();
+        // Request desktop notification permission (non-blocking)
+        import('../../utils/desktopNotifications').then(({ requestNotificationPermission, setDesktopNotificationSetting }) => {
+          requestNotificationPermission();
+          if (settingsData.desktop_notifications) {
+            setDesktopNotificationSetting(settingsData.desktop_notifications as 'all' | 'input_only' | 'off');
+          }
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {

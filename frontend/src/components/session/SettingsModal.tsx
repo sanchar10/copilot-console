@@ -27,6 +27,7 @@ export function SettingsModal() {
   const [selectedEffort, setSelectedEffort] = useState<string | null>(defaultReasoningEffort);
   const [selectedCwd, setSelectedCwd] = useState(defaultCwd);
   const [cliNotifications, setCliNotifications] = useState(false);
+  const [desktopNotifications, setDesktopNotifications] = useState<string>('all');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
@@ -39,6 +40,7 @@ export function SettingsModal() {
     if (isSettingsModalOpen) {
       getSettings().then(s => {
         setCliNotifications(s.cli_notifications ?? false);
+        setDesktopNotifications(s.desktop_notifications ?? 'all');
       }).catch(() => {});
     }
   }, [defaultModel, defaultReasoningEffort, defaultCwd, isSettingsModalOpen]);
@@ -165,6 +167,45 @@ export function SettingsModal() {
             <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
           </div>
         )}
+
+        {/* Desktop Notifications */}
+        <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+            Desktop Notifications
+          </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Show browser notifications when agent completes or needs input (30s delay, only if unread).
+          </p>
+          <div className="flex gap-1">
+            {(['all', 'input_only', 'off'] as const).map(opt => (
+              <button
+                key={opt}
+                type="button"
+                onClick={async () => {
+                  setDesktopNotifications(opt);
+                  try {
+                    await updateSettings({ desktop_notifications: opt } as any);
+                    const { setDesktopNotificationSetting } = await import('../../utils/desktopNotifications');
+                    setDesktopNotificationSetting(opt);
+                    if (opt !== 'off') {
+                      const { requestNotificationPermission } = await import('../../utils/desktopNotifications');
+                      requestNotificationPermission();
+                    }
+                  } catch {
+                    setDesktopNotifications(desktopNotifications);
+                  }
+                }}
+                className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                  desktopNotifications === opt
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
+                    : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
+                }`}
+              >
+                {opt === 'all' ? 'All responses' : opt === 'input_only' ? 'Input needed only' : 'Off'}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* CLI Notifications */}
         <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">

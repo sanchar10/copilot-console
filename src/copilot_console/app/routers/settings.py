@@ -21,6 +21,7 @@ class SettingsUpdate(BaseModel):
     default_cwd: str | None = None
     workflow_step_timeout: int | None = None
     cli_notifications: bool | None = None
+    desktop_notifications: str | None = None
 
 
 @router.get("")
@@ -56,6 +57,10 @@ async def update_settings(request: SettingsUpdate) -> dict:
     if request.cli_notifications is not None:
         updates["cli_notifications"] = request.cli_notifications
         _sync_hook_config(request.cli_notifications)
+    if request.desktop_notifications is not None:
+        if request.desktop_notifications not in ("all", "input_only", "off"):
+            raise HTTPException(status_code=400, detail="desktop_notifications must be 'all', 'input_only', or 'off'")
+        updates["desktop_notifications"] = request.desktop_notifications
     return storage_service.update_settings(updates)
 
 

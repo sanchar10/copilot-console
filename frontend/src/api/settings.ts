@@ -5,6 +5,7 @@ export interface Settings {
   default_reasoning_effort: string | null;
   default_cwd: string;
   cli_notifications?: boolean;
+  desktop_notifications?: string;
 }
 
 export async function getSettings(): Promise<Settings> {
