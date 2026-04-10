@@ -260,7 +260,7 @@ export function ElicitationCard({ sessionId, data }: ElicitationCardProps) {
   });
 
   return (
-    <div className="my-2 border-l-3 border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 rounded-r-lg p-3">
+    <div className="my-2 ml-11 border-l-3 border-blue-500 bg-blue-100/80 dark:bg-blue-950/70 rounded-r-lg p-3">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm">📋</span>
         <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Agent needs your input</span>
@@ -340,7 +340,7 @@ export function ResolvedElicitationCard({ resolved, schema }: ResolvedCardProps)
 
   if (resolved.action !== 'accept') {
     return (
-      <div className="my-2 border-l-3 border-gray-400 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/20 rounded-r-lg px-3 py-2">
+      <div className="my-2 ml-11 border-l-3 border-gray-400 dark:border-gray-600 bg-gray-100/80 dark:bg-gray-800/50 rounded-r-lg px-3 py-2">
         <span className="text-xs text-gray-500 dark:text-gray-400">
           {resolved.action === 'decline' ? '↩ Declined' : '✕ Cancelled'}
           {resolved.message && ` — "${resolved.message}"`}
@@ -350,7 +350,7 @@ export function ResolvedElicitationCard({ resolved, schema }: ResolvedCardProps)
   }
 
   return (
-    <div className="my-2 border-l-3 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-r-lg px-3 py-2">
+    <div className="my-2 ml-11 border-l-3 border-emerald-500 bg-emerald-100/80 dark:bg-emerald-950/70 rounded-r-lg px-3 py-2">
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">✓ You responded</span>
       </div>
