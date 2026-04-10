@@ -28,4 +28,3 @@ Use the **Runs** area to see execution history, inspect logs/output, and jump in
 ## Tips
 
 - If you schedule automations overnight, consider running Copilot Console with `--no-sleep`.
-- Start with a simple schedule (e.g., once per day) until prompts are stable.

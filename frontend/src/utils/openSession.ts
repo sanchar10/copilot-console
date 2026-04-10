@@ -81,7 +81,15 @@ export async function openSessionTab(session: Session): Promise<void> {
             console.error('[openSessionTab] Resume stream error:', error);
             setStreaming(sessionId, false);
             setAgentActive(sessionId, false);
-          }
+          },
+          (data) => {
+            const { setElicitation } = useChatStore.getState();
+            setElicitation(sessionId, data);
+          },
+          (data) => {
+            const { setAskUser } = useChatStore.getState();
+            setAskUser(sessionId, data);
+          },
         );
         return true; // Active response found and resumed
       }

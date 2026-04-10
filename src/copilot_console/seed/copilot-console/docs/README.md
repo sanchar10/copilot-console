@@ -1,92 +1,65 @@
 # Copilot Console
 
-Orchestrate local multi-agent sessions, workflows and automation from a unified control center with live activity.
+Orchestrate local GitHub Copilot multi-agent sessions, workflows, and automations from a unified control center with live activity.
 
 ![Copilot Console](https://img.shields.io/badge/Copilot-Console-blue?style=flat-square)
 ![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows)
-![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square)
 ![License MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-![Main Interface](docs/screenshots/main.jpg)
+![Main Interface](docs/screenshots/mainscreen-color.jpg)
 
----
+> 🌐 **[Visit the Copilot Console website →](https://sanchar10.github.io/copilot-console)** for a full feature showcase with screenshots and demos.
 
-## What Is This?
+A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli). Built with the [Copilot Python SDK](https://github.com/github/copilot-sdk).
 
-Copilot Console is a visual management layer on top of [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli). Built using [Copilot Python SDK](https://github.com/github/copilot-sdk) and [Microsoft Agent Framework](https://github.com/microsoft/agent-framework), it wraps the CLI's powerful agentic capabilities — orchestration, context management, built-in tools, multi-agents — in a modern browser interface with multi-session management, deterministic workflows, reusable agent personalities, scheduled automations, and external tool integration.
-
-> **Platform:** Windows only (tested and developed on Windows 10/11). macOS/Linux are untested.
+> **Platform:** Windows only (tested on Windows 10/11). Releases pending for macOS/Linux.
 
 ---
 
 ## Features
 
-### 💬 Multi-Session Chat
-Multiple conversations run simultaneously in a tabbed interface. Each session has its own context, model selection, tool configuration, sub-agent and working directory. Sessions persist across restarts. Supports **agent modes** — Interactive, Plan, and Autopilot — switchable per session to control how the agent operates. See [Sessions](docs/guides/SESSIONS.md).
+| | Feature | Description |
+|---|---|---|
+| 🖥️ | **Visual Session Management** | Multiple sessions in a tabbed interface with per-session context management: system prompt, model, tools, MCP servers, agents, and working directory |
+| 🔀 | **Workflows** | Multi-agent YAML pipelines using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — chain agents deterministically and watch events stream in real-time |
+| ⚡ | **Slash Commands & Fleet** | Type `/` for command palette — `/fleet` fires parallel sub-agents, `/compact` compresses context, `/help` for quick reference. Inline chips with auto-complete |
+| ⏰ | **Automations** | Cron-scheduled agent runs with a Runs dashboard and live session access |
+| 📂 | **Project Facilitation** | Folder-based session filtering, cross-session search with keyword highlighting, pin responses with notes |
+| 🤖 | **Agent Library** | Reusable agent personalities with custom prompts, models, tools, and MCP servers |
+| 🤝 | **Agent Teams** | Compose agents into teams with automatic delegation to specialized sub-agents |
+| 🌐 | **Agentic Web Browsing** | Autonomous web navigation via bundled Playwright MCP server |
+| 🔌 | **MCP Servers** | Global and app-level MCP config with per-session server / tool toggling |
+| 🔧 | **Custom Tools** | Drop Python functions into `~/.copilot-console/tools/` to easily create selectable agent tools |
+| 📎 | **Files & Images** | Drag-and-drop files and paste images into messages to give agents visual and textual context |
+| 🎨 | **Rich Rendering** | Markdown, syntax highlighting, Mermaid diagrams, streaming, reasoning steps |
 
-### 🎨 Rich Message Rendering
-Full Markdown with syntax-highlighted code blocks (Prism), GFM tables, Mermaid diagrams (with fullscreen view), and copy-to-clipboard. Responses render beautifully as they stream in real-time.
+---
 
-### 📎 File Attachments
-Drag-and-drop or click to attach files to messages. Files are uploaded to the session and referenced by the agent.
+## 📱 Mobile Companion
 
-### 🔔 Unread Indicators
-Blue dot indicators highlight sessions with unread responses — no activity is missed across multiple parallel sessions.
+Access Copilot Console sessions from your phone — get push notifications when agents finish, monitor progress, and reply on the go. No more waiting at a terminal for agent responses. Install as a PWA for a native-like experience.
 
-### 🤖 Agent Library
-Reusable agent personalities — each with its own model, system prompt, MCP servers, and custom tools. Every agent gets exactly the context it needs, nothing more. New sessions launch from any agent with one click. See [Agent Library](docs/guides/AGENT-LIBRARY.md).
+<img src="docs/screenshots/mobile/mobile-session.jpeg" alt="Mobile Companion" height="350">
 
-![Agent Library](docs/screenshots/agent-library.jpg)
+Start Copilot Console with `--expose --no-sleep`, scan the QR code from Settings on your phone, and you're set. See [Mobile Companion](docs/guides/MOBILE-COMPANION.md).
 
-### 🔍 Reasoning Transparency
-Full visibility into the agent's reasoning process. Every tool call, file edit, and decision step is displayed in an expandable "Steps" panel — both during live streaming and in saved messages. See exactly what the agent did and why.
+---
 
-### 🤝 Agent Teams
-Compose agents into teams. A main agent can delegate tasks to specialized sub-agents that run in separate contexts — each with its own prompt, tools, and MCP servers. The main agent automatically decides when to delegate based on the sub-agent's description. See [Agent Teams](docs/guides/AGENT-TEAMS.md) for details.
+## 🔔 Copilot CLI Session Notifications
 
-### ⏰ Automations
-Agents run on a cron schedule — configurable prompt, agent, and timing. The Runs dashboard shows all executions, with the ability to jump into a running agent's chat to watch it work live or review the full history later. See [Automations](docs/guides/AUTOMATIONS.md).
+**Works for native CLI sessions.** Get notified on your phone when *any* Copilot CLI terminal session finishes. Continue the conversation from mobile.
 
-Example automations:
-- Daily PR Review — Every morning at 8 AM, agent checks for open pull requests, summarizes their status, and flags if waiting for review for more than 2 days.
+<img src="docs/screenshots/cli.jpg" alt="CLI with notifications enabled" height="250">
 
-![Automation Runs](docs/screenshots/automation-runs.jpg)
-
-### 🔌 MCP Server Management
-MCP servers can be defined globally (shared with CLI via `~/.copilot/mcp-config.json`) or app-only (`~/.copilot-console/mcp-config.json`). Individual servers and tools can be toggled on/off at both agent and session level — keeping context focused and avoiding bloat. See [MCP Servers](docs/guides/MCP-SERVERS.md).
-
-### 🔧 Custom Tools
-Python tools dropped into `~/.copilot-console/tools/` become available to all agents. Each tool is defined with a `TOOL_SPECS` list containing name, description, JSON schema, and handler function. Tools auto-reload when files change — no restart needed. The built-in **Tool Builder** agent can generate custom tools from a natural language description — just describe what the tool should do.
-
-
-### 🔀 Workflows
-Multi-agent pipelines defined in YAML and powered by the [Microsoft Agent Framework](https://github.com/microsoft/agent-framework). Chain agents together — each step's output flows to the next. Run with a single click, watch events stream in real-time, and review run history with full traces. See [Workflows](docs/guides/WORKFLOWS.md).
-
-Ships with sample workflows including **Codebase Health Check** (scanner → analyst → report generator) and **Emoji Poem** (poet → illustrator).
-
-![Workflows](docs/screenshots/workflow-run-dark.jpg)
-
-### 📱 Mobile Companion
-Access Copilot Console from your phone — a purpose-built mobile UI served through a secure devtunnel. Monitor active agents, check unread messages with blue dot indicators, and reply to agents on the go. Install as a PWA home screen app for a native-like experience with push notifications when agents complete.
-
-<img src="docs/screenshots/mobile.jpeg" alt="Mobile Companion" height="350">
-
-**Highlights:**
-- **Pull-to-refresh** session list — no background polling
-- **Push notifications** when agents finish (iOS & Android)
-- **Live streaming** responses as the agent types
-- **Unread indicators** sync across desktop and mobile
-- **QR code setup** — scan from Settings, no manual URL entry
-
-Start with `--expose`, scan the QR code, done. See [Mobile Companion](docs/guides/MOBILE-COMPANION.md) for details.
+Enable via `cli-notify on` from the command line, or toggle in Console Settings. A standalone feature for CLI users even without using Console.
 
 ---
 
 ## Quick Install
 
-The install script checks prerequisites, installs any missing dependencies, and sets up Copilot Console — all in one command. Run the same command to upgrade.
+One command to install (or upgrade):
 
-**Windows (PowerShell):**
 ```powershell
 irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
 ```
@@ -101,12 +74,13 @@ copilot-console
 ### First Things to Try
 
 1. **Start a session** — Click `+` in the sidebar to create a new conversation.
-2. **Chat** — Type a message and hit Enter. Responses stream in real-time.
-3. **Create an agent** — Go to **Agents** in the sidebar, click **+ New Agent**, configure a name, system prompt, and model.
-4. **Build a micro-app** — Go to **Agents** → **Dev Lead** → **New Session**, pick a starter prompt (Task Tracker, Expense Tracker, or Daily Journal), and watch a 6-agent team design, build, test, and document a full-stack app.
-5. **Run a workflow** — Go to **Workflows**, open **Emoji Poem** or **Codebase Health Check**, click **▶ Run**, enter a topic, and watch the agents chain.
-6. **Schedule an automation** — On an agent card, click **Automations**, then **+ New Automation** to set a cron schedule.
-7. **Add custom tools** — Use the built-in **Tool Builder** agent to create tools via chat, or manually drop a `.py` file into `~/.copilot-console/tools/` (see [Custom Tools](docs/guides/CUSTOM-TOOLS.md)).
+2. **Try Fleet Mode** — Type `/fleet analyze this codebase for security issues` to fire parallel sub-agents.
+3. **Pin a response** — Hover over an agent response and click 📌 to save it with an optional note. Browse pins from the drawer.
+4. **Search across sessions** — Use the search bar in the sidebar to find anything across all conversations.
+5. **Create an agent** — Go to **Agents**, click **+ New Agent**, configure a system prompt, model, and tools.
+6. **Build a micro-app** — Go to **Agents** → **Dev Lead** → **New Session**, pick a starter prompt, and watch a 6-agent team build a full-stack app.
+7. **Run a workflow** — Go to **Workflows**, open **Emoji Poem** or **Codebase Health Check**, click **▶ Run**.
+8. **Go mobile** — Run `copilot-console` with `--expose`, scan the QR code from Settings on your phone, and continue from anywhere.
 
 ---
 
@@ -122,8 +96,7 @@ Options:
   --no-sleep         Prevent Windows from sleeping while running
                      (useful when scheduled tasks need to run overnight)
   --expose           Enable remote access via devtunnel for mobile companion
-  --allow-anonymous  Allow anonymous tunnel access (default: authenticated,
-                     same Microsoft account only). Requires --expose.
+  --allow-anonymous  Allow anonymous tunnel access (token-secured, no login on phone). Recommended only for testing. Requires --expose.
   --version, -v      Show version and exit
 ```
 
@@ -139,10 +112,10 @@ copilot-console --no-browser
 # Keep PC awake for overnight scheduled tasks
 copilot-console --no-sleep
 
-# Enable mobile companion (secure — requires your Microsoft account)
+# Enable mobile companion (secure — requires same Microsoft work/school account on phone)
 copilot-console --expose
 
-# Enable mobile companion (anonymous — anyone with the URL can connect)
+# Enable mobile companion (anonymous — token-secured, no login on phone)
 copilot-console --expose --allow-anonymous
 ```
 
@@ -155,37 +128,36 @@ All data is stored in `C:\Users\<username>\.copilot-console\`:
 ```
 .copilot-console\
 ├── settings.json        # Default model, working directory
-├── sessions\            # Chat session history
+├── mcp-config.json      # MCP server configurations (global)
+├── sessions\            # Session metadata and settings
 ├── agents\              # Agent library definitions
 ├── workflows\           # Workflow YAML definitions
 ├── workflow-runs\       # Workflow run history and working directories
 ├── automations\         # Automation definitions
 ├── task-runs\           # Automation run history
 ├── tools\               # Custom Python tools (drop .py files here)
-├── mcp-servers\         # MCP server configurations
+├── mcp-servers\         # Drop-in MCP server scripts (stdio / local)
+├── logs\                # Application logs
 └── viewed.json          # Read/unread tracking
 ```
-
-Custom tools can be created using the built-in **Tool Builder** agent or written manually. See [Custom Tools](docs/guides/CUSTOM-TOOLS.md) for details.
 
 ---
 
 ## More Information
 
 - [Manual Installation](docs/guides/INSTALL.md) — Step-by-step setup, updating, and uninstalling
-- [Sessions](docs/guides/SESSIONS.md) — Tabs, attachments, unread indicators, and persistence
-- [Agent Library](docs/guides/AGENT-LIBRARY.md) — Creating agents and launching sessions from them
-- [Workflows](docs/guides/WORKFLOWS.md) — Multi-agent pipelines with YAML
-- [Automations](docs/guides/AUTOMATIONS.md) — Cron-driven agent runs and the Runs dashboard
-- [MCP Servers](docs/guides/MCP-SERVERS.md) — Configuring and toggling MCP servers/tools
-- [Custom Tools](docs/guides/CUSTOM-TOOLS.md) — Creating tools with Tool Builder or manually
+- [Sessions](docs/guides/SESSIONS.md) — Tabs, modes, attachments, and persistence
+- [Agent Library](docs/guides/AGENT-LIBRARY.md) — Creating agents and launching sessions
 - [Agent Teams](docs/guides/AGENT-TEAMS.md) — Composing agents with sub-agents
+- [Workflows](docs/guides/WORKFLOWS.md) — Multi-agent YAML pipelines
+- [Automations](docs/guides/AUTOMATIONS.md) — Cron-driven agent runs
+- [MCP Servers](docs/guides/MCP-SERVERS.md) — Configuring and toggling MCP servers
+- [Custom Tools](docs/guides/CUSTOM-TOOLS.md) — Creating tools with Tool Builder or manually
 - [Mobile Companion](docs/guides/MOBILE-COMPANION.md) — Phone access via secure tunnel
-- [Packaged Samples](docs/guides/SAMPLES.md) — Pre-built agents, workflows, and automations to try
-- [Troubleshooting](docs/guides/TROUBLESHOOTING.md) — Common issues and SDK/CLI compatibility
+- [Packaged Samples](docs/guides/SAMPLES.md) — Pre-built agents, workflows, and automations
+- [Troubleshooting](docs/guides/TROUBLESHOOTING.md) — Common issues and compatibility
 - [Known Limitations](docs/guides/KNOWN-LIMITATIONS.md) — Current limitations and workarounds
-- [Agent Framework SDK Patches](docs/guides/AF_SDK_PATCHES.md) — Notes on workflow runtime patches
-- [Contributing](docs/guides/CONTRIBUTING.md) — Development setup, building, testing, and architecture
+- [Contributing](docs/guides/CONTRIBUTING.md) — Development setup, building, and testing
 
 ---
 

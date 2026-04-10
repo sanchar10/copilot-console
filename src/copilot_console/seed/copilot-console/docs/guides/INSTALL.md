@@ -9,7 +9,7 @@ Before installing Copilot Console, ensure the following are available. All comma
 | **Windows** | 10 or 11 | — |
 | **Python** | 3.11 or higher | `python --version` |
 | **Node.js** | 18 or higher | `node --version` |
-| **GitHub Copilot CLI** | 0.0.410+ | `copilot --version` |
+| **GitHub Copilot CLI** | Latest | `copilot --version` |
 | **GitHub Copilot subscription** | Active | [github.com/settings/copilot](https://github.com/settings/copilot) |
 | **devtunnel** *(optional)* | Latest | `devtunnel --version` |
 
@@ -43,7 +43,7 @@ npm install -g @github/copilot
 
 Verify:
 ```powershell
-copilot --version   # Should show 0.0.410 or later
+copilot --version   # Should show latest
 ```
 
 Authenticate with GitHub (required before first use):
@@ -92,7 +92,7 @@ python -m pipx ensurepath
 # Close and reopen the terminal after this
 
 # Install Copilot Console (replace URL with latest .whl from Releases page)
-pipx install https://github.com/sanchar10/copilot-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
+pipx install https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
 ```
 
 > **Tip:** Get the latest wheel URL from the [Releases page](https://github.com/sanchar10/copilot-console/releases/latest). Or use the one-click installer from the main README which always fetches the latest version automatically.
@@ -100,10 +100,36 @@ pipx install https://github.com/sanchar10/copilot-console/releases/download/v0.5
 ### Option B: pip
 
 ```powershell
-pip install https://github.com/sanchar10/copilot-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
+pip install https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
 ```
 
 > **Note:** If `copilot-console` is not found after install, your Python scripts directory may not be on PATH. Option A (pipx) handles this automatically.
+
+## Install Agent Framework
+
+Required for workflow orchestration. Agent Framework is pre-release and needs the `--pre` flag:
+
+```powershell
+pip install agent-framework --pre
+```
+
+If you used pipx, also inject it into the pipx venv:
+```powershell
+pipx inject copilot-console agent-framework --pip-args="--pre"
+```
+
+## Install ripgrep
+
+Required for cross-session content search:
+
+```powershell
+winget install BurntSushi.ripgrep.MSVC
+```
+
+Verify:
+```powershell
+rg --version
+```
 
 ## Verify Installation
 
@@ -130,17 +156,60 @@ copilot-console --expose --no-sleep  # Mobile access + prevent sleep
 
 Run `copilot-console --help` for all options.
 
+## Optional: CLI Session Notifications
+
+Get notified on your phone when any Copilot CLI terminal session finishes — even sessions started from the terminal outside Console.
+
+Enable from the command line:
+```powershell
+cli-notify on
+```
+
+Or toggle it in **Console Settings** (gear icon → CLI Notifications).
+
+To disable:
+```powershell
+cli-notify off
+```
+
+## Optional: Agentic Web Browsing (Playwright MCP)
+
+Enable autonomous web navigation by adding the [Playwright MCP server](https://github.com/microsoft/playwright-mcp). It uses your system browser (Edge or Chrome) — no extra browser install needed.
+
+### Add to MCP config
+
+Add the following to `~/.copilot-console/mcp-config.json` (create it if it doesn't exist). If the file already has content, add `playwright` inside the existing `mcpServers` object:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "local",
+      "command": "npx",
+      "tools": ["*"],
+      "args": ["@playwright/mcp@latest"]
+    }
+  }
+}
+```
+
+Once configured, enable the Playwright MCP server in any session's settings to use web browsing.
+
 ## Updating
 
 When a new version is available, the app shows a banner with the install command. To update manually:
 
 ```powershell
-pipx install --force https://github.com/sanchar10/copilot-console/releases/download/v0.5.0/copilot_console-0.5.0-py3-none-any.whl
+pipx install --force https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
 ```
 
 ## Uninstalling
 
 ```powershell
+# Disable CLI notifications (if enabled)
+cli-notify off
+
+# Remove Copilot Console
 pipx uninstall copilot-console
 ```
 

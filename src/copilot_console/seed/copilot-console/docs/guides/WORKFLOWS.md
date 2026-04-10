@@ -18,7 +18,7 @@ You’ll see events stream live while the workflow runs, and a full trace is sav
 
 ## Editing Workflow YAML
 
-Edit the YAML files in the workflows folder using any editor, then refresh the Workflows view.
+Click **+ New Workflow** to create a new workflow in the built-in editor, or open an existing workflow in edit mode to modify its YAML.
 
 ## Tips
 

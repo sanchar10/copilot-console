@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Message } from '../types/message';
+import type { ElicitationRequest, AskUserRequest } from '../api/sessions';
 
 export interface ChatStep {
   title: string;
@@ -18,6 +19,14 @@ interface StreamingState {
   isStreaming: boolean;
 }
 
+export interface ResolvedElicitation {
+  requestId: string;
+  message: string;
+  schema?: Record<string, unknown>;
+  action: 'accept' | 'decline' | 'cancel';
+  values?: Record<string, unknown>;
+}
+
 interface ChatState {
   // Messages stored per session
   messagesPerSession: Record<string, Message[]>;
@@ -26,6 +35,13 @@ interface ChatState {
   streamingPerSession: Record<string, StreamingState>;
   tokenUsagePerSession: Record<string, TokenUsage | null>;
   sendingSessionId: string | null;
+
+  // Elicitation state per session
+  pendingElicitation: Record<string, ElicitationRequest | null>;
+  resolvedElicitations: Record<string, ResolvedElicitation[]>;
+
+  // Ask user state per session
+  pendingAskUser: Record<string, AskUserRequest | null>;
 
   // Getters
   getStreamingState: (sessionId: string | null) => StreamingState;
@@ -44,6 +60,15 @@ interface ChatState {
   setSending: (sessionId: string | null) => void;
   clearSessionMessages: (sessionId: string) => void;
   clearAllMessages: () => void;
+
+  // Elicitation
+  setElicitation: (sessionId: string, data: ElicitationRequest) => void;
+  clearElicitation: (sessionId: string) => void;
+  resolveElicitation: (sessionId: string, action: 'accept' | 'decline' | 'cancel', values?: Record<string, unknown>) => void;
+
+  // Ask user
+  setAskUser: (sessionId: string, data: AskUserRequest) => void;
+  clearAskUser: (sessionId: string) => void;
 }
 
 const emptyStreamingState: StreamingState = { content: '', steps: [], isStreaming: false };
@@ -53,6 +78,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingPerSession: {},
   tokenUsagePerSession: {},
   sendingSessionId: null,
+  pendingElicitation: {},
+  resolvedElicitations: {},
+  pendingAskUser: {},
 
   getStreamingState: (sessionId) => {
     if (!sessionId) return emptyStreamingState;
@@ -216,4 +244,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
 
   clearAllMessages: () => set({ messagesPerSession: {}, streamingPerSession: {}, tokenUsagePerSession: {} }),
+
+  setElicitation: (sessionId, data) =>
+    set((state) => ({
+      pendingElicitation: { ...state.pendingElicitation, [sessionId]: data },
+    })),
+
+  clearElicitation: (sessionId) =>
+    set((state) => {
+      const updated = { ...state.pendingElicitation };
+      delete updated[sessionId];
+      return { pendingElicitation: updated };
+    }),
+
+  resolveElicitation: (sessionId, action, values) =>
+    set((state) => {
+      const pending = state.pendingElicitation[sessionId];
+      const resolved: ResolvedElicitation = {
+        requestId: pending?.request_id || '',
+        message: pending?.message || '',
+        schema: pending?.schema,
+        action,
+        values,
+      };
+      const updatedPending = { ...state.pendingElicitation };
+      delete updatedPending[sessionId];
+      return {
+        pendingElicitation: updatedPending,
+        resolvedElicitations: {
+          ...state.resolvedElicitations,
+          [sessionId]: [...(state.resolvedElicitations[sessionId] || []), resolved],
+        },
+      };
+    }),
+
+  setAskUser: (sessionId, data) =>
+    set((state) => ({
+      pendingAskUser: { ...state.pendingAskUser, [sessionId]: data },
+    })),
+
+  clearAskUser: (sessionId) =>
+    set((state) => {
+      const updated = { ...state.pendingAskUser };
+      delete updated[sessionId];
+      return { pendingAskUser: updated };
+    }),
 }));

@@ -396,6 +396,147 @@ async def abort_session(session_id: str) -> dict:
         raise HTTPException(status_code=500, detail=error_msg)
 
 
+@router.post("/{session_id}/elicitation-response")
+async def elicitation_response(session_id: str, request: dict) -> dict:
+    """Respond to a pending elicitation request.
+    
+    Body: { request_id: str, action: "accept"|"decline"|"cancel", content?: {...} }
+    """
+    set_session_context(session_id)
+    request_id = request.get("request_id")
+    action = request.get("action", "cancel")
+    content = request.get("content", {})
+
+    if not request_id:
+        raise HTTPException(status_code=400, detail="request_id is required")
+    if action not in ("accept", "decline", "cancel"):
+        raise HTTPException(status_code=400, detail="action must be accept, decline, or cancel")
+
+    result = {"action": action}
+    if action == "accept" and content:
+        result["content"] = content
+
+    resolved = copilot_service.resolve_elicitation(session_id, request_id, result)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Elicitation request not found or already resolved")
+
+    logger.info(f"[{session_id}] Elicitation {request_id} resolved with action={action}")
+    return {"status": "resolved", "action": action}
+
+
+@router.post("/{session_id}/user-input-response")
+async def user_input_response(session_id: str, request: dict) -> dict:
+    """Respond to a pending ask_user request.
+    
+    Body: { request_id: str, answer: str, wasFreeform: bool }
+    Or to cancel: { request_id: str, cancelled: true }
+    """
+    set_session_context(session_id)
+    request_id = request.get("request_id")
+
+    if not request_id:
+        raise HTTPException(status_code=400, detail="request_id is required")
+
+    if request.get("cancelled"):
+        # Cancel the Future — SDK handler will raise, agent sees "User cancelled"
+        key = (session_id, request_id)
+        future = copilot_service._pending_elicitations.get(key)
+        if future and not future.done():
+            future.cancel()
+            logger.info(f"[{session_id}] User input {request_id} cancelled by user")
+            return {"status": "cancelled"}
+        raise HTTPException(status_code=404, detail="User input request not found or already resolved")
+
+    answer = request.get("answer", "")
+    was_freeform = request.get("wasFreeform", True)
+    result = {"answer": answer, "wasFreeform": was_freeform}
+
+    resolved = copilot_service.resolve_elicitation(session_id, request_id, result)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="User input request not found or already resolved")
+
+    logger.info(f"[{session_id}] User input {request_id} resolved: answer={answer[:50]}")
+    return {"status": "resolved"}
+
+
+@router.post("/{session_id}/test-elicitation")
+async def test_elicitation(session_id: str) -> dict:
+    """DEV ONLY: Simulate an elicitation event for UI testing.
+    
+    Pushes a fake elicitation event through both the event queue (if streaming)
+    and the ResponseBuffer (for reconnect), so it works regardless of stream state.
+    """
+    import uuid
+    client = copilot_service._session_clients.get(session_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="No active session client")
+
+    request_id = str(uuid.uuid4())
+    elicitation_data = {
+        "request_id": request_id,
+        "message": "Please configure your project settings:",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "title": "Database",
+                    "enum": ["PostgreSQL", "MySQL", "SQLite"],
+                    "description": "Which database engine to use"
+                },
+                "projectName": {
+                    "type": "string",
+                    "title": "Project Name",
+                    "description": "Name of your project"
+                },
+                "port": {
+                    "type": "integer",
+                    "title": "Port",
+                    "default": 5432,
+                    "minimum": 1024,
+                    "maximum": 65535
+                },
+                "enableCaching": {
+                    "type": "boolean",
+                    "title": "Enable Caching",
+                    "default": True
+                },
+                "features": {
+                    "type": "array",
+                    "title": "Features",
+                    "items": {
+                        "enum": ["auth", "logging", "metrics", "rate-limiting"]
+                    }
+                }
+            },
+            "required": ["database", "projectName"]
+        },
+        "source": "test-endpoint",
+    }
+
+    # Store a future so the response endpoint works
+    import asyncio
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+    copilot_service._pending_elicitations[(session_id, request_id)] = future
+
+    evt = {"event": "elicitation", "data": elicitation_data}
+
+    # Push to active event queue if streaming
+    if client.event_queue:
+        client.event_queue.put_nowait(evt)
+
+    # Also push to ResponseBuffer so reconnect/SSE consumer picks it up
+    buffer = await response_buffer_manager.get_buffer(session_id)
+    if not buffer:
+        # Create a buffer that stays open for the elicitation
+        buffer = await response_buffer_manager.create_buffer(session_id)
+    buffer.add_notification("elicitation", elicitation_data)
+
+    logger.info(f"[{session_id}] Test elicitation pushed: {request_id}")
+    return {"status": "pushed", "request_id": request_id}
+
+
 @router.post("/{session_id}/messages")
 async def send_message(session_id: str, request: MessageCreate) -> EventSourceResponse:
     """Send a message and stream the assistant's response via SSE.

@@ -132,7 +132,7 @@ describe('InputBox — per-session sending lock', () => {
     });
     render(<InputBox sessionId="session-A" />);
 
-    const textarea = screen.getByPlaceholderText(/Type a follow-up/);
+    const textarea = screen.getByPlaceholderText(/Agent is responding/);
     expect(textarea).not.toBeDisabled();
   });
 });

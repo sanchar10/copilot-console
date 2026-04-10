@@ -8,7 +8,7 @@ For contributors who want to modify the code.
 |---|---|---|
 | **Python** | 3.11 – 3.13 | `python --version` |
 | **Node.js** | 18+ | `node --version` |
-| **GitHub Copilot CLI** | 0.0.410+ | `copilot --version` |
+| **GitHub Copilot CLI** | Latest | `copilot --version` |
 
 > **Note:** Python 3.14 is not yet fully supported due to pre-release dependency resolution issues. Use 3.11–3.13.
 
@@ -28,6 +28,9 @@ uv sync --prerelease=allow
 
 # Install frontend dependencies
 npm install --prefix frontend
+
+# Ensure Copilot CLI is authenticated
+copilot login
 
 # Start in development mode
 uv run npm run dev
@@ -52,6 +55,9 @@ pip install -e ".[dev]" --pre
 
 # Install frontend dependencies
 npm install --prefix frontend
+
+# Ensure Copilot CLI is authenticated
+copilot login
 
 # Start in development mode
 npm run dev
@@ -89,8 +95,8 @@ This repo’s wheel is built by GitHub Actions, not manually on developer machin
 If you need to regenerate the wheel for the *same* version (without bumping version numbers), force-move the tag to the desired commit and force-push it:
 
 ```powershell
-git tag -f v0.5.0 <commit_sha>
-git push -f origin v0.5.0
+git tag -f v0.6.0 <commit_sha>
+git push -f origin v0.6.0
 ```
 
 ### Local build (optional)
@@ -155,9 +161,12 @@ npm run build       # Full build
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, TypeScript, Vite, Tailwind CSS, Zustand |
-| Backend | Python, FastAPI, Uvicorn |
+| Frontend | React, TypeScript, Vite, Tailwind CSS, Zustand, React Router |
+| Rendering | React Markdown, Syntax Highlighting, Mermaid diagrams |
+| Backend | Python, FastAPI, Uvicorn, Pydantic |
 | AI Runtime | GitHub Copilot SDK → Copilot CLI |
+| Workflows | Microsoft Agent Framework (declarative YAML pipelines) |
 | Streaming | Server-Sent Events (SSE) |
+| Notifications | pywebpush (VAPID), Service Worker (PWA) |
 | Scheduling | APScheduler |
-| Storage | JSON files (no database) |
+| Storage | JSON files on disk (no database) |

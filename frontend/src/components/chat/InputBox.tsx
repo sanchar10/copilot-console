@@ -102,6 +102,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     addStreamingStep,
     setTokenUsage,
     finalizeTurn,
+    setElicitation,
+    setAskUser,
   } = useChatStore();
 
   // Check if streaming is happening for the current session
@@ -581,7 +583,17 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
         (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) sessionModes.set(activeSessionId, mode as AgentMode); },
         initialAgentMode,
-        isFleet
+        isFleet,
+        (data) => {
+          if (activeSessionId) {
+            setElicitation(activeSessionId, data);
+          }
+        },
+        (data) => {
+          if (activeSessionId) {
+            setAskUser(activeSessionId, data);
+          }
+        },
       );
     } catch (err) {
       if (activationTimer) clearTimeout(activationTimer);
@@ -747,12 +759,13 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
+                  autoFocus={isNewSession}
                   placeholder={activeCommand
                     ? (activeCommand.placeholder || `Press Send to execute /${activeCommand.name}`)
                     : isSending
                       ? "Activating session, please wait..."
                       : isStreaming 
-                        ? "Type a follow-up... (will be queued for the agent)" 
+                        ? "Agent is responding… queue a follow-up message" 
                         : "Type a message... (Enter to send, Shift+Enter for new line)"}
                   className="flex-1 resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                   rows={1}
