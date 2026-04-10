@@ -7,6 +7,7 @@ import { useAgentStore } from '../../stores/agentStore';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
+import { Dropdown } from '../common/Dropdown';
 import type { Agent } from '../../types/agent';
 
 type FilterType = 'all' | 'teams' | 'sub-agents' | 'standalone' | 'composable';
@@ -340,15 +341,12 @@ export function AgentLibrary() {
 
               {/* Sort + View toggle */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <select
+                <Dropdown
+                  options={SORTS.map(s => ({ value: s.key, label: s.label }))}
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as SortType)}
-                  className="text-xs px-2 py-1 rounded border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-600 dark:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
-                >
-                  {SORTS.map(s => (
-                    <option key={s.key} value={s.key}>{s.label}</option>
-                  ))}
-                </select>
+                  onChange={v => setSort(v as SortType)}
+                  variant="compact"
+                />
 
                 {/* View toggle */}
                 <div className="flex items-center border border-gray-200 dark:border-[#3a3a4e] rounded overflow-hidden">

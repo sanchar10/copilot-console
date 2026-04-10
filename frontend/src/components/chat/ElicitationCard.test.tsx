@@ -62,13 +62,12 @@ describe('ElicitationCard', () => {
 
   it('renders dropdown for enum field', () => {
     render(<ElicitationCard sessionId="s1" data={baseData} />);
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
+    // Custom Dropdown renders a button trigger, not a native combobox
+    expect(screen.getByText('Select...')).toBeInTheDocument();
   });
 
   it('renders required indicator for required fields', () => {
     render(<ElicitationCard sessionId="s1" data={baseData} />);
-    // Required field has * marker
     const markers = screen.getAllByText('*');
     expect(markers.length).toBeGreaterThan(0);
   });
@@ -81,16 +80,18 @@ describe('ElicitationCard', () => {
 
   it('Accept is enabled after filling required fields', () => {
     render(<ElicitationCard sessionId="s1" data={baseData} />);
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'PostgreSQL' } });
+    // Open dropdown and select PostgreSQL
+    fireEvent.click(screen.getByText('Select...'));
+    fireEvent.click(screen.getByText('PostgreSQL'));
     const acceptBtn = screen.getByText('Accept ✓');
     expect(acceptBtn).not.toBeDisabled();
   });
 
   it('calls respondToElicitation on Accept', async () => {
     render(<ElicitationCard sessionId="s1" data={baseData} />);
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'MySQL' } });
+    // Open dropdown and select MySQL
+    fireEvent.click(screen.getByText('Select...'));
+    fireEvent.click(screen.getByText('MySQL'));
     fireEvent.click(screen.getByText('Accept ✓'));
 
     await waitFor(() => {

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { formatRelativeTime } from '../../utils/formatters';
 import { useWorkflowStore } from '../../stores/workflowStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
+import { Dropdown } from '../common/Dropdown';
 import type { WorkflowMetadata } from '../../types/workflow';
 
 function WorkflowCard({ workflow }: { workflow: WorkflowMetadata }) {
@@ -135,14 +136,15 @@ export function WorkflowLibrary() {
                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
             </div>
-            <select
+            <Dropdown
+              options={[
+                { value: 'updated', label: 'Last edited' },
+                { value: 'name', label: 'Name' },
+              ]}
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortKey)}
-              className="px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-700 dark:text-gray-300"
-            >
-              <option value="updated">Last edited</option>
-              <option value="name">Name</option>
-            </select>
+              onChange={v => setSortBy(v as SortKey)}
+              variant="compact"
+            />
           </div>
         )}
 

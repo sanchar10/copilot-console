@@ -11,6 +11,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { formatDateTime } from '../../utils/formatters';
 import { listTaskRuns, abortTaskRun, deleteTaskRun } from '../../api/automations';
 import { getSession, connectSession, getResponseStatus, resumeResponseStream } from '../../api/sessions';
+import { Dropdown } from '../common/Dropdown';
 import type { TaskRunSummary, TaskRunStatus } from '../../types/automation';
 
 const STATUS_CONFIG: Record<TaskRunStatus, { label: string; color: string; bg: string; darkColor: string; darkBg: string }> = {
@@ -272,16 +273,15 @@ export function TaskBoard({ automationId, automationName }: { automationId?: str
         {!automationId && agents.length > 0 && (
           <div className="flex items-center gap-3 mb-4">
             <label className="text-sm text-gray-500 dark:text-gray-400">Filter by agent:</label>
-            <select
+            <Dropdown
+              options={[
+                { value: '', label: 'All Agents' },
+                ...agents.map(a => ({ value: a.id, label: `${a.icon} ${a.name}` })),
+              ]}
               value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
-              className="border border-white/40 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white/50 dark:bg-[#1e1e2e] dark:text-gray-100"
-            >
-              <option value="">All Agents</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
-              ))}
-            </select>
+              onChange={setAgentFilter}
+              variant="compact"
+            />
           </div>
         )}
 

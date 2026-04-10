@@ -15,6 +15,7 @@ import {
   runAutomationNow,
 } from '../../api/automations';
 import { FolderBrowserModal } from '../common/FolderBrowserModal';
+import { Dropdown } from '../common/Dropdown';
 import type { AutomationWithNextRun, CreateAutomationRequest, UpdateAutomationRequest } from '../../types/automation';
 import type { Agent } from '../../types/agent';
 
@@ -115,16 +116,12 @@ function AutomationDialog({
 
           {!isEdit && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Agent</label>
-              <select
+              <Dropdown
+                label="Agent"
+                options={agents.map(a => ({ value: a.id, label: `${a.icon} ${a.name}` }))}
                 value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-100"
-              >
-                {agents.map((a) => (
-                  <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
-                ))}
-              </select>
+                onChange={setAgentId}
+              />
             </div>
           )}
 
@@ -142,15 +139,12 @@ function AutomationDialog({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Frequency</label>
-            <select
+            <Dropdown
+              options={CRON_PRESETS.map(p => ({ value: p.value, label: p.label }))}
               value={cronPreset}
-              onChange={(e) => handlePresetChange(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-2 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-100"
-            >
-              {CRON_PRESETS.map((p) => (
-                <option key={p.label} value={p.value}>{p.label}</option>
-              ))}
-            </select>
+              onChange={handlePresetChange}
+              className="mb-2"
+            />
             <input
               type="text"
               value={cron}
@@ -436,16 +430,15 @@ export function AutomationManager({ agentId: initialAgentId }: AutomationManager
         {agents.length > 0 && (
           <div className="flex items-center gap-3 mb-4">
             <label className="text-sm text-gray-500 dark:text-gray-400">Filter by agent:</label>
-            <select
+            <Dropdown
+              options={[
+                { value: '', label: 'All Agents' },
+                ...agents.map(a => ({ value: a.id, label: `${a.icon} ${a.name}` })),
+              ]}
               value={filterAgentId}
-              onChange={(e) => setFilterAgentId(e.target.value)}
-              className="border border-white/40 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white/50 dark:bg-[#1e1e2e] dark:text-gray-100"
-            >
-              <option value="">All Agents</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>{a.icon} {a.name}</option>
-              ))}
-            </select>
+              onChange={setFilterAgentId}
+              variant="compact"
+            />
             {filterAgentId && (
               <span className="text-xs text-gray-400 dark:text-gray-500">
                 {filteredAutomations.length} automation{filteredAutomations.length !== 1 ? 's' : ''}

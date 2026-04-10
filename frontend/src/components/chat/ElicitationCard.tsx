@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import type { ElicitationRequest } from '../../api/sessions';
 import { respondToElicitation } from '../../api/sessions';
 import { useChatStore, type ResolvedElicitation } from '../../stores/chatStore';
+import { Dropdown } from '../common/Dropdown';
 
 interface SchemaProperty {
   type: string;
@@ -50,22 +51,18 @@ function FormField({ fieldKey, prop, value, onChange, required }: {
   // String with enum → dropdown
   if (prop.type === 'string' && prop.enum) {
     const names = prop.enumNames || prop.enum;
+    const dropdownOptions = prop.enum!.map((v, i) => ({ value: v, label: names[i] || v }));
     return (
       <div>
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
           {label}{required && <span className="text-red-400 ml-0.5">*</span>}
         </label>
         {prop.description && <p className="text-xs text-gray-500 dark:text-gray-500 mb-1">{prop.description}</p>}
-        <select
+        <Dropdown
+          options={[{ value: '', label: 'Select...' }, ...dropdownOptions]}
           value={(value as string) || ''}
-          onChange={e => onChange(e.target.value)}
-          className={baseInputClass}
-        >
-          <option value="">Select...</option>
-          {prop.enum!.map((v, i) => (
-            <option key={v} value={v}>{names[i] || v}</option>
-          ))}
-        </select>
+          onChange={v => onChange(v)}
+        />
       </div>
     );
   }
