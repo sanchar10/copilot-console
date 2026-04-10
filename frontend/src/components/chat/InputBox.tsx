@@ -759,6 +759,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
+                  autoFocus={isNewSession}
                   placeholder={activeCommand
                     ? (activeCommand.placeholder || `Press Send to execute /${activeCommand.name}`)
                     : isSending
