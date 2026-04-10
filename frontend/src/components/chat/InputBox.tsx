@@ -104,10 +104,13 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     finalizeTurn,
     setElicitation,
     setAskUser,
+    pendingAskUser,
+    pendingElicitation,
   } = useChatStore();
 
   // Check if streaming is happening for the current session
-  const { isStreaming } = getStreamingState(sessionId || null);
+  const { isStreaming, latestIntent } = getStreamingState(sessionId || null);
+  const hasPendingInput = !!(sessionId && (pendingAskUser[sessionId] || pendingElicitation[sessionId]));
   // Only disable this input if THIS session is currently activating
   const isSending = sendingSessionId === sessionId;
   const isDisabled = isSending;
@@ -753,23 +756,35 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                     <span className="ml-0.5 text-blue-400 dark:text-blue-300">×</span>
                   </button>
                 )}
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                  autoFocus={isNewSession}
-                  placeholder={activeCommand
-                    ? (activeCommand.placeholder || `Press Send to execute /${activeCommand.name}`)
-                    : isSending
-                      ? "Activating session, please wait..."
-                      : isStreaming 
-                        ? "Agent is responding… queue a follow-up message" 
-                        : "Type a message... (Enter to send, Shift+Enter for new line)"}
-                  className="flex-1 resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
-                  rows={1}
-                />
+                <div className="relative flex-1">
+                  {isStreaming && !isSending && !input && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 text-sm pointer-events-none flex items-center gap-1.5">
+                      <span className="flex items-center gap-0.5">
+                        <span className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </span>
+                      {hasPendingInput ? "Waiting for your input above…" : latestIntent || "Thinking… queue a follow-up message"}
+                    </span>
+                  )}
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    autoFocus={isNewSession}
+                    placeholder={activeCommand
+                      ? (activeCommand.placeholder || `Press Send to execute /${activeCommand.name}`)
+                      : isSending
+                        ? "Activating session, please wait..."
+                        : isStreaming 
+                          ? ""
+                          : "Type a message... (Enter to send, Shift+Enter for new line)"}
+                    className="w-full resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
+                    rows={1}
+                  />
+                </div>
               </div>
             {/* Send button */}
             <Button

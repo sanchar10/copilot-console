@@ -52,7 +52,7 @@ describe('chatStore', () => {
     it('initializes streaming state when set to true', () => {
       useChatStore.getState().setStreaming('s1', true);
       const streaming = useChatStore.getState().streamingPerSession['s1'];
-      expect(streaming).toEqual({ content: '', steps: [], isStreaming: true });
+      expect(streaming).toEqual({ content: '', steps: [], isStreaming: true, latestIntent: null });
     });
 
     it('removes streaming state when set to false', () => {
@@ -66,12 +66,12 @@ describe('chatStore', () => {
   describe('getStreamingState', () => {
     it('returns empty streaming state for null sessionId', () => {
       const result = useChatStore.getState().getStreamingState(null);
-      expect(result).toEqual({ content: '', steps: [], isStreaming: false });
+      expect(result).toEqual({ content: '', steps: [], isStreaming: false, latestIntent: null });
     });
 
     it('returns empty streaming state for unknown session', () => {
       const result = useChatStore.getState().getStreamingState('unknown');
-      expect(result).toEqual({ content: '', steps: [], isStreaming: false });
+      expect(result).toEqual({ content: '', steps: [], isStreaming: false, latestIntent: null });
     });
 
     it('returns active streaming state', () => {

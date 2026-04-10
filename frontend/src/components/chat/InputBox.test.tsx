@@ -51,7 +51,7 @@ import { InputBox, clearReadySession, isSessionReady, markSessionReady } from '.
 function setupChat(overrides?: Partial<typeof mockChatState>) {
   mockChatState = {
     sendingSessionId: null,
-    getStreamingState: () => ({ isStreaming: false }),
+    getStreamingState: () => ({ isStreaming: false, latestIntent: null }),
     setSending: vi.fn(),
     setStreaming: vi.fn(),
     addMessage: vi.fn(),
@@ -60,6 +60,10 @@ function setupChat(overrides?: Partial<typeof mockChatState>) {
     setTokenUsage: vi.fn(),
     finalizeStreaming: vi.fn(),
     finalizeTurn: vi.fn(),
+    setElicitation: vi.fn(),
+    setAskUser: vi.fn(),
+    pendingAskUser: {},
+    pendingElicitation: {},
     ...overrides,
   };
 }
@@ -128,11 +132,12 @@ describe('InputBox — per-session sending lock', () => {
   it('shows enqueue placeholder when streaming (not sending)', () => {
     setupChat({
       sendingSessionId: null,
-      getStreamingState: () => ({ isStreaming: true, content: 'hi', steps: [] }),
+      getStreamingState: () => ({ isStreaming: true, content: 'hi', steps: [], latestIntent: null }),
     });
     render(<InputBox sessionId="session-A" />);
 
-    const textarea = screen.getByPlaceholderText(/Agent is responding/);
+    // During streaming, placeholder is empty (overlay shows thinking text instead)
+    const textarea = screen.getByRole('textbox');
     expect(textarea).not.toBeDisabled();
   });
 });

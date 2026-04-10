@@ -17,6 +17,7 @@ interface StreamingState {
   content: string;
   steps: ChatStep[];
   isStreaming: boolean;
+  latestIntent: string | null;
 }
 
 export interface ResolvedElicitation {
@@ -71,7 +72,7 @@ interface ChatState {
   clearAskUser: (sessionId: string) => void;
 }
 
-const emptyStreamingState: StreamingState = { content: '', steps: [], isStreaming: false };
+const emptyStreamingState: StreamingState = { content: '', steps: [], isStreaming: false, latestIntent: null };
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messagesPerSession: {},
@@ -122,10 +123,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addStreamingStep: (sessionId, step) =>
     set((state) => {
       const current = state.streamingPerSession[sessionId] || emptyStreamingState;
+      // Extract intent from report_intent tool calls
+      let latestIntent = current.latestIntent;
+      if (step.title === 'Tool: report_intent' && step.detail) {
+        const match = step.detail.match(/"intent":\s*"([^"]+)"/);
+        if (match) latestIntent = match[1];
+      }
       return {
         streamingPerSession: {
           ...state.streamingPerSession,
-          [sessionId]: { ...current, steps: [...current.steps, step] },
+          [sessionId]: { ...current, steps: [...current.steps, step], latestIntent },
         },
       };
     }),
@@ -209,7 +216,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         streamingPerSession: {
           ...state.streamingPerSession,
-          [sessionId]: { content: '', steps: [], isStreaming: true },
+          [sessionId]: { content: '', steps: [], isStreaming: true, latestIntent: null },
         },
       };
     }),
@@ -220,7 +227,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {
           streamingPerSession: {
             ...state.streamingPerSession,
-            [sessionId]: { content: '', steps: [], isStreaming: true },
+            [sessionId]: { content: '', steps: [], isStreaming: true, latestIntent: null },
           },
         };
       } else {
