@@ -13,6 +13,7 @@ import { getSettings } from '../../api/settings';
 import { subscribeToActiveAgents } from '../../api/activeAgents';
 import { apiClient } from '../../api/client';
 import { useViewedStore } from '../../stores/viewedStore';
+import { Dropdown } from '../common/Dropdown';
 import { withRetry } from '../../utils/retry';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
@@ -259,23 +260,24 @@ export function Sidebar() {
             })
             .sort((a, b) => a.name.localeCompare(b.name));
           const totalNonAutoSessions = sessions.filter(s => s.trigger !== 'automation').length;
+          const dropdownOptions = [
+            { value: '', label: `All Projects (${folderEntries.length}) · ${totalNonAutoSessions} sessions` },
+            ...folderEntries.map(({ name, fullPath }) => {
+              const count = sessions.filter(s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === name).length;
+              const suffix = ` · ${count} sessions`;
+              const maxNameLen = 40 - suffix.length;
+              const displayName = name.length > maxNameLen ? '…' + name.slice(-maxNameLen + 1) : name;
+              return { value: name, label: `${displayName}${suffix}`, title: fullPath };
+            }),
+          ];
           return folderEntries.length > 1 ? (
-            <select
+            <Dropdown
+              options={dropdownOptions}
               value={selectedProject || ''}
-              onChange={e => selectProject(e.target.value || null)}
-              className="mb-2 flex-shrink-0 min-w-0 max-w-full mr-4 px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 overflow-hidden text-ellipsis"
-            >
-              <option value="">All Projects ({folderEntries.length}) · {totalNonAutoSessions} sessions</option>
-              {folderEntries.map(({ name, fullPath }) => {
-                const count = sessions.filter(s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === name).length;
-                const suffix = ` · ${count} sessions`;
-                const maxNameLen = 40 - suffix.length;
-                const displayName = name.length > maxNameLen ? '…' + name.slice(-maxNameLen + 1) : name;
-                return (
-                  <option key={name} value={name} title={fullPath}>{displayName}{suffix}</option>
-                );
-              })}
-            </select>
+              onChange={v => selectProject(v || null)}
+              variant="compact"
+              className="mb-2 mr-4"
+            />
           ) : null;
         })()}
         {sessions.length > 0 && (() => {
