@@ -779,6 +779,11 @@ async def resume_response_stream(
     if not buffer:
         raise HTTPException(status_code=404, detail="No active response for this session")
     
+    # Cancel any pending elicitation/ask_user Futures for this session.
+    # On reconnect (page refresh), the old UI is gone and can't respond.
+    # Cancelling unblocks the agent so it can continue.
+    copilot_service.cancel_pending_elicitations(session_id)
+    
     async def generate_events() -> AsyncGenerator[dict, None]:
         # For resume, skip events that were already sent.
         # from_chunk/from_step are approximate — use ordered_events count.

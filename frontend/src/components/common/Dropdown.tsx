@@ -14,6 +14,8 @@ interface DropdownProps {
   label?: string;
   disabled?: boolean;
   className?: string;
+  /** Custom class for the dropdown list panel */
+  dropdownClassName?: string;
   /** 'compact' for inline badge style, 'full' for form-width input */
   variant?: 'compact' | 'full';
 }
@@ -26,6 +28,7 @@ export function Dropdown({
   label,
   disabled = false,
   className = '',
+  dropdownClassName,
   variant = 'full',
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
@@ -146,8 +149,8 @@ export function Dropdown({
       {open && (
         <div
           ref={listRef}
-          className={`absolute top-full mt-1 bg-white dark:bg-[#2a2a3c] border border-gray-200 dark:border-[#3a3a4e] rounded-md shadow-lg dark:shadow-black/20 z-50 max-h-60 overflow-y-auto ${
-            isCompact ? 'left-0 min-w-[180px]' : 'left-0 right-0 min-w-full'
+          className={`absolute top-full mt-1 bg-white dark:bg-[#2a2a3c] border border-gray-200 dark:border-[#3a3a4e] rounded-md shadow-lg dark:shadow-black/20 z-50 overflow-y-auto ${
+            dropdownClassName || (isCompact ? 'left-0 min-w-[180px] max-h-60' : 'left-0 right-0 min-w-full max-h-60')
           }`}
           role="listbox"
         >

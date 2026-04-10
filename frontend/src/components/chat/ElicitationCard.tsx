@@ -132,12 +132,16 @@ function FormField({ fieldKey, prop, value, onChange, required }: {
         {prop.description && <p className="text-xs text-gray-500 dark:text-gray-500 mb-1">{prop.description}</p>}
         <input
           type="number"
-          value={value as number ?? ''}
-          onChange={e => onChange(prop.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))}
+          value={value !== undefined && value !== null ? value : ''}
+          onChange={e => {
+            const v = e.target.value;
+            if (v === '') { onChange(undefined); return; }
+            onChange(prop.type === 'integer' ? parseInt(v) : parseFloat(v));
+          }}
           min={prop.minimum}
           max={prop.maximum}
           step={prop.type === 'integer' ? 1 : undefined}
-          className={baseInputClass}
+          className={`${baseInputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
         />
       </div>
     );

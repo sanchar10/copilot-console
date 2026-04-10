@@ -275,8 +275,9 @@ export function Sidebar() {
               options={dropdownOptions}
               value={selectedProject || ''}
               onChange={v => selectProject(v || null)}
-              variant="compact"
+              variant="full"
               className="mb-2 mr-4"
+              dropdownClassName="left-0 -right-4 max-h-[40vh]"
             />
           ) : null;
         })()}
