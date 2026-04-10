@@ -724,7 +724,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
               className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-full"
               title="Attach files"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
             </button>
@@ -741,7 +741,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             )}
             <div className="flex items-center gap-2">
               {/* Textarea with optional command chip inline */}
-              <div className={`flex-1 min-w-0 flex items-center gap-2 rounded-lg border px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent dark:bg-[#2a2a3c] ${
+              <div className={`flex-1 min-w-0 flex items-center gap-2 rounded-lg border px-3 pt-2 pb-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent dark:bg-[#2a2a3c] ${
                 isDragOver ? 'border-blue-400' : activeCommand ? 'border-blue-300 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-900/10' : isStreaming ? 'border-amber-300 bg-amber-50 dark:border-amber-600 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'
               }`}>
                 {/* Command chip — inline inside the input */}
@@ -783,6 +783,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                           : "Type a message... (Enter to send, Shift+Enter for new line)"}
                     className="w-full resize-none max-h-[200px] bg-transparent focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                     rows={1}
+                    rows={1}
                   />
                 </div>
               </div>
@@ -796,7 +797,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
               }
               className="h-11 w-11 p-0"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
               </svg>
             </Button>
@@ -811,7 +812,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
               }`}
               title="Stop the agent"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                 <rect x="6" y="6" width="12" height="12" rx="1" />
               </svg>
             </Button>
