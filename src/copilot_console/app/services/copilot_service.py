@@ -505,7 +505,10 @@ class CopilotService:
         future = self._pending_elicitations.pop(key, None)
         if future is None or future.done():
             return False
-        future.set_result(result)
+        try:
+            future.set_result(result)
+        except asyncio.InvalidStateError:
+            return False
         logger.debug(f"[{session_id}] Elicitation response delivered: {request_id}")
         return True
 

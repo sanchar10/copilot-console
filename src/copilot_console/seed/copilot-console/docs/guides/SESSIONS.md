@@ -11,6 +11,7 @@ A **session** is one chat conversation (with its own context, model, tools/sub-a
 
 In the session header, open **Session Settings** to configure:
 
+- **System prompt**: replace or append to the agent's default prompt.
 - **Model**: choose a model for this session, or leave it empty to use your default model.
 - **MCP servers / tools**: enable only what you need.
 - **Sub-agents**: enable a team when you want the main agent to delegate.
@@ -30,8 +31,8 @@ Use the paperclip or drag-and-drop to attach files to a message. Attachments are
 
 ## Where Sessions Are Stored
 
-Sessions are stored under:
+Session conversation history is stored by the Copilot CLI in its own data folder (`~/.copilot/`). Copilot Console stores session metadata (settings, model, tools, working directory) under:
 
 - `C:\Users\<username>\.copilot-console\sessions\`
 
-If you want a “clean slate”, you can remove session data from this folder (Copilot Console must be closed first).
+To delete a session, use the delete option in Copilot CLI or Copilot Console.

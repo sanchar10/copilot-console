@@ -21,12 +21,12 @@ devtunnel user login
 
 1. Start Copilot Console with `--expose`:
    ```powershell
-   copilot-console --expose --no-sleep
+   copilot-console --expose --no-sleep  # --no-sleep keeps the machine awake
    ```
 
 2. Open **Settings** (gear icon) in the desktop UI — you'll see a QR code under **Mobile Companion**.
 
-3. Scan the QR code with your phone's camera. The mobile UI opens in your browser, pre-authenticated.
+3. Scan the QR code with your phone's camera. The mobile UI opens in your browser (may run devtunnel auth flow).
 
 That's it. Sessions, messages, and agent status are all accessible from your phone.
 
@@ -78,7 +78,7 @@ By default, only the Microsoft account that created the tunnel can access it. Wh
 
 > **Important:** The devtunnel login must use the **same account type** on both the server and the mobile device. **Work or school (Entra ID) accounts** are recommended — they work reliably on all platforms including Safari/iOS. Personal Microsoft accounts and GitHub accounts work on Android and desktop browsers, but **fail on Safari/iOS** (Safari downloads an "aad" or "github" file instead of showing login).
 
-### Anonymous Mode (Recommended for Personal Use)
+### Anonymous Mode (for use without Microsoft work / school account)
 
 ```powershell
 copilot-console --expose --allow-anonymous
@@ -89,7 +89,6 @@ Skips the Microsoft login — anyone with the tunnel URL can reach the server. T
 **Use anonymous mode if:**
 - You don't have a work or school (Microsoft Entra ID) account
 - You're accessing from an iPhone/iPad and logged in with a personal Microsoft or GitHub account
-- You want a frictionless setup without any login prompts on the mobile device
 
 The tunnel URL is randomly generated and not discoverable — combined with the bearer token, this provides strong security for personal use.
 

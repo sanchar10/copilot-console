@@ -34,7 +34,7 @@ effective tools = sub-agent's whitelist MINUS parent's exclusions
 
 ## Sub-Agents Cannot Be Nested
 
-An agent that has sub-agents cannot itself be used as a sub-agent. Only leaf agents (no sub-agents of their own) are eligible for the sub-agent role. This is a github copilot constriant. 
+An agent that has sub-agents cannot itself be used as a sub-agent. Only leaf agents (no sub-agents of their own) are eligible for the sub-agent role. This is a GitHub Copilot constraint. 
 
 ## Sub-Agent Eligibility Requirements
 
@@ -55,9 +55,11 @@ Sub-agents inherit the model of the parent session. There is no way to specify a
 
 Custom tools (Python files in `~/.copilot-console/tools/`) run in a sandboxed environment. Top-level imports of third-party packages are not supported — use inline imports within the function body instead.
 
-## Model & System Prompt Cannot Be Changed After Session Creation
+## System Prompt Cannot Be Changed After Session Creation
 
-The copilot model and system prompt is set when a session is created and cannot be changed afterwards. This is copilot SDK current limitation. To use a different model, create a new session.
+The system prompt is set when a session is created and cannot be changed afterwards. This is a Copilot SDK limitation. To use a different system prompt, create a new session.
+
+**Note:** The model _can_ be changed mid-session — use the model selector in the session header to switch models on the fly.
 
 ## Workflows Support Sequential Execution Only
 
