@@ -10,6 +10,7 @@ import type { Components } from 'react-markdown';
 import { MermaidDiagram, isMermaidCode } from './MermaidDiagram';
 import { processFileLinks, isFilePath, resolveFileHref, handleFilePathClick } from '../../utils/processFileLinks';
 import { UnpinnedIcon, PinnedIcon } from './PinIcons';
+import { parseSteps, countUserInputs } from '../../utils/stepParser';
 
 interface MessageBubbleProps {
   message: Message;
@@ -379,58 +380,11 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
             </button>
           )}
           {!isUser && message.steps && message.steps.length > 0 && (() => {
-            // Parse ask_user/elicitation tool pairs for styled rendering
-            const steps = message.steps;
-            type ParsedStep = { type: 'regular'; step: typeof steps[0] } | { type: 'ask_user'; question: string; answer: string } | { type: 'elicitation'; message: string; response: string };
-            const parsed: ParsedStep[] = [];
-            const consumed = new Set<number>();
-
-            for (let i = 0; i < steps.length; i++) {
-              if (consumed.has(i)) continue;
-              const s = steps[i];
-              if (s.title === 'Tool: ask_user' || s.title === 'Tool: elicitation') {
-                let question = '';
-                let toolId = '';
-                if (s.detail) {
-                  const idMatch = s.detail.match(/^id=(\S+)/);
-                  if (idMatch) toolId = idMatch[1];
-                  const inputMatch = s.detail.match(/Input:\s*(\{[\s\S]*\})/);
-                  if (inputMatch) {
-                    try {
-                      const input = JSON.parse(inputMatch[1]);
-                      question = input.question || input.message || '';
-                    } catch { /* ignore */ }
-                  }
-                }
-                let answer = '';
-                if (toolId) {
-                  for (let j = i + 1; j < steps.length; j++) {
-                    if (consumed.has(j)) continue;
-                    const done = steps[j];
-                    if ((done.title === 'Tool done' || done.title?.startsWith('Tool done:')) && done.detail?.includes(toolId)) {
-                      const respMatch = done.detail.match(/User responded:\s*(.+?)(?:',|$)/);
-                      const selMatch = done.detail.match(/User selected:\s*(.+?)(?:',|$)/);
-                      const contentMatch = done.detail.match(/content='([^']*?)'/);
-                      answer = respMatch?.[1] || selMatch?.[1] || contentMatch?.[1] || '';
-                      answer = answer.replace(/['"]$/, '').trim();
-                      consumed.add(j);
-                      break;
-                    }
-                  }
-                }
-                consumed.add(i);
-                if (question) {
-                  parsed.push(s.title === 'Tool: ask_user'
-                    ? { type: 'ask_user', question, answer: answer || '(no response)' }
-                    : { type: 'elicitation', message: question, response: answer || '(no response)' });
-                  continue;
-                }
-              }
-              parsed.push({ type: 'regular', step: s });
-            }
-
-            const userInputCount = parsed.filter(p => p.type === 'ask_user' || p.type === 'elicitation').length;
+            const parsed = parseSteps(message.steps);
+            const userInputCount = countUserInputs(parsed);
             const displayCount = parsed.length;
+
+            if (displayCount === 0) return null;
 
             return (
               <details className="mb-2 text-sm">
@@ -467,8 +421,8 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
                       <div key={idx}>
                         {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
                         <div className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 py-1">
-                          <div className="font-medium">{p.step.title}</div>
-                          {p.step.detail && <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{p.step.detail}</pre>}
+                          <div className="font-medium">{p.title}</div>
+                          {p.detail && <pre className="mt-1 whitespace-pre-wrap break-words text-xs">{p.detail}</pre>}
                         </div>
                       </div>
                     );
