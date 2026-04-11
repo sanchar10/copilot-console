@@ -21,7 +21,7 @@ import { WorkflowLibrary } from '../workflows/WorkflowLibrary';
 import { WorkflowEditor } from '../workflows/WorkflowEditor';
 import { WorkflowRunView } from '../workflows/WorkflowRunView';
 import { updateSession, getSession, updateRuntimeSettings } from '../../api/sessions';
-import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents } from '../../api/agents';
+import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents, checkStaleCwdAgents } from '../../api/agents';
 import type { AgentTools, SystemMessage, Agent, StarterPrompt, DiscoverableAgentsResponse } from '../../types/agent';
 
 /**
@@ -386,8 +386,32 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
 
   const handleCwdChange = useCallback(async (newCwd: string) => {
     // Same folder selected — no-op
-    const currentCwd = sessions.find(s => s.session_id === sessionId)?.cwd;
-    if (newCwd === currentCwd) return;
+    const currentSession = sessions.find(s => s.session_id === sessionId);
+    if (newCwd === currentSession?.cwd) return;
+
+    // Check if any github-cwd: agents will become stale
+    const cwdAgents = (currentSession?.sub_agents || []).filter(id => id.startsWith('github-cwd:'));
+    if (cwdAgents.length > 0) {
+      try {
+        const { stale, count } = await checkStaleCwdAgents(newCwd, currentSession?.sub_agents || []);
+        if (count > 0) {
+          const names = stale.map(id => id.replace('github-cwd:', ''));
+          const message = count <= 5
+            ? `Changing folder will remove these CWD agents:\n${names.join(', ')}\n\nContinue?`
+            : `Changing folder will remove ${count} CWD agents from this session.\n\nContinue?`;
+          if (!window.confirm(message)) return;
+          // Remove stale agents from selection
+          const cleaned = (currentSession?.sub_agents || []).filter(id => !stale.includes(id));
+          await updateSession(sessionId, { sub_agents: cleaned });
+          setSessions(sessions.map(s =>
+            s.session_id === sessionId ? { ...s, sub_agents: cleaned } : s
+          ));
+        }
+      } catch {
+        // If check fails, proceed anyway
+      }
+    }
+
     try {
       const updatedSession = await updateSession(sessionId, { cwd: newCwd });
       setSessions(sessions.map(s =>

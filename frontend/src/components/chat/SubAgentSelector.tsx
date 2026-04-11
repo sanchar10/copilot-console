@@ -46,15 +46,19 @@ export function SubAgentSelector({
 
   // Compute total available and selected counts
   let totalAvailable = 0;
+  const allAvailableIds = new Set<string>();
   if (discoverableAgents) {
     for (const section of Object.values(discoverableAgents)) {
       totalAvailable += section.agents.length;
+      for (const a of section.agents) allAvailableIds.add(a.id);
     }
   } else if (availableAgents) {
     totalAvailable = availableAgents.length;
+    for (const a of availableAgents) allAvailableIds.add(a.id);
   }
 
-  const enabledCount = selectedIds.length;
+  // Only count selections that still exist in available agents
+  const enabledCount = selectedIds.filter((id) => allAvailableIds.has(id)).length;
 
   const handleToggle = (agentId: string) => {
     if (selectedIds.includes(agentId)) {
