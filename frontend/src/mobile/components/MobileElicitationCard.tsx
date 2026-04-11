@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { respondToElicitation } from '../../api/sessions';
+import { mobileApiClient } from '../mobileClient';
 
 interface MobileElicitationCardProps {
   sessionId: string;
@@ -34,7 +34,9 @@ export function MobileElicitationCard({
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await respondToElicitation(sessionId, requestId, 'accept', values);
+      await mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
+        request_id: requestId, action: 'accept', content: values,
+      });
       onResolved();
     } catch {
       onResolved();
@@ -44,7 +46,9 @@ export function MobileElicitationCard({
   const handleCancel = async () => {
     setSubmitting(true);
     try {
-      await respondToElicitation(sessionId, requestId, 'cancel');
+      await mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
+        request_id: requestId, action: 'cancel',
+      });
     } catch { /* ignore */ }
     onResolved();
   };

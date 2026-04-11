@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { respondToUserInput } from '../../api/sessions';
+import { mobileApiClient } from '../mobileClient';
 
 interface MobileAskUserCardProps {
   sessionId: string;
@@ -35,7 +35,9 @@ export function MobileAskUserCard({
     if (!answer) return;
     setSubmitting(true);
     try {
-      await respondToUserInput(sessionId, requestId, answer, useOther || !hasChoices);
+      await mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
+        request_id: requestId, answer, wasFreeform: useOther || !hasChoices,
+      });
       onResolved();
     } catch {
       // 404 = resolved elsewhere, dismiss gracefully
@@ -46,7 +48,9 @@ export function MobileAskUserCard({
   const handleSkip = async () => {
     setSubmitting(true);
     try {
-      await respondToUserInput(sessionId, requestId, '', false, true);
+      await mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
+        request_id: requestId, cancelled: true,
+      });
     } catch { /* ignore */ }
     onResolved();
   };

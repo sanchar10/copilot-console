@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev.js",
+    "dev:mobile": "node scripts/dev.js --expose --no-sleep",
     "setup": "pip install -e . && npm install --prefix frontend",
     "dev:backend": "python -m uvicorn copilot_console.app.main:app --reload --port 8765",
     "dev:frontend": "cd frontend && npm run dev",

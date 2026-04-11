@@ -715,7 +715,6 @@ class SessionService:
                             msg.steps = [reasoning_step] + list(msg.steps)
                         else:
                             msg.steps = [reasoning_step]
-                        logger.debug(f"Added reasoning step to message_id={anchor_id} in session={session_id}")
         
         except Exception as e:
             logger.warning(f"Failed to read raw events for reasoningText: {e}")

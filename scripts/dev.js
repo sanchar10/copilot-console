@@ -96,8 +96,11 @@ async function main() {
   console.log('Backend:  \x1b[36mhttp://localhost:8765\x1b[0m');
   console.log('\nPress \x1b[33mCtrl+C\x1b[0m to stop both servers.\n');
 
-  // Check for --no-sleep flag
-  const noSleep = process.argv.includes('--no-sleep');
+  // Debug: show what args we received (remove after debugging)
+  if (process.argv.length > 2) console.log(`\x1b[90mArgs: ${process.argv.slice(2).join(' ')}\x1b[0m`);
+
+  // Check flags — also support env vars since npm may consume -- flags
+  const noSleep = process.argv.includes('--no-sleep') || process.env.COPILOT_NO_SLEEP === '1';
   const verbose = process.argv.includes('--verbose') || process.argv.includes('--debug') || process.env.COPILOT_VERBOSE === '1';
   const env = { ...process.env };
 
@@ -116,7 +119,7 @@ async function main() {
   }
 
   // Check for --expose flag (bind to 0.0.0.0 for mobile companion via tunnel)
-  const expose = process.argv.includes('--expose');
+  const expose = process.argv.includes('--expose') || process.env.COPILOT_EXPOSE === '1';
   const backendHost = expose ? '0.0.0.0' : '127.0.0.1';
   if (expose) {
     env.COPILOT_EXPOSE = '1';

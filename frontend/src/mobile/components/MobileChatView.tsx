@@ -5,7 +5,6 @@ import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useChatStore } from '../../stores/chatStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import { respondToUserInput, respondToElicitation } from '../../api/sessions';
 import type { Message } from '../../types/message';
 import type { ChatStep } from '../../types/message';
 import type { AskUserRequest, ElicitationRequest } from '../../api/sessions';
@@ -156,9 +155,13 @@ export function MobileChatView() {
       const pending = pendingRequestRef.current;
       if (pending && sessionId) {
         if (pending.type === 'ask_user') {
-          respondToUserInput(sessionId, pending.requestId, '', false, true).catch(() => {});
+          mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
+            request_id: pending.requestId, cancelled: true,
+          }).catch(() => {});
         } else {
-          respondToElicitation(sessionId, pending.requestId, 'cancel').catch(() => {});
+          mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
+            request_id: pending.requestId, action: 'cancel',
+          }).catch(() => {});
         }
       }
     };
@@ -483,7 +486,12 @@ export function MobileChatView() {
               question={pendingAskUser.question}
               choices={pendingAskUser.choices}
               allowFreeform={pendingAskUser.allowFreeform}
-              onResolved={() => { setPendingAskUser(null); pendingRequestRef.current = null; }}
+              onResolved={() => {
+                setPendingAskUser(null);
+                pendingRequestRef.current = null;
+                // Resume stream to receive agent's continued response
+                resumeStream();
+              }}
             />
           )}
 
@@ -494,7 +502,12 @@ export function MobileChatView() {
               requestId={pendingElicitation.request_id}
               message={pendingElicitation.message}
               schema={pendingElicitation.schema}
-              onResolved={() => { setPendingElicitation(null); pendingRequestRef.current = null; }}
+              onResolved={() => {
+                setPendingElicitation(null);
+                pendingRequestRef.current = null;
+                // Resume stream to receive agent's continued response
+                resumeStream();
+              }}
             />
           )}
 
