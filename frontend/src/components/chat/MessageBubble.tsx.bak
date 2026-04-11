@@ -20,17 +20,17 @@ interface MessageBubbleProps {
 
 function fileIcon(filename: string): string {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext)) return '🖼️';
-  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return '🎬';
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)) return '🎵';
-  if (['pdf'].includes(ext)) return '📑';
-  if (['xls', 'xlsx', 'csv', 'tsv'].includes(ext)) return '📊';
-  if (['doc', 'docx', 'rtf', 'odt'].includes(ext)) return '📝';
-  if (['ppt', 'pptx'].includes(ext)) return '📽️';
-  if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) return '📦';
-  if (['js', 'ts', 'py', 'java', 'cpp', 'c', 'rs', 'go', 'rb', 'cs', 'sh', 'json', 'yaml', 'yml', 'xml', 'html', 'css'].includes(ext)) return '💻';
-  if (['md', 'txt', 'log'].includes(ext)) return '📃';
-  return '📄';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext)) return '≡ƒû╝∩╕Å';
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return '≡ƒÄ¼';
+  if (['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)) return '≡ƒÄ╡';
+  if (['pdf'].includes(ext)) return '≡ƒôæ';
+  if (['xls', 'xlsx', 'csv', 'tsv'].includes(ext)) return '≡ƒôè';
+  if (['doc', 'docx', 'rtf', 'odt'].includes(ext)) return '≡ƒô¥';
+  if (['ppt', 'pptx'].includes(ext)) return '≡ƒô╜∩╕Å';
+  if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) return '≡ƒôª';
+  if (['js', 'ts', 'py', 'java', 'cpp', 'c', 'rs', 'go', 'rb', 'cs', 'sh', 'json', 'yaml', 'yml', 'xml', 'html', 'css'].includes(ext)) return '≡ƒÆ╗';
+  if (['md', 'txt', 'log'].includes(ext)) return '≡ƒôâ';
+  return '≡ƒôä';
 }
 
 function AttachmentChips({ attachments }: { attachments: MessageAttachment[] }) {
@@ -71,7 +71,7 @@ function AttachmentChips({ attachments }: { attachments: MessageAttachment[] }) 
 // Markdown components for rich rendering
 function createMarkdownComponents(cwd?: string | null): Components {
   return {
-  // Strip the <pre> wrapper — each code type handles its own container:
+  // Strip the <pre> wrapper ΓÇö each code type handles its own container:
   // SyntaxHighlighter uses PreTag="div", MermaidDiagram has its own wrapper
   pre({ children }) {
     return <>{children}</>;
@@ -95,7 +95,7 @@ function createMarkdownComponents(cwd?: string | null): Components {
             data-filepath={text}
             className="bg-blue-50/80 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-[0.9rem] font-mono cursor-pointer hover:underline"
           >
-            📄 {children}
+            ≡ƒôä {children}
           </code>
         );
       }
@@ -199,7 +199,7 @@ function createMarkdownComponents(cwd?: string | null): Components {
           className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer"
           title={`Click to open: ${resolvedPath}`}
         >
-          📄 {children}
+          ≡ƒôä {children}
         </span>
       );
     }
@@ -320,7 +320,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
             <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
           </svg>
         ) : (
-          <span className="text-sm leading-none">🤖</span>
+          <span className="text-sm leading-none">≡ƒñû</span>
         )}
       </div>
       
@@ -349,7 +349,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
               ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800' 
               : 'bg-white dark:bg-[#2a2a3c] border border-gray-200 dark:border-gray-700'
         }`}>
-          {/* Pin icon — top-right of message body */}
+          {/* Pin icon ΓÇö top-right of message body */}
           {canPin && (
             <button
               className={`absolute top-2 right-2 p-1 rounded transition-opacity ${
@@ -435,7 +435,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
             return (
               <details className="mb-2 text-sm">
                 <summary className="cursor-pointer text-gray-600 dark:text-gray-400 select-none">
-                  Steps ({displayCount}){userInputCount > 0 && <span className="text-amber-600 dark:text-amber-400"> · {userInputCount} user input{userInputCount > 1 ? 's' : ''}</span>}
+                  Steps ({displayCount}){userInputCount > 0 && <span className="text-amber-600 dark:text-amber-400"> ┬╖ {userInputCount} user input{userInputCount > 1 ? 's' : ''}</span>}
                 </summary>
                 <div className="mt-2 text-gray-700 dark:text-gray-300 max-h-[300px] overflow-y-auto pr-1">
                   {parsed.map((p, idx) => {
@@ -444,9 +444,9 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
                         <div key={idx}>
                           {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
                           <div className="border-l-2 border-amber-400 dark:border-amber-600 pl-3 py-1">
-                            <div className="text-xs font-medium text-amber-700 dark:text-amber-400">💬 Asked user</div>
+                            <div className="text-xs font-medium text-amber-700 dark:text-amber-400">≡ƒÆ¼ Asked user</div>
                             <div className="text-sm mt-0.5">{p.question}</div>
-                            <div className="text-sm mt-1 text-emerald-700 dark:text-emerald-400">→ {p.answer}</div>
+                            <div className="text-sm mt-1 text-emerald-700 dark:text-emerald-400">ΓåÆ {p.answer}</div>
                           </div>
                         </div>
                       );
@@ -456,9 +456,9 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
                         <div key={idx}>
                           {idx > 0 && <hr className="border-gray-200 dark:border-gray-700/50 mx-3 my-1.5" />}
                           <div className="border-l-2 border-blue-400 dark:border-blue-600 pl-3 py-1">
-                            <div className="text-xs font-medium text-blue-700 dark:text-blue-400">📋 Agent asked</div>
+                            <div className="text-xs font-medium text-blue-700 dark:text-blue-400">≡ƒôï Agent asked</div>
                             <div className="text-sm mt-0.5">{p.message}</div>
-                            <div className="text-sm mt-1 text-emerald-700 dark:text-emerald-400">→ {p.response}</div>
+                            <div className="text-sm mt-1 text-emerald-700 dark:text-emerald-400">ΓåÆ {p.response}</div>
                           </div>
                         </div>
                       );

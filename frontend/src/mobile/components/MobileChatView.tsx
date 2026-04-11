@@ -9,7 +9,7 @@ import { respondToUserInput, respondToElicitation } from '../../api/sessions';
 import type { Message } from '../../types/message';
 import type { ChatStep } from '../../types/message';
 import type { AskUserRequest, ElicitationRequest } from '../../api/sessions';
-import { parseSteps, countUserInputs } from '../../utils/stepParser';
+import { parseSteps, countUserInputs } from '../mobileStepParser';
 import { MobileAskUserCard } from './MobileAskUserCard';
 import { MobileElicitationCard } from './MobileElicitationCard';
 
