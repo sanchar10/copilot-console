@@ -186,9 +186,6 @@ async def disconnect_session(session_id: str) -> dict:
     logger.info(f"[Disconnect] Session {session_id}: has_active_response={has_active}")
     
     if has_active:
-        # Cancel any pending ask_user/elicitation — the UI is gone and can't respond.
-        # This unblocks the agent immediately so it can finish while the page reloads.
-        copilot_service.cancel_pending_elicitations(session_id)
         logger.info(f"[Disconnect] Session {session_id} has active response, NOT destroying client")
         return {"success": True, "deferred": True}
     
@@ -796,11 +793,6 @@ async def resume_response_stream(
     
     if not buffer:
         raise HTTPException(status_code=404, detail="No active response for this session")
-    
-    # Cancel any pending elicitation/ask_user Futures for this session.
-    # On reconnect (page refresh), the old UI is gone and can't respond.
-    # Cancelling unblocks the agent so it can continue.
-    copilot_service.cancel_pending_elicitations(session_id)
     
     async def generate_events() -> AsyncGenerator[dict, None]:
         # For resume, skip events that were already sent.
