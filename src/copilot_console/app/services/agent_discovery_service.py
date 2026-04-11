@@ -25,13 +25,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Source type constants
-COPILOT_GLOBAL = "copilot_global"
-GITHUB_GLOBAL = "github_global"
+# Source type constants (ordered by priority: highest first)
 GITHUB_CWD = "github_cwd"
 CONSOLE_GLOBAL = "console_global"
+COPILOT_GLOBAL = "copilot_global"
+GITHUB_GLOBAL = "github_global"
 
-SOURCE_TYPES = [COPILOT_GLOBAL, GITHUB_GLOBAL, GITHUB_CWD, CONSOLE_GLOBAL]
+SOURCE_TYPES = [GITHUB_CWD, CONSOLE_GLOBAL, COPILOT_GLOBAL, GITHUB_GLOBAL]
+
+# Priority for dedup: lower number = higher priority
+SOURCE_PRIORITY = {
+    GITHUB_CWD: 0,
+    CONSOLE_GLOBAL: 1,
+    COPILOT_GLOBAL: 2,
+    GITHUB_GLOBAL: 3,
+}
 
 # Display labels for UI sections
 SOURCE_LABELS = {
@@ -305,15 +313,28 @@ def resolve_selected_agents(
             lookup[agent.prefixed_id] = agent
 
     sdk_agents: list[dict] = []
+    seen_names: dict[str, int] = {}  # name -> priority of kept agent
+    pending: list[tuple[int, DiscoveredAgent]] = []  # collect all, then sort by priority
+
     for pid in prefixed_ids:
         agent = lookup.get(pid)
         if not agent:
-            # Backward compat: try console: prefix for unprefixed IDs
             if ":" not in pid:
                 agent = lookup.get(f"console:{pid}")
             if not agent:
                 logger.warning(f"Selected agent '{pid}' not found in any source, skipping")
                 continue
+        priority = SOURCE_PRIORITY.get(agent.source_type, 99)
+        pending.append((priority, agent))
+
+    # Sort by priority (lowest number = highest priority) so higher-priority wins dedup
+    pending.sort(key=lambda x: x[0])
+
+    for priority, agent in pending:
+        if agent.name in seen_names:
+            logger.debug(f"Skipping lower-priority duplicate '{agent.name}' from {agent.prefixed_id}")
+            continue
+        seen_names[agent.name] = priority
 
         # Resolve MCP servers for console agents
         resolved_mcp = None

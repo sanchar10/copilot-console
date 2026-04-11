@@ -13,7 +13,7 @@ interface SubAgentSelectorProps {
   readOnly?: boolean;
 }
 
-const SECTION_ORDER: AgentSourceType[] = ['copilot_global', 'github_global', 'github_cwd', 'console_global'];
+const SECTION_ORDER: AgentSourceType[] = ['github_cwd', 'console_global', 'copilot_global', 'github_global'];
 
 const SECTION_ICONS: Record<AgentSourceType, string> = {
   copilot_global: '🤖',

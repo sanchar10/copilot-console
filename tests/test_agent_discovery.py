@@ -377,10 +377,11 @@ You advise.
             )
 
         assert len(sdk_agents) == 2
-        assert sdk_agents[0]["name"] == "advisor"
-        assert sdk_agents[0]["tools"] == ["execute"]
-        assert sdk_agents[0]["infer"] is True
-        assert sdk_agents[1]["name"] == "bot"
+        # Console has higher priority than Copilot, so bot comes first
+        assert sdk_agents[0]["name"] == "bot"
+        assert sdk_agents[1]["name"] == "advisor"
+        assert sdk_agents[1]["tools"] == ["execute"]
+        assert sdk_agents[1]["infer"] is True
 
     def test_backward_compat_unprefixed(self, tmp_path):
         console_agent = _make_console_agent(id="old-agent", name="Old", description="Old agent", prompt="Old prompt.")
