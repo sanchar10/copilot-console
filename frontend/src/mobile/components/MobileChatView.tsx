@@ -22,10 +22,10 @@ interface SessionData {
 }
 
 interface ResponseStatus {
-  has_active_response: boolean;
-  status: string;
-  chunks_count: number;
-  steps_count: number;
+  active: boolean;
+  status?: string;
+  chunks_count?: number;
+  steps_count?: number;
 }
 
 export function MobileChatView() {
@@ -78,8 +78,12 @@ export function MobileChatView() {
 
         // Check if there's an active response to resume
         const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
-        if (status.has_active_response) {
-          resumeStream(status.chunks_count, status.steps_count);
+        if (status.active) {
+          resumeStream(status.chunks_count || 0, status.steps_count || 0);
+        } else {
+          // No active response — clear any stale streaming/agent state
+          setStreaming(sessionId, false);
+          setAgentActive(sessionId, false);
         }
       } catch (err) {
         console.error('Failed to load session:', err);
@@ -226,13 +230,7 @@ export function MobileChatView() {
     });
 
     es.onerror = () => {
-      // Stream failed (buffer gone, 404, etc.) — clean up
-      es.close();
-      eventSourceRef.current = null;
-      setStreaming(sessionId, false);
-      setAgentActive(sessionId, false);
-      // Reload messages to show whatever the agent produced
-      reloadMessages(sessionId);
+      // EventSource will try to reconnect automatically
     };
   }, [sessionId]);
 
@@ -261,7 +259,7 @@ export function MobileChatView() {
       // Check if agent is active — enqueue if so, otherwise send new message
       const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
 
-      if (status.has_active_response) {
+      if (status.active) {
         // Enqueue to running agent
         await mobileApiClient.post(`/sessions/${sessionId}/enqueue`, {
           content,
