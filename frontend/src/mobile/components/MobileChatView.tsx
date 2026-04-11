@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mobileApiClient, getApiBase, getHeaders, getStoredToken } from '../mobileClient';
+import { mobileApiClient, getApiBase, getHeaders } from '../mobileClient';
 import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useChatStore } from '../../stores/chatStore';
 import { useViewedStore } from '../../stores/viewedStore';
@@ -156,24 +156,21 @@ export function MobileChatView() {
       isMountedRef.current = false;
       eventSourceRef.current?.close();
       // Cancel pending ask_user/elicitation if user navigates away
-      // Use sendBeacon for reliable delivery during navigation
+      // Use fetch with keepalive for reliable delivery during navigation
       const pending = pendingRequestRef.current;
       if (pending && sessionId) {
         const base = getApiBase();
-        const token = getStoredToken();
-        const authParam = token ? `?token=${encodeURIComponent(token)}` : '';
+        const headers = getHeaders({ 'Content-Type': 'application/json' });
         if (pending.type === 'ask_user') {
-          const url = `${base}/sessions/${sessionId}/user-input-response${authParam}`;
-          navigator.sendBeacon(url, new Blob(
-            [JSON.stringify({ request_id: pending.requestId, cancelled: true })],
-            { type: 'application/json' }
-          ));
+          fetch(`${base}/sessions/${sessionId}/user-input-response`, {
+            method: 'POST', headers, keepalive: true,
+            body: JSON.stringify({ request_id: pending.requestId, cancelled: true }),
+          }).catch(() => {});
         } else {
-          const url = `${base}/sessions/${sessionId}/elicitation-response${authParam}`;
-          navigator.sendBeacon(url, new Blob(
-            [JSON.stringify({ request_id: pending.requestId, action: 'cancel' })],
-            { type: 'application/json' }
-          ));
+          fetch(`${base}/sessions/${sessionId}/elicitation-response`, {
+            method: 'POST', headers, keepalive: true,
+            body: JSON.stringify({ request_id: pending.requestId, action: 'cancel' }),
+          }).catch(() => {});
         }
         pendingRequestRef.current = null;
       }
