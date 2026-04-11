@@ -5,8 +5,12 @@ import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useChatStore } from '../../stores/chatStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useSessionStore } from '../../stores/sessionStore';
+import { respondToUserInput, respondToElicitation } from '../../api/sessions';
 import type { Message } from '../../types/message';
 import type { ChatStep } from '../../types/message';
+import type { AskUserRequest, ElicitationRequest } from '../../api/sessions';
+import { MobileAskUserCard } from './MobileAskUserCard';
+import { MobileElicitationCard } from './MobileElicitationCard';
 
 const EMPTY_MESSAGES: Message[] = [];
 
@@ -41,6 +45,11 @@ export function MobileChatView() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
+
+  // Pending ask_user / elicitation state
+  const [pendingAskUser, setPendingAskUser] = useState<AskUserRequest | null>(null);
+  const [pendingElicitation, setPendingElicitation] = useState<ElicitationRequest | null>(null);
+  const pendingRequestRef = useRef<{ type: 'ask_user' | 'elicitation'; requestId: string } | null>(null);
 
   // Read from chatStore (use shallow equality to avoid infinite re-render from new [] refs)
   const messages = useChatStore(s => sessionId ? s.messagesPerSession[sessionId] : undefined) ?? EMPTY_MESSAGES;
@@ -136,14 +145,23 @@ export function MobileChatView() {
     setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
   }, []);
 
-  // Cleanup event source + mark unmounted
+  // Cleanup event source + cancel pending requests on unmount
   useEffect(() => {
-    isMountedRef.current = true; // Reset on (re)mount — required for StrictMode
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       eventSourceRef.current?.close();
+      // Cancel pending ask_user/elicitation if user navigates away
+      const pending = pendingRequestRef.current;
+      if (pending && sessionId) {
+        if (pending.type === 'ask_user') {
+          respondToUserInput(sessionId, pending.requestId, '', false, true).catch(() => {});
+        } else {
+          respondToElicitation(sessionId, pending.requestId, 'cancel').catch(() => {});
+        }
+      }
     };
-  }, []);
+  }, [sessionId]);
 
   const reloadMessages = useCallback((sid: string) => {
     mobileApiClient.get<SessionData>(`/sessions/${sid}`)
@@ -184,6 +202,23 @@ export function MobileChatView() {
     es.addEventListener(SSE_EVENTS.ERROR, () => {
       es.close();
       reloadMessages(sessionId);
+    });
+
+    // Handle ask_user/elicitation in resume stream (unlikely but safety net)
+    es.addEventListener('ask_user', (event) => {
+      const data = JSON.parse(event.data);
+      if (data.request_id) {
+        setPendingAskUser(data as AskUserRequest);
+        pendingRequestRef.current = { type: 'ask_user', requestId: data.request_id };
+      }
+    });
+
+    es.addEventListener('elicitation', (event) => {
+      const data = JSON.parse(event.data);
+      if (data.request_id) {
+        setPendingElicitation(data as ElicitationRequest);
+        pendingRequestRef.current = { type: 'elicitation', requestId: data.request_id };
+      }
     });
 
     es.onerror = () => {
@@ -279,6 +314,12 @@ export function MobileChatView() {
               receivedDone = true;
               setStreaming(sessionId, false);
               setAgentActive(sessionId, false);
+            } else if (eventName === 'ask_user' && data.request_id) {
+              setPendingAskUser(data as AskUserRequest);
+              pendingRequestRef.current = { type: 'ask_user', requestId: data.request_id };
+            } else if (eventName === 'elicitation' && data.request_id) {
+              setPendingElicitation(data as ElicitationRequest);
+              pendingRequestRef.current = { type: 'elicitation', requestId: data.request_id };
             }
           } catch { /* skip malformed event */ }
         };
@@ -432,6 +473,30 @@ export function MobileChatView() {
               </div>
             </div>
           )}
+
+          {/* Pending ask_user card */}
+          {pendingAskUser && sessionId && (
+            <MobileAskUserCard
+              sessionId={sessionId}
+              requestId={pendingAskUser.request_id}
+              question={pendingAskUser.question}
+              choices={pendingAskUser.choices}
+              allowFreeform={pendingAskUser.allowFreeform}
+              onResolved={() => { setPendingAskUser(null); pendingRequestRef.current = null; }}
+            />
+          )}
+
+          {/* Pending elicitation card */}
+          {pendingElicitation && sessionId && (
+            <MobileElicitationCard
+              sessionId={sessionId}
+              requestId={pendingElicitation.request_id}
+              message={pendingElicitation.message}
+              schema={pendingElicitation.schema}
+              onResolved={() => { setPendingElicitation(null); pendingRequestRef.current = null; }}
+            />
+          )}
+
           <div ref={messagesEndRef} />
         </div>
         <button
@@ -456,7 +521,7 @@ export function MobileChatView() {
                 handleSend();
               }
             }}
-            placeholder={streamingState.isStreaming ? 'Agent is working...' : 'Type a message...'}
+            placeholder={pendingAskUser || pendingElicitation ? 'Respond above ↑' : streamingState.isStreaming ? 'Agent is working...' : 'Type a message...'}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style={{ maxHeight: '120px' }}
