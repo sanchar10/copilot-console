@@ -226,7 +226,13 @@ export function MobileChatView() {
     });
 
     es.onerror = () => {
-      // EventSource will try to reconnect automatically
+      // Stream failed (buffer gone, 404, etc.) — clean up
+      es.close();
+      eventSourceRef.current = null;
+      setStreaming(sessionId, false);
+      setAgentActive(sessionId, false);
+      // Reload messages to show whatever the agent produced
+      reloadMessages(sessionId);
     };
   }, [sessionId]);
 
