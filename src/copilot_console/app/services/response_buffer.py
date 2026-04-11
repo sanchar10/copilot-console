@@ -40,6 +40,8 @@ class ResponseBuffer:
     last_message_id: Optional[str] = None
     # Ordered event stream — all events in the order they were produced
     ordered_events: list[dict] = field(default_factory=list)
+    # Whether an SSE client is actively consuming events
+    has_sse_client: bool = False
     
     # For SSE consumers to wait on new data (no polling!)
     _new_data_event: asyncio.Event = field(default_factory=asyncio.Event)

@@ -49,7 +49,6 @@ export function MobileChatView() {
   // Pending ask_user / elicitation state
   const [pendingAskUser, setPendingAskUser] = useState<AskUserRequest | null>(null);
   const [pendingElicitation, setPendingElicitation] = useState<ElicitationRequest | null>(null);
-  const pendingRequestRef = useRef<{ type: 'ask_user' | 'elicitation'; requestId: string } | null>(null);
 
   // Read from chatStore (use shallow equality to avoid infinite re-render from new [] refs)
   const messages = useChatStore(s => sessionId ? s.messagesPerSession[sessionId] : undefined) ?? EMPTY_MESSAGES;
@@ -149,26 +148,12 @@ export function MobileChatView() {
     setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
   }, []);
 
-  // Cleanup event source + cancel pending requests on unmount
+  // Cleanup event source on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       eventSourceRef.current?.close();
-      // Cancel pending ask_user/elicitation if user navigates away
-      const pending = pendingRequestRef.current;
-      if (pending && sessionId) {
-        if (pending.type === 'ask_user') {
-          mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
-            request_id: pending.requestId, cancelled: true,
-          }).catch(() => {});
-        } else {
-          mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
-            request_id: pending.requestId, action: 'cancel',
-          }).catch(() => {});
-        }
-        pendingRequestRef.current = null;
-      }
     };
   }, [sessionId]);
 
@@ -218,7 +203,6 @@ export function MobileChatView() {
       const data = JSON.parse(event.data);
       if (data.request_id) {
         setPendingAskUser(data as AskUserRequest);
-        pendingRequestRef.current = { type: 'ask_user', requestId: data.request_id };
       }
     });
 
@@ -226,7 +210,6 @@ export function MobileChatView() {
       const data = JSON.parse(event.data);
       if (data.request_id) {
         setPendingElicitation(data as ElicitationRequest);
-        pendingRequestRef.current = { type: 'elicitation', requestId: data.request_id };
       }
     });
 
@@ -325,10 +308,8 @@ export function MobileChatView() {
               setAgentActive(sessionId, false);
             } else if (eventName === 'ask_user' && data.request_id) {
               setPendingAskUser(data as AskUserRequest);
-              pendingRequestRef.current = { type: 'ask_user', requestId: data.request_id };
             } else if (eventName === 'elicitation' && data.request_id) {
               setPendingElicitation(data as ElicitationRequest);
-              pendingRequestRef.current = { type: 'elicitation', requestId: data.request_id };
             }
           } catch { /* skip malformed event */ }
         };
@@ -493,7 +474,6 @@ export function MobileChatView() {
               allowFreeform={pendingAskUser.allowFreeform}
               onResolved={() => {
                 setPendingAskUser(null);
-                pendingRequestRef.current = null;
                 // Resume stream to receive agent's continued response
                 resumeStream();
               }}
@@ -509,7 +489,6 @@ export function MobileChatView() {
               schema={pendingElicitation.schema}
               onResolved={() => {
                 setPendingElicitation(null);
-                pendingRequestRef.current = null;
                 // Resume stream to receive agent's continued response
                 resumeStream();
               }}

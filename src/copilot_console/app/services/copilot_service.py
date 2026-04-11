@@ -29,6 +29,7 @@ from copilot import CopilotClient
 from copilot.tools import Tool
 from copilot import SubprocessConfig
 from copilot.generated.rpc import Mode, SessionModeSetParams, SessionModelSwitchToParams, SessionFleetStartParams
+from copilot_console.app.services.response_buffer import response_buffer_manager
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
 # Import approve_all if available, otherwise provide a fallback for older SDKs.
@@ -346,6 +347,13 @@ class CopilotService:
                 client.event_queue.put_nowait(evt)
             logger.debug(f"[{session_id}] Elicitation requested: {request_id}")
 
+            # Rule 2: If no SSE client is listening, cancel immediately
+            buffer = response_buffer_manager._buffers.get(session_id)
+            if buffer and not buffer.has_sse_client:
+                logger.debug(f"[{session_id}] No SSE client for elicitation {request_id}, auto-cancelling")
+                self._pending_elicitations.pop(key, None)
+                return {"action": "cancel"}
+
             try:
                 result = await future
                 logger.debug(f"[{session_id}] Elicitation resolved: {request_id} action={result.get('action')}")
@@ -391,6 +399,13 @@ class CopilotService:
             if client and client.event_queue:
                 client.event_queue.put_nowait(evt)
             logger.debug(f"[{session_id}] ask_user requested: {request_id} question={ask_data['question'][:80]}")
+
+            # Rule 2: If no SSE client is listening, cancel immediately
+            buffer = response_buffer_manager._buffers.get(session_id)
+            if buffer and not buffer.has_sse_client:
+                logger.debug(f"[{session_id}] No SSE client for ask_user {request_id}, auto-cancelling")
+                self._pending_elicitations.pop(key, None)
+                return {"answer": "User cancelled the request.", "wasFreeform": True}
 
             try:
                 result = await future
