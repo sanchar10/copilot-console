@@ -9,6 +9,7 @@ import { respondToUserInput, respondToElicitation } from '../../api/sessions';
 import type { Message } from '../../types/message';
 import type { ChatStep } from '../../types/message';
 import type { AskUserRequest, ElicitationRequest } from '../../api/sessions';
+import { parseSteps, countUserInputs } from '../../utils/stepParser';
 import { MobileAskUserCard } from './MobileAskUserCard';
 import { MobileElicitationCard } from './MobileElicitationCard';
 
@@ -561,6 +562,11 @@ function MobileMessageBubble({ message }: { message: Message }) {
 
 function StepsAccordion({ steps }: { steps: ChatStep[] }) {
   const [open, setOpen] = useState(false);
+  const parsed = parseSteps(steps);
+  const userInputs = countUserInputs(parsed);
+
+  if (parsed.length === 0) return null;
+
   return (
     <div className="mt-2 border-t border-gray-200 dark:border-[#3a3a4e] pt-1.5">
       <button
@@ -570,15 +576,36 @@ function StepsAccordion({ steps }: { steps: ChatStep[] }) {
         <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        {steps.length} step{steps.length !== 1 ? 's' : ''}
+        {parsed.length} step{parsed.length !== 1 ? 's' : ''}
+        {userInputs > 0 && <span className="text-amber-500"> · {userInputs} input{userInputs > 1 ? 's' : ''}</span>}
       </button>
       {open && (
-        <div className="mt-1 space-y-1">
-          {steps.map((step, i) => (
-            <div key={i} className="text-xs text-gray-500 dark:text-gray-400 pl-4">
-              • {step.title}
-            </div>
-          ))}
+        <div className="mt-1 space-y-0.5">
+          {parsed.map((p, i) => {
+            if (p.type === 'ask_user') {
+              return (
+                <div key={i} className="text-xs pl-3 py-0.5 border-l-2 border-amber-400 dark:border-amber-600">
+                  <span className="text-amber-700 dark:text-amber-400">💬 {p.question}</span>
+                  <br />
+                  <span className="text-emerald-700 dark:text-emerald-400">→ {p.answer}</span>
+                </div>
+              );
+            }
+            if (p.type === 'elicitation') {
+              return (
+                <div key={i} className="text-xs pl-3 py-0.5 border-l-2 border-blue-400 dark:border-blue-600">
+                  <span className="text-blue-700 dark:text-blue-400">📋 {p.message}</span>
+                  <br />
+                  <span className="text-emerald-700 dark:text-emerald-400">→ {p.response}</span>
+                </div>
+              );
+            }
+            return (
+              <div key={i} className="text-xs text-gray-500 dark:text-gray-400 pl-3 truncate">
+                ✓ {p.title}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
