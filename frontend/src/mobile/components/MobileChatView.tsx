@@ -149,12 +149,26 @@ export function MobileChatView() {
     setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
   }, []);
 
-  // Cleanup event source + cancel pending on unmount
+  // Cleanup event source + cancel pending requests on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       eventSourceRef.current?.close();
+      // Cancel pending ask_user/elicitation if user navigates away
+      const pending = pendingRequestRef.current;
+      if (pending && sessionId) {
+        if (pending.type === 'ask_user') {
+          mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
+            request_id: pending.requestId, cancelled: true,
+          }).catch(() => {});
+        } else {
+          mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
+            request_id: pending.requestId, action: 'cancel',
+          }).catch(() => {});
+        }
+        pendingRequestRef.current = null;
+      }
     };
   }, [sessionId]);
 
