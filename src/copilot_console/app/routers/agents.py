@@ -1,11 +1,52 @@
 """Agent definition API router."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from copilot_console.app.models.agent import Agent, AgentCreate, AgentUpdate
 from copilot_console.app.services.agent_storage_service import agent_storage_service
+from copilot_console.app.services.agent_discovery_service import (
+    discover_all_agents,
+    get_stale_cwd_agents,
+    SOURCE_LABELS,
+)
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+@router.get("/discoverable")
+async def get_discoverable_agents(cwd: str = Query(""), exclude: str | None = None) -> dict:
+    """Get all agents from all sources, grouped by source type.
+    
+    Returns agents suitable for the sub-agent dropdown with sections.
+    Console agents are filtered for eligibility (no custom tools, no excluded_builtin, etc.).
+    """
+    # Console agents: use eligible sub-agents (same rules as before)
+    console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=exclude)
+    
+    all_agents = discover_all_agents(cwd, console_agents=console_agents)
+    
+    result = {}
+    for source_type, agents in all_agents.items():
+        result[source_type] = {
+            "label": SOURCE_LABELS[source_type],
+            "agents": [a.to_api_dict() for a in agents],
+        }
+    return result
+
+
+@router.get("/stale-cwd-agents")
+async def check_stale_cwd_agents(
+    new_cwd: str = Query(...),
+    selected: str = Query(""),
+) -> dict:
+    """Check if any github-cwd agents become stale when changing CWD.
+    
+    selected: comma-separated prefixed IDs of currently selected sub-agents.
+    Returns list of stale agent IDs and their names.
+    """
+    prefixed_ids = [s.strip() for s in selected.split(",") if s.strip()] if selected else []
+    stale = get_stale_cwd_agents(prefixed_ids, new_cwd)
+    return {"stale": stale, "count": len(stale)}
 
 
 @router.post("", response_model=Agent)

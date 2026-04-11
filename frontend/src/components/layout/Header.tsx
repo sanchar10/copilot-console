@@ -8,6 +8,7 @@ import { FolderBrowserModal } from '../common/FolderBrowserModal';
 import { SystemPromptEditor } from '../common/SystemPromptEditor';
 import { ModelSelector } from '../common/ModelSelector';
 import { useProjectStore } from '../../stores/projectStore';
+import type { DiscoverableAgentsResponse } from '../../types/agent';
 import type { MCPServer, MCPServerSelections } from '../../types/mcp';
 import type { ToolInfo, ToolSelections } from '../../api/tools';
 import type { AgentTools, SystemMessage, Agent } from '../../types/agent';
@@ -49,6 +50,7 @@ interface HeaderProps {
   currentSessionId?: string;
   openTabs?: string[];
   eligibleSubAgents?: Agent[];
+  discoverableAgents?: DiscoverableAgentsResponse;
   subAgentSelections?: string[];
 
 
@@ -82,6 +84,7 @@ export function Header({
   currentSessionId,
   openTabs = [],
   eligibleSubAgents = [],
+  discoverableAgents,
   subAgentSelections = [],
   onRelatedSessionClick,
   onNameChange,
@@ -220,9 +223,10 @@ export function Header({
             )}
 
             {/* Sub-Agent selector (Agent Teams) */}
-            {eligibleSubAgents.length > 0 && onSubAgentSelectionsChange && (
+            {((discoverableAgents && Object.values(discoverableAgents).some(s => s.agents.length > 0)) || eligibleSubAgents.length > 0) && onSubAgentSelectionsChange && (
               <SubAgentSelector
-                availableAgents={eligibleSubAgents}
+                discoverableAgents={discoverableAgents}
+                availableAgents={!discoverableAgents ? eligibleSubAgents : undefined}
                 selectedIds={subAgentSelections}
                 onSelectionChange={onSubAgentSelectionsChange}
                 readOnly={hasActiveResponse}

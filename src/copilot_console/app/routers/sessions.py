@@ -14,6 +14,7 @@ from copilot_console.app.models.message import MessageCreate
 from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages, ModeSetRequest, RuntimeSettingsRequest
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.agent_storage_service import agent_storage_service
+from copilot_console.app.services.agent_discovery_service import resolve_selected_agents, validate_selected_agents
 from copilot_console.app.services.mcp_service import mcp_service
 from copilot_console.app.services.response_buffer import response_buffer_manager, ResponseStatus
 from copilot_console.app.services.session_service import session_service
@@ -27,6 +28,12 @@ logger = get_logger(__name__)
 
 # Get tools service singleton
 tools_service = get_tools_service()
+
+
+def _resolve_sub_agents(sub_agents: list[str], cwd: str, agent_id: str | None = None) -> list[dict]:
+    """Resolve prefixed sub-agent IDs to SDK CustomAgentConfig dicts."""
+    console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=agent_id)
+    return resolve_selected_agents(sub_agents, cwd, mcp_service=mcp_service, console_agents=console_agents)
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -216,7 +223,7 @@ async def set_session_mode(session_id: str, request: ModeSetRequest) -> dict:
         system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
     custom_agents = None
     if session.sub_agents:
-        custom_agents = agent_storage_service.convert_to_sdk_custom_agents(session.sub_agents, mcp_service)
+        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
     
     try:
         confirmed_mode = await copilot_service.set_session_mode(
@@ -263,7 +270,7 @@ async def update_runtime_settings(session_id: str, request: RuntimeSettingsReque
         system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
     custom_agents = None
     if session.sub_agents:
-        custom_agents = agent_storage_service.convert_to_sdk_custom_agents(session.sub_agents, mcp_service)
+        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
     
     try:
         result = await copilot_service.update_runtime_settings(
@@ -315,7 +322,7 @@ async def compact_session(session_id: str) -> dict:
         system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
     custom_agents = None
     if session.sub_agents:
-        custom_agents = agent_storage_service.convert_to_sdk_custom_agents(session.sub_agents, mcp_service)
+        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
 
     try:
         result = await copilot_service.compact_session(
@@ -609,16 +616,19 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
         # Resolve sub-agents (Agent Teams)
         custom_agents_sdk = None
         if session.sub_agents:
-            errors = agent_storage_service.validate_sub_agents(
-                session.sub_agents, exclude_agent_id=session.agent_id
+            console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=session.agent_id)
+            errors = validate_selected_agents(
+                session.sub_agents, cwd, console_agents=console_agents,
+                exclude_agent_id=session.agent_id,
             )
             if errors:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Sub-agent validation failed: {'; '.join(errors)}"
                 )
-            custom_agents_sdk = agent_storage_service.convert_to_sdk_custom_agents(
-                session.sub_agents, mcp_service
+            custom_agents_sdk = resolve_selected_agents(
+                session.sub_agents, cwd, mcp_service=mcp_service,
+                console_agents=console_agents,
             )
             logger.info(f"[SSE] Resolved {len(custom_agents_sdk)} sub-agents for session {session_id}")
 

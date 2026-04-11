@@ -61,3 +61,22 @@ export interface UpdateAgentRequest {
   sub_agents?: string[];
   starter_prompts?: StarterPrompt[];
 }
+
+// --- Discoverable agents (unified agent discovery) ---
+
+export type AgentSourceType = 'copilot_global' | 'github_global' | 'github_cwd' | 'console_global';
+
+export interface DiscoverableAgent {
+  id: string;           // Prefixed ID: "copilot:name", "github:name", "github-cwd:name", "console:id"
+  name: string;
+  display_name: string;
+  description: string;
+  source_type: AgentSourceType;
+}
+
+export interface DiscoverableAgentsSection {
+  label: string;
+  agents: DiscoverableAgent[];
+}
+
+export type DiscoverableAgentsResponse = Record<AgentSourceType, DiscoverableAgentsSection>;

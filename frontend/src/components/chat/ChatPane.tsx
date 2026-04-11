@@ -21,8 +21,8 @@ import { WorkflowLibrary } from '../workflows/WorkflowLibrary';
 import { WorkflowEditor } from '../workflows/WorkflowEditor';
 import { WorkflowRunView } from '../workflows/WorkflowRunView';
 import { updateSession, getSession, updateRuntimeSettings } from '../../api/sessions';
-import { getAgent, getEligibleSubAgents } from '../../api/agents';
-import type { AgentTools, SystemMessage, Agent, StarterPrompt } from '../../types/agent';
+import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents } from '../../api/agents';
+import type { AgentTools, SystemMessage, Agent, StarterPrompt, DiscoverableAgentsResponse } from '../../types/agent';
 
 /**
  * Per-session tab content — owns its own scroll position, header, messages, and input.
@@ -290,6 +290,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [pinsOpen, setPinsOpen] = useState(false);
   const [eligibleSubAgents, setEligibleSubAgents] = useState<Agent[]>([]);
+  const [discoverableAgents, setDiscoverableAgents] = useState<DiscoverableAgentsResponse | undefined>(undefined);
   const [starterPrompts, setStarterPrompts] = useState<StarterPrompt[]>([]);
   const [promptToSend, setPromptToSend] = useState<string | null>(null);
   const [askPrefill, setAskPrefill] = useState<string | null>(null);
@@ -463,13 +464,18 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
     }
   }, [sessionId, session, updateSessionModel]);
 
-  // Fetch eligible sub-agents (exclude session's own agent)
+  // Fetch discoverable sub-agents (all sources, grouped by section)
   useEffect(() => {
     const agentId = session?.agent_id;
+    const cwd = session?.cwd || '';
+    fetchDiscoverableAgents(cwd, agentId || undefined)
+      .then(setDiscoverableAgents)
+      .catch(() => setDiscoverableAgents(undefined));
+    // Keep legacy fetch for backward compat (AgentEditor etc.)
     getEligibleSubAgents(agentId || undefined)
       .then(setEligibleSubAgents)
       .catch(() => setEligibleSubAgents([]));
-  }, [session?.agent_id]);
+  }, [session?.agent_id, session?.cwd]);
 
   // Load pins for this session (only when first activated)
   const didFetchPinsRef = useRef(false);
@@ -538,6 +544,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
         onToolSelectionsChange={handleToolSelectionsChange}
         onSystemMessageChange={handleSystemMessageChange}
         eligibleSubAgents={eligibleSubAgents}
+        discoverableAgents={discoverableAgents}
         subAgentSelections={session?.sub_agents || []}
         onSubAgentSelectionsChange={handleSubAgentSelectionsChange}
       />
@@ -676,14 +683,19 @@ export function ChatPane() {
 
   // Fetch eligible sub-agents for new session view
   const [newSessionEligibleSubAgents, setNewSessionEligibleSubAgents] = useState<Agent[]>([]);
+  const [newSessionDiscoverableAgents, setNewSessionDiscoverableAgents] = useState<DiscoverableAgentsResponse | undefined>(undefined);
   useEffect(() => {
     if (isNewSession) {
       const agentId = newSessionSettings?.agentId;
+      const cwd = newSessionSettings?.cwd || '';
+      fetchDiscoverableAgents(cwd, agentId || undefined)
+        .then(setNewSessionDiscoverableAgents)
+        .catch(() => setNewSessionDiscoverableAgents(undefined));
       getEligibleSubAgents(agentId || undefined)
         .then(setNewSessionEligibleSubAgents)
         .catch(() => setNewSessionEligibleSubAgents([]));
     }
-  }, [isNewSession, newSessionSettings?.agentId]);
+  }, [isNewSession, newSessionSettings?.agentId, newSessionSettings?.cwd]);
 
   // Fetch starter prompts for new session from agent
   const [newSessionStarterPrompts, setNewSessionStarterPrompts] = useState<StarterPrompt[]>([]);
@@ -776,6 +788,7 @@ export function ChatPane() {
             onToolSelectionsChange={handleNewSessionToolsChange}
             onSystemMessageChange={handleNewSessionSystemMessageChange}
             eligibleSubAgents={newSessionEligibleSubAgents}
+            discoverableAgents={newSessionDiscoverableAgents}
             subAgentSelections={newSessionSettings.subAgents || []}
             onSubAgentSelectionsChange={handleNewSessionSubAgentChange}
           />
