@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mobileApiClient, getApiBase, getHeaders } from '../mobileClient';
+import { mobileApiClient, getApiBase, getHeaders, getStoredToken } from '../mobileClient';
 import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useChatStore } from '../../stores/chatStore';
 import { useViewedStore } from '../../stores/viewedStore';
@@ -156,17 +156,26 @@ export function MobileChatView() {
       isMountedRef.current = false;
       eventSourceRef.current?.close();
       // Cancel pending ask_user/elicitation if user navigates away
+      // Use sendBeacon for reliable delivery during navigation
       const pending = pendingRequestRef.current;
       if (pending && sessionId) {
+        const base = getApiBase();
+        const token = getStoredToken();
+        const authParam = token ? `?token=${encodeURIComponent(token)}` : '';
         if (pending.type === 'ask_user') {
-          mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
-            request_id: pending.requestId, cancelled: true,
-          }).catch(() => {});
+          const url = `${base}/sessions/${sessionId}/user-input-response${authParam}`;
+          navigator.sendBeacon(url, new Blob(
+            [JSON.stringify({ request_id: pending.requestId, cancelled: true })],
+            { type: 'application/json' }
+          ));
         } else {
-          mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
-            request_id: pending.requestId, action: 'cancel',
-          }).catch(() => {});
+          const url = `${base}/sessions/${sessionId}/elicitation-response${authParam}`;
+          navigator.sendBeacon(url, new Blob(
+            [JSON.stringify({ request_id: pending.requestId, action: 'cancel' })],
+            { type: 'application/json' }
+          ));
         }
+        pendingRequestRef.current = null;
       }
     };
   }, [sessionId]);
