@@ -149,31 +149,12 @@ export function MobileChatView() {
     setTimeout(() => { isProgrammaticScrollRef.current = false; }, 50);
   }, []);
 
-  // Cleanup event source + cancel pending requests on unmount
+  // Cleanup event source + cancel pending on unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       eventSourceRef.current?.close();
-      // Cancel pending ask_user/elicitation if user navigates away
-      // Use fetch with keepalive for reliable delivery during navigation
-      const pending = pendingRequestRef.current;
-      if (pending && sessionId) {
-        const base = getApiBase();
-        const headers = getHeaders({ 'Content-Type': 'application/json' });
-        if (pending.type === 'ask_user') {
-          fetch(`${base}/sessions/${sessionId}/user-input-response`, {
-            method: 'POST', headers, keepalive: true,
-            body: JSON.stringify({ request_id: pending.requestId, cancelled: true }),
-          }).catch(() => {});
-        } else {
-          fetch(`${base}/sessions/${sessionId}/elicitation-response`, {
-            method: 'POST', headers, keepalive: true,
-            body: JSON.stringify({ request_id: pending.requestId, action: 'cancel' }),
-          }).catch(() => {});
-        }
-        pendingRequestRef.current = null;
-      }
     };
   }, [sessionId]);
 
