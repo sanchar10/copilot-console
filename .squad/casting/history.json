@@ -1,0 +1,12 @@
+{
+  "assignments": [
+    {
+      "assignment_id": "copilot-console-init-2026-04-11",
+      "universe": "the-usual-suspects",
+      "created_at": "2026-04-11T02:05:00Z",
+      "agents": ["Keaton", "Fenster", "McManus", "Hockney"],
+      "team_size": 4,
+      "shape": "full-stack-web-app"
+    }
+  ]
+}

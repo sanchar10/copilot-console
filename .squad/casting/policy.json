@@ -1,0 +1,20 @@
+{
+  "universes": [
+    "the-usual-suspects",
+    "alien",
+    "the-thing",
+    "blade-runner",
+    "heat",
+    "reservoir-dogs",
+    "the-matrix",
+    "star-wars-ot",
+    "firefly",
+    "dune",
+    "mad-max-fury-road",
+    "the-expanse",
+    "battlestar-galactica",
+    "arrival",
+    "sicario"
+  ],
+  "max_agents_per_universe": 25
+}
