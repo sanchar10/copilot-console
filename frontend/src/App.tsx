@@ -3,6 +3,7 @@ import { Layout } from './components/layout/Layout';
 import { ChatPane } from './components/chat/ChatPane';
 import { SettingsModal } from './components/session/SettingsModal';
 import { AgentMonitor } from './components/session/AgentMonitor';
+import { ToastContainer } from './components/common/Toast';
 import { useSessionStore } from './stores/sessionStore';
 import { useTabStore } from './stores/tabStore';
 import { useViewedStore } from './stores/viewedStore';
@@ -48,6 +49,7 @@ function App() {
       <ChatPane />
       <SettingsModal />
       {isAgentMonitorOpen && <AgentMonitor onClose={() => setAgentMonitorOpen(false)} />}
+      <ToastContainer />
     </Layout>
   );
 }

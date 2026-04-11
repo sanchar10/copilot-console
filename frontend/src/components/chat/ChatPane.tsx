@@ -21,8 +21,9 @@ import { WorkflowLibrary } from '../workflows/WorkflowLibrary';
 import { WorkflowEditor } from '../workflows/WorkflowEditor';
 import { WorkflowRunView } from '../workflows/WorkflowRunView';
 import { updateSession, getSession, updateRuntimeSettings } from '../../api/sessions';
-import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents, checkStaleCwdAgents } from '../../api/agents';
+import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents } from '../../api/agents';
 import type { AgentTools, SystemMessage, Agent, StarterPrompt, DiscoverableAgentsResponse } from '../../types/agent';
+import { useToastStore } from '../../stores/toastStore';
 
 /**
  * Per-session tab content — owns its own scroll position, header, messages, and input.
@@ -388,30 +389,6 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
     // Same folder selected — no-op
     const currentSession = sessions.find(s => s.session_id === sessionId);
     if (newCwd === currentSession?.cwd) return;
-
-    // Check if any github-cwd: agents will become stale
-    const cwdAgents = (currentSession?.sub_agents || []).filter(id => id.startsWith('github-cwd:'));
-    if (cwdAgents.length > 0) {
-      try {
-        const { stale, count } = await checkStaleCwdAgents(newCwd, currentSession?.sub_agents || []);
-        if (count > 0) {
-          const names = stale.map(id => id.replace('github-cwd:', ''));
-          const message = count <= 5
-            ? `Changing folder will remove these CWD agents:\n${names.join(', ')}\n\nContinue?`
-            : `Changing folder will remove ${count} CWD agents from this session.\n\nContinue?`;
-          if (!window.confirm(message)) return;
-          // Remove stale agents from selection
-          const cleaned = (currentSession?.sub_agents || []).filter(id => !stale.includes(id));
-          await updateSession(sessionId, { sub_agents: cleaned });
-          setSessions(sessions.map(s =>
-            s.session_id === sessionId ? { ...s, sub_agents: cleaned } : s
-          ));
-        }
-      } catch {
-        // If check fails, proceed anyway
-      }
-    }
-
     try {
       const updatedSession = await updateSession(sessionId, { cwd: newCwd });
       setSessions(sessions.map(s =>
@@ -500,6 +477,36 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
       .then(setEligibleSubAgents)
       .catch(() => setEligibleSubAgents([]));
   }, [session?.agent_id, session?.cwd]);
+
+  // Self-heal: prune sub_agents that no longer exist in discoverable agents
+  useEffect(() => {
+    if (!discoverableAgents || !sessionId) return;
+    const currentSubAgents = sessions.find(s => s.session_id === sessionId)?.sub_agents || [];
+    if (currentSubAgents.length === 0) return;
+
+    const validIds = new Set<string>();
+    for (const section of Object.values(discoverableAgents)) {
+      for (const a of section.agents) validIds.add(a.id);
+    }
+
+    const orphaned = currentSubAgents.filter(id => !validIds.has(id));
+    if (orphaned.length === 0) return;
+
+    const cleaned = currentSubAgents.filter(id => validIds.has(id));
+    // Persist cleaned list
+    updateSession(sessionId, { sub_agents: cleaned }).then(() => {
+      setSessions(sessions.map(s =>
+        s.session_id === sessionId ? { ...s, sub_agents: cleaned } : s
+      ));
+      const names = orphaned.map(id => id.includes(':') ? id.split(':')[1] : id);
+      const msg = orphaned.length <= 3
+        ? `Removed sub-agent${orphaned.length > 1 ? 's' : ''} due to session update: ${names.join(', ')}`
+        : `Removed ${orphaned.length} sub-agents due to session update`;
+      useToastStore.getState().addToast(msg, 'warning');
+    }).catch(() => {});
+  // Only react to discoverable agents changing (which happens on CWD change)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoverableAgents, sessionId]);
 
   // Load pins for this session (only when first activated)
   const didFetchPinsRef = useRef(false);
