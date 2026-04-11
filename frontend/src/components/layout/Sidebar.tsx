@@ -103,13 +103,12 @@ export function Sidebar() {
         fetchWorkflows();
         fetchAutomations();
         loadProjects();
-        // Request desktop notification permission (non-blocking)
-        import('../../utils/desktopNotifications').then(({ requestNotificationPermission, setDesktopNotificationSetting }) => {
-          requestNotificationPermission();
-          if (settingsData.desktop_notifications) {
+        // Load desktop notification setting (non-blocking)
+        if (settingsData.desktop_notifications) {
+          import('../../utils/desktopNotifications').then(({ setDesktopNotificationSetting }) => {
             setDesktopNotificationSetting(settingsData.desktop_notifications as 'all' | 'input_only' | 'off');
-          }
-        });
+          });
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {

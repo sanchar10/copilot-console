@@ -7,7 +7,7 @@ import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
 import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings, compactSession } from '../../api/sessions';
 import type { AttachmentRef, UploadedFile } from '../../api/sessions';
-import { scheduleDesktopNotification } from '../../utils/desktopNotifications';
+import { scheduleDesktopNotification, playUnreadTone } from '../../utils/desktopNotifications';
 import { Button } from '../common/Button';
 import { ModeSelector, type AgentMode } from './ModeSelector';
 import { PinnedIcon } from './PinIcons';
@@ -568,13 +568,20 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           const currentSession = useTabStore.getState().getActiveSessionId();
           if (currentSession === activeSessionId) {
             markViewed(activeSessionId!);
+          } else {
+            // User is on a different tab — blue dot will appear, play subtle tone
+            playUnreadTone();
           }
           // Schedule desktop notification (30s delay, only if unread)
           if (activeSessionId) {
             const sid = activeSessionId;
             const name = sessionName || newSessionSettings?.name || 'Copilot';
             scheduleDesktopNotification(sid, name, 'response',
-              () => useViewedStore.getState().hasUnread(sid, new Date().toISOString(), ''),
+              () => {
+                // Check if user is currently viewing this session
+                const currentTab = useTabStore.getState().getActiveSessionId?.() || useTabStore.getState().activeTabId;
+                return currentTab !== `session:${sid}` && currentTab !== sid;
+              },
               () => { useTabStore.getState().switchTab(tabId.session(sid)); },
             );
           }
@@ -603,7 +610,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             const sid = activeSessionId;
             const name = newSessionSettings?.name || 'Copilot';
             scheduleDesktopNotification(sid, name, 'input_needed',
-              () => useViewedStore.getState().hasUnread(sid, new Date().toISOString(), ''),
+              () => {
+                const currentTab = useTabStore.getState().getActiveSessionId?.() || useTabStore.getState().activeTabId;
+                return currentTab !== `session:${sid}` && currentTab !== sid;
+              },
               () => { useTabStore.getState().switchTab(tabId.session(sid)); },
             );
           }
@@ -615,7 +625,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             const sid = activeSessionId;
             const name = newSessionSettings?.name || 'Copilot';
             scheduleDesktopNotification(sid, name, 'input_needed',
-              () => useViewedStore.getState().hasUnread(sid, new Date().toISOString(), ''),
+              () => {
+                const currentTab = useTabStore.getState().getActiveSessionId?.() || useTabStore.getState().activeTabId;
+                return currentTab !== `session:${sid}` && currentTab !== sid;
+              },
               () => { useTabStore.getState().switchTab(tabId.session(sid)); },
             );
           }

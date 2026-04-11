@@ -17,7 +17,7 @@ interface SessionItemProps {
 export function SessionItem({ session }: SessionItemProps) {
   const { removeSession } = useSessionStore();
   const { clearSessionMessages } = useChatStore();
-  const { isAgentActive, markViewed, hasUnread } = useViewedStore();
+  const { isAgentActive, hasUnread } = useViewedStore();
   const { tabs, activeTabId, switchTab, closeTab } = useTabStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -88,7 +88,6 @@ export function SessionItem({ session }: SessionItemProps) {
     // If session is already open as a tab, just switch to it (instant, like tab bar click)
     if (isOpen) {
       switchTab(sessionTabId);
-      markViewed(session.session_id);
       return;
     }
 

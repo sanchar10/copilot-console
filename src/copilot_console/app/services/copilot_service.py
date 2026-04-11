@@ -189,11 +189,11 @@ class SessionClient:
         
         if on_elicitation_request:
             session_opts["on_elicitation_request"] = on_elicitation_request
-            logger.info(f"[{self.session_id}] Elicitation handler registered for session creation")
+            logger.debug(f"[{self.session_id}] Elicitation handler registered for session creation")
         
         if on_user_input_request:
             session_opts["on_user_input_request"] = on_user_input_request
-            logger.info(f"[{self.session_id}] User input (ask_user) handler registered for session creation")
+            logger.debug(f"[{self.session_id}] User input (ask_user) handler registered for session creation")
         
         if mcp_servers:
             session_opts["mcp_servers"] = mcp_servers
@@ -684,7 +684,6 @@ class CopilotService:
                     resume_config["on_permission_request"] = approve_all_permissions
                 session = await self._main_client.resume_session(session_id, **resume_config)
                 messages = await session.get_messages()
-                logger.debug(f"Fetched {len(messages)} messages from session {session_id} (temporary resume)")
                 try:
                     await session.destroy()
                 except Exception:
@@ -1094,8 +1093,6 @@ class CopilotService:
             event_type = event.type.value if hasattr(event.type, "value") else str(event.type)
             data = getattr(event, "data", None)
             
-            # Trace all events to understand ordering
-            logger.info(f"[{session_id}] SDK event: {event_type} | response_len={len(full_response)} reasoning_len={len(reasoning_buffer)}")
 
             if event_type == "assistant.message_delta":
                 delta = _get_text(data)

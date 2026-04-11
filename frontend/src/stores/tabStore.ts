@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { useViewedStore } from './viewedStore';
 
 export type TabType = 'session' | 'file' | 'agent-library' | 'agent-detail' | 'automation-manager' | 'task-board' | 'task-run-detail' | 'workflow-library' | 'workflow-editor' | 'workflow-run';
 
@@ -64,6 +65,10 @@ export const useTabStore = create<TabState>((set, get) => ({
 
   openTab: (tab) =>
     set((state) => {
+      // Auto-mark session as viewed when opening its tab
+      const sid = sessionIdFromTabId(tab.id);
+      if (sid) useViewedStore.getState().markViewed(sid);
+
       const existing = state.tabs.find((t) => t.id === tab.id);
       if (existing) {
         // Tab already open — activate it, update mutable fields (agentId, label, etc.), move to top of MRU
@@ -97,6 +102,9 @@ export const useTabStore = create<TabState>((set, get) => ({
   switchTab: (targetTabId) =>
     set((state) => {
       if (state.tabs.some((t) => t.id === targetTabId)) {
+        // Auto-mark session as viewed when switching to its tab
+        const sid = sessionIdFromTabId(targetTabId);
+        if (sid) useViewedStore.getState().markViewed(sid);
         return {
           activeTabId: targetTabId,
           mruStack: [targetTabId, ...state.mruStack.filter((id) => id !== targetTabId)],

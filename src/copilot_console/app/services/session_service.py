@@ -560,7 +560,7 @@ class SessionService:
 
         try:
             sdk_events = await copilot_service.get_session_messages(session_id)
-            logger.info(f"Got {len(sdk_events)} events from SDK for session {session_id}")
+            logger.debug(f"Got {len(sdk_events)} events from SDK for session {session_id}")
 
             for evt in sdk_events:
                 evt_type = evt.type.value if hasattr(evt.type, 'value') else str(evt.type)
@@ -715,12 +715,12 @@ class SessionService:
                             msg.steps = [reasoning_step] + list(msg.steps)
                         else:
                             msg.steps = [reasoning_step]
-                        logger.debug(f"Added reasoning step to message_id={anchor_id}")
+                        logger.debug(f"Added reasoning step to message_id={anchor_id} in session={session_id}")
         
         except Exception as e:
             logger.warning(f"Failed to read raw events for reasoningText: {e}")
         
-        logger.info(f"Returning {len(messages)} messages for session {session_id}")
+        logger.debug(f"Returning {len(messages)} messages for session {session_id}")
 
         return SessionWithMessages(
             session_id=session.session_id,

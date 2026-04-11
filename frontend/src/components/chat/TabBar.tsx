@@ -1,6 +1,5 @@
 import { useSessionStore } from '../../stores/sessionStore';
 import { useChatStore } from '../../stores/chatStore';
-import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore } from '../../stores/tabStore';
 import { getSession, disconnectSession } from '../../api/sessions';
 import { clearReadySession } from './InputBox';
@@ -8,7 +7,6 @@ import { clearReadySession } from './InputBox';
 export function TabBar() {
   const { sessions, isNewSession, clearNewSession } = useSessionStore();
   const { messagesPerSession, setMessages, clearSessionMessages } = useChatStore();
-  const { markViewed } = useViewedStore();
   const { tabs, activeTabId, switchTab, closeTab } = useTabStore();
 
   const handleTabClick = async (tab: { id: string; type: string; sessionId?: string }) => {
@@ -28,7 +26,6 @@ export function TabBar() {
           return;
         }
       }
-      markViewed(tab.sessionId);
     }
 
     switchTab(tab.id);

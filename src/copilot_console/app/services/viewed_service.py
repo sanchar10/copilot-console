@@ -85,7 +85,7 @@ class ViewedService:
         ts = timestamp if timestamp is not None else time.time()
         self._timestamps[session_id] = ts
         self._save()
-        logger.info(f"[{session_id}] Marked as viewed at {ts}")
+        logger.debug(f"[{session_id}] Marked as viewed at {ts}")
         return ts
 
     def remove(self, session_id: str) -> bool:

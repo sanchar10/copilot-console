@@ -423,7 +423,7 @@ async def elicitation_response(session_id: str, request: dict) -> dict:
     if not resolved:
         raise HTTPException(status_code=404, detail="Elicitation request not found or already resolved")
 
-    logger.info(f"[{session_id}] Elicitation {request_id} resolved with action={action}")
+    logger.debug(f"[{session_id}] Elicitation {request_id} resolved with action={action}")
     return {"status": "resolved", "action": action}
 
 
@@ -446,7 +446,7 @@ async def user_input_response(session_id: str, request: dict) -> dict:
         future = copilot_service._pending_elicitations.get(key)
         if future and not future.done():
             future.cancel()
-            logger.info(f"[{session_id}] User input {request_id} cancelled by user")
+            logger.debug(f"[{session_id}] User input {request_id} cancelled by user")
             return {"status": "cancelled"}
         raise HTTPException(status_code=404, detail="User input request not found or already resolved")
 
@@ -458,7 +458,7 @@ async def user_input_response(session_id: str, request: dict) -> dict:
     if not resolved:
         raise HTTPException(status_code=404, detail="User input request not found or already resolved")
 
-    logger.info(f"[{session_id}] User input {request_id} resolved: answer={answer[:50]}")
+    logger.debug(f"[{session_id}] User input {request_id} resolved: answer={answer[:50]}")
     return {"status": "resolved"}
 
 
@@ -536,7 +536,7 @@ async def test_elicitation(session_id: str) -> dict:
         buffer = await response_buffer_manager.create_buffer(session_id)
     buffer.add_notification("elicitation", elicitation_data)
 
-    logger.info(f"[{session_id}] Test elicitation pushed: {request_id}")
+    logger.debug(f"[{session_id}] Test elicitation pushed: {request_id}")
     return {"status": "pushed", "request_id": request_id}
 
 

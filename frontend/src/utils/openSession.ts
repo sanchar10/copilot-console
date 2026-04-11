@@ -30,7 +30,7 @@ export async function openSessionTab(session: Session): Promise<void> {
 
   const { refreshMcpServers, updateSessionMcpServers, setSessions, updateSessionTimestamp, clearNewSession } = useSessionStore.getState();
   const { messagesPerSession, setMessages, setStreaming, appendStreamingContent, addStreamingStep, finalizeStreaming } = useChatStore.getState();
-  const { setAgentActive, markViewed } = useViewedStore.getState();
+  const { setAgentActive } = useViewedStore.getState();
   const { openTab } = useTabStore.getState();
 
   // Clear new-session mode when switching to an existing session
@@ -73,7 +73,6 @@ export async function openSessionTab(session: Session): Promise<void> {
             finalizeStreaming(sessionId, '');
             setAgentActive(sessionId, false);
             updateSessionTimestamp(sessionId);
-            markViewed(sessionId);
             // Refresh messages to get the saved response from SDK
             getSession(sessionId).then(s => setMessages(sessionId, s.messages)).catch(() => {});
           },
@@ -107,11 +106,7 @@ export async function openSessionTab(session: Session): Promise<void> {
     openTab({ id: sessionTabId, type: 'session', label: session.session_name, sessionId });
 
     // Check if there's an active response we need to resume
-    const hasActiveResponse = await checkAndResumeActiveResponse();
-    if (!hasActiveResponse) {
-      // Only mark as viewed if no active response (otherwise wait for stream to complete)
-      markViewed(sessionId);
-    }
+    await checkAndResumeActiveResponse();
     return;
   }
 
@@ -135,10 +130,7 @@ export async function openSessionTab(session: Session): Promise<void> {
 
     // Check if there's an active response we need to resume
     const hasActiveResponse = await checkAndResumeActiveResponse();
-    if (!hasActiveResponse) {
-      // Only mark as viewed if no active response
-      markViewed(sessionId);
-    }
+    // Tab already marked viewed by openTab
   } catch (err) {
     console.error('Failed to load session:', err);
     setMessages(sessionId, [{

@@ -8,6 +8,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { updateSettings, getSettings } from '../../api/settings';
 import { apiClient } from '../../api/client';
 import { useTheme } from '../../hooks/useTheme';
+import { requestNotificationPermission, setDesktopNotificationSetting } from '../../utils/desktopNotifications';
 
 export function SettingsModal() {
   const { 
@@ -182,15 +183,15 @@ export function SettingsModal() {
                 key={opt}
                 type="button"
                 onClick={async () => {
+                  // Request permission on user gesture when enabling
+                  if (opt !== 'off') {
+                    const granted = await requestNotificationPermission();
+                    if (!granted) return; // User denied — don't change setting
+                  }
                   setDesktopNotifications(opt);
+                  setDesktopNotificationSetting(opt);
                   try {
                     await updateSettings({ desktop_notifications: opt } as any);
-                    const { setDesktopNotificationSetting } = await import('../../utils/desktopNotifications');
-                    setDesktopNotificationSetting(opt);
-                    if (opt !== 'off') {
-                      const { requestNotificationPermission } = await import('../../utils/desktopNotifications');
-                      requestNotificationPermission();
-                    }
                   } catch {
                     setDesktopNotifications(desktopNotifications);
                   }

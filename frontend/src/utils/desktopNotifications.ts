@@ -13,7 +13,61 @@ const NOTIFICATION_DELAY_MS = 30_000;
 
 type DesktopNotificationSetting = 'all' | 'input_only' | 'off';
 
-let currentSetting: DesktopNotificationSetting = 'all';
+/** Play a completion tone for blue dot (new unread). */
+export function playUnreadTone() {
+  try {
+    const ctx = new AudioContext();
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    // Three-note chime (matches CLI completion tone)
+    const osc1 = ctx.createOscillator();
+    osc1.connect(gain);
+    osc1.frequency.value = 700;
+    osc1.type = 'sine';
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.15);
+    const osc2 = ctx.createOscillator();
+    osc2.connect(gain);
+    osc2.frequency.value = 900;
+    osc2.type = 'sine';
+    osc2.start(ctx.currentTime + 0.15);
+    osc2.stop(ctx.currentTime + 0.25);
+    const osc3 = ctx.createOscillator();
+    osc3.connect(gain);
+    osc3.frequency.value = 600;
+    osc3.type = 'sine';
+    osc3.start(ctx.currentTime + 0.25);
+    osc3.stop(ctx.currentTime + 0.4);
+  } catch { /* audio not available */ }
+}
+
+/** Play a more attention-seeking tone for desktop notifications. */
+export function playNotificationTone() {
+  try {
+    const ctx = new AudioContext();
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    // Two-note chime
+    const osc1 = ctx.createOscillator();
+    osc1.connect(gain);
+    osc1.frequency.value = 880;
+    osc1.type = 'sine';
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.2);
+    const osc2 = ctx.createOscillator();
+    osc2.connect(gain);
+    osc2.frequency.value = 1100;
+    osc2.type = 'sine';
+    osc2.start(ctx.currentTime + 0.2);
+    osc2.stop(ctx.currentTime + 0.5);
+  } catch { /* audio not available */ }
+}
+
+let currentSetting: DesktopNotificationSetting = 'off';
 
 export function setDesktopNotificationSetting(setting: DesktopNotificationSetting) {
   currentSetting = setting;
@@ -34,7 +88,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
 /**
  * Schedule a desktop notification after 30s delay.
- * Only shows if session is still unread and tab is not focused.
+ * Only shows if session is still unread after the delay.
  */
 export function scheduleDesktopNotification(
   sessionId: string,
@@ -48,9 +102,10 @@ export function scheduleDesktopNotification(
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
   setTimeout(() => {
-    // Only notify if tab is not focused and session is still unread
-    if (!document.hidden) return;
+    // Only notify if session is still unread after 30s
     if (!isUnreadCheck()) return;
+
+    playNotificationTone();
 
     const title = type === 'input_needed'
       ? `💬 ${sessionName || 'Copilot'} needs your input`

@@ -98,7 +98,7 @@ async function main() {
 
   // Check for --no-sleep flag
   const noSleep = process.argv.includes('--no-sleep');
-  const verbose = process.argv.includes('--verbose');
+  const verbose = process.argv.includes('--verbose') || process.argv.includes('--debug') || process.env.COPILOT_VERBOSE === '1';
   const env = { ...process.env };
 
   // Point Python directly at this repo's src/ — no pip install -e . needed
@@ -112,7 +112,7 @@ async function main() {
 
   if (verbose) {
     env.COPILOT_VERBOSE = '1';
-    console.log('\x1b[33m🔍 Verbose logging enabled (--verbose)\x1b[0m');
+    console.log('\x1b[33m🔍 Verbose logging enabled (--debug)\x1b[0m');
   }
 
   // Check for --expose flag (bind to 0.0.0.0 for mobile companion via tunnel)
