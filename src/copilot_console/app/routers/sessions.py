@@ -445,14 +445,10 @@ async def user_input_response(session_id: str, request: dict) -> dict:
         raise HTTPException(status_code=400, detail="request_id is required")
 
     if request.get("cancelled"):
-        # Cancel the Future — SDK handler will raise, agent sees "User cancelled"
-        key = (session_id, request_id)
-        future = copilot_service._pending_elicitations.get(key)
-        if future and not future.done():
-            future.cancel()
-            logger.debug(f"[{session_id}] User input {request_id} cancelled by user")
-            return {"status": "cancelled"}
-        raise HTTPException(status_code=404, detail="User input request not found or already resolved")
+        if not copilot_service.cancel_elicitation(session_id, request_id):
+            raise HTTPException(status_code=404, detail="User input request not found or already resolved")
+        logger.debug(f"[{session_id}] User input {request_id} cancelled by user")
+        return {"status": "cancelled"}
 
     answer = request.get("answer", "")
     was_freeform = request.get("wasFreeform", True)
@@ -805,8 +801,8 @@ async def resume_response_stream(
                 while events_sent < len(buffer.ordered_events):
                     evt = buffer.ordered_events[events_sent]
                     events_sent += 1
-                    # Skip interactive events — they were cancelled on reconnect
-                    # and should not render as ghost cards
+                    # Skip ask_user/elicitation events — server-side Rule 1
+                    # already cancelled the Futures on SSE disconnect
                     if evt["event"] in ("ask_user", "elicitation"):
                         continue
                     yield {

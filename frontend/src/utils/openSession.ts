@@ -81,14 +81,6 @@ export async function openSessionTab(session: Session): Promise<void> {
             setStreaming(sessionId, false);
             setAgentActive(sessionId, false);
           },
-          (data) => {
-            const { setElicitation } = useChatStore.getState();
-            setElicitation(sessionId, data);
-          },
-          (data) => {
-            const { setAskUser } = useChatStore.getState();
-            setAskUser(sessionId, data);
-          },
         );
         return true; // Active response found and resumed
       }
@@ -129,8 +121,7 @@ export async function openSessionTab(session: Session): Promise<void> {
     ));
 
     // Check if there's an active response we need to resume
-    const hasActiveResponse = await checkAndResumeActiveResponse();
-    // Tab already marked viewed by openTab
+    await checkAndResumeActiveResponse();
   } catch (err) {
     console.error('Failed to load session:', err);
     setMessages(sessionId, [{

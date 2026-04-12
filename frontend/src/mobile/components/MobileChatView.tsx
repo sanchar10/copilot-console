@@ -198,21 +198,6 @@ export function MobileChatView() {
       reloadMessages(sessionId);
     });
 
-    // Handle ask_user/elicitation in resume stream (unlikely but safety net)
-    es.addEventListener('ask_user', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.request_id) {
-        setPendingAskUser(data as AskUserRequest);
-      }
-    });
-
-    es.addEventListener('elicitation', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.request_id) {
-        setPendingElicitation(data as ElicitationRequest);
-      }
-    });
-
     es.onerror = () => {
       // EventSource will try to reconnect automatically
     };

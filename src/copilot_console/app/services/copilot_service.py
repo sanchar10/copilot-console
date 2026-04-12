@@ -437,6 +437,18 @@ class CopilotService:
         logger.debug(f"[{session_id}] Elicitation response delivered: {request_id}")
         return True
 
+    def cancel_elicitation(self, session_id: str, request_id: str) -> bool:
+        """Cancel a specific pending elicitation/ask_user Future.
+        
+        Returns True if cancelled, False if not found or already done.
+        """
+        key = (session_id, request_id)
+        future = self._pending_elicitations.get(key)
+        if future and not future.done():
+            future.cancel()
+            return True
+        return False
+
     def cancel_pending_elicitations(self, session_id: str) -> int:
         """Cancel all pending elicitations for a session (on disconnect/destroy)."""
         cancelled = 0
