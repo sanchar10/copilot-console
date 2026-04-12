@@ -502,8 +502,18 @@ export function MobileChatView() {
       </div>
 
       {/* Input */}
-      <div className="px-3 py-2 bg-white dark:bg-[#252536] border-t border-gray-200 dark:border-[#3a3a4e] safe-bottom">
+      <div className={`px-3 py-2 border-t safe-bottom ${streamingState.isStreaming && !pendingAskUser && !pendingElicitation ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40' : 'bg-white dark:bg-[#252536] border-gray-200 dark:border-[#3a3a4e]'}`}>
         <div className="flex items-end gap-2 max-w-2xl mx-auto">
+          {streamingState.isStreaming && !pendingAskUser && !pendingElicitation ? (
+            <div className="flex-1 flex items-center gap-2 px-3 py-2.5">
+              <span className="flex gap-1">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </span>
+              <span className="text-sm text-amber-700 dark:text-amber-400">Thinking…</span>
+            </div>
+          ) : (
           <textarea
             ref={inputRef}
             value={input}
@@ -514,11 +524,12 @@ export function MobileChatView() {
                 handleSend();
               }
             }}
-            placeholder={pendingAskUser || pendingElicitation ? 'Respond above ↑' : streamingState.isStreaming ? 'Agent is working...' : 'Type a message...'}
+            placeholder={pendingAskUser || pendingElicitation ? 'Respond above ↑' : 'Type a message...'}
             rows={1}
             className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style={{ maxHeight: '120px' }}
           />
+          )}
           <button
             onClick={handleSend}
             disabled={!input.trim() || sending}
