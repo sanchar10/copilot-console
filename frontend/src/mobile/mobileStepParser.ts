@@ -91,18 +91,21 @@ export function parseSteps(steps: ChatStep[]): ParsedStep[] {
         const idMatch = s.detail.match(/^id=(\S+)/);
         if (idMatch) toolId = idMatch[1];
         // Extract a short summary from input
-        const inputMatch = s.detail.match(/Input:\s*(.+)/);
+        const inputMatch = s.detail.match(/Input:\s*(.+)/s);
         if (inputMatch) {
-          inputSummary = inputMatch[1].slice(0, 120);
-          // Try to extract key args (file paths, patterns, etc.)
+          // Try to extract key args (file paths, patterns, commands, etc.)
           try {
             const input = JSON.parse(inputMatch[1]);
             const path = input.path || input.file || input.filePath || '';
-            const pattern = input.pattern || input.query || '';
-            if (path && pattern) inputSummary = `${pattern} in ${path}`;
+            const pattern = input.pattern || input.query || input.searchText || '';
+            const command = input.command || '';
+            const description = input.description || '';
+            if (path && pattern) inputSummary = `"${pattern}" in ${path}`;
             else if (path) inputSummary = path;
-            else if (pattern) inputSummary = pattern;
-          } catch { /* use raw summary */ }
+            else if (command) inputSummary = command.length > 60 ? command.slice(0, 60) + '…' : command;
+            else if (pattern) inputSummary = pattern.length > 60 ? pattern.slice(0, 60) + '…' : pattern;
+            else if (description) inputSummary = description.length > 60 ? description.slice(0, 60) + '…' : description;
+          } catch { /* JSON parse failed — leave inputSummary empty, show tool name only */ }
         }
       }
       // Find matching done step
