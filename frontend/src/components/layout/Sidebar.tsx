@@ -77,6 +77,11 @@ export function Sidebar() {
             )
           );
         }
+        // If user is currently viewing this session, mark as viewed
+        const activeSessionId = useTabStore.getState().getActiveSessionId();
+        if (activeSessionId === sessionId) {
+          useViewedStore.getState().markViewed(sessionId);
+        }
       },
       (_error) => {
         // SSE disconnected — will auto-reconnect on next mount

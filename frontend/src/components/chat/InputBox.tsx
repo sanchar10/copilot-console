@@ -301,8 +301,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
       await abortSession(sessionId);
       clearAskUser(sessionId);
       clearElicitation(sessionId);
-      updateSessionTimestamp(sessionId);
-      markViewed(sessionId);
     } catch (err) {
       console.error('Failed to abort:', err);
     }
