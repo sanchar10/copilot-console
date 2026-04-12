@@ -105,7 +105,9 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     setTokenUsage,
     finalizeTurn,
     setElicitation,
+    clearElicitation,
     setAskUser,
+    clearAskUser,
     pendingAskUser,
     pendingElicitation,
   } = useChatStore();
@@ -297,6 +299,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     if (!sessionId) return;
     try {
       await abortSession(sessionId);
+      clearAskUser(sessionId);
+      clearElicitation(sessionId);
     } catch (err) {
       console.error('Failed to abort:', err);
     }

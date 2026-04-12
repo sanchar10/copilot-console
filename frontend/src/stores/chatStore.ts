@@ -64,6 +64,7 @@ interface ChatState {
 
   // Elicitation
   setElicitation: (sessionId: string, data: ElicitationRequest) => void;
+  clearElicitation: (sessionId: string) => void;
   resolveElicitation: (sessionId: string, action: 'accept' | 'decline' | 'cancel', values?: Record<string, unknown>) => void;
 
   // Ask user
@@ -255,6 +256,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       pendingElicitation: { ...state.pendingElicitation, [sessionId]: data },
     })),
+
+  clearElicitation: (sessionId) =>
+    set((state) => {
+      const updated = { ...state.pendingElicitation };
+      delete updated[sessionId];
+      return { pendingElicitation: updated };
+    }),
 
   resolveElicitation: (sessionId, action, values) =>
     set((state) => {
