@@ -26,6 +26,7 @@ interface ResponseStatus {
   status?: string;
   chunks_count?: number;
   steps_count?: number;
+  pending_input?: { event: string; data: AskUserRequest | ElicitationRequest };
 }
 
 export function MobileChatView() {
@@ -78,6 +79,15 @@ export function MobileChatView() {
         // Check if there's an active response to resume
         const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
         if (status.active) {
+          // Restore pending ask_user/elicitation card if present
+          if (status.pending_input) {
+            const evt = status.pending_input;
+            if (evt.event === 'ask_user') {
+              setPendingAskUser(evt.data as AskUserRequest);
+            } else if (evt.event === 'elicitation') {
+              setPendingElicitation(evt.data as ElicitationRequest);
+            }
+          }
           resumeStream(status.chunks_count || 0, status.steps_count || 0);
         } else {
           // No active response — clear any stale streaming/agent state

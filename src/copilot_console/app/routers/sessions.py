@@ -765,8 +765,23 @@ async def get_response_status(session_id: str) -> dict:
     """Check if there's an active response being generated.
     
     Frontend can call this on reconnect to check if it should resume streaming.
+    Also includes any pending ask_user/elicitation data so the client can
+    restore the card without SSE replay.
     """
-    return response_buffer_manager.get_status(session_id)
+    status = response_buffer_manager.get_status(session_id)
+    
+    # Check for pending ask_user/elicitation Futures
+    pending_keys = [k for k in copilot_service._pending_elicitations if k[0] == session_id]
+    if pending_keys:
+        # Find the matching event data from the buffer
+        buffer = response_buffer_manager._buffers.get(session_id)
+        if buffer:
+            for evt in reversed(buffer.ordered_events):
+                if evt["event"] in ("ask_user", "elicitation"):
+                    status["pending_input"] = evt
+                    break
+    
+    return status
 
 
 @router.get("/{session_id}/response-stream")

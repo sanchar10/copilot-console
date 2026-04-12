@@ -61,6 +61,16 @@ export async function openSessionTab(session: Session): Promise<void> {
         setStreaming(sessionId, true);
         setAgentActive(sessionId, true);
 
+        // Restore pending ask_user/elicitation card if present
+        if (status.pending_input) {
+          const evt = status.pending_input;
+          if (evt.event === 'ask_user') {
+            useChatStore.getState().setAskUser(sessionId, evt.data);
+          } else if (evt.event === 'elicitation') {
+            useChatStore.getState().setElicitation(sessionId, evt.data);
+          }
+        }
+
         // Resume streaming from where we left off
         await resumeResponseStream(
           sessionId,
@@ -84,6 +94,9 @@ export async function openSessionTab(session: Session): Promise<void> {
         );
         return true; // Active response found and resumed
       }
+
+      // No active response — clear any stale ask_user/elicitation from memory
+      useChatStore.getState().clearAskUser(sessionId);
       return false; // No active response
     } catch (err) {
       console.error('Failed to check response status:', err);

@@ -339,6 +339,7 @@ export interface ResponseStatus {
   chunks_count?: number;
   steps_count?: number;
   error?: string | null;
+  pending_input?: { event: string; data: Record<string, unknown> };
 }
 
 /**
