@@ -469,7 +469,7 @@ export function MobileChatView() {
             <div className="flex justify-start">
               <div className="max-w-[85%] bg-white dark:bg-[#2a2a3c] rounded-2xl rounded-bl-md px-3 py-2 shadow-sm border border-gray-100 dark:border-[#3a3a4e]">
                 <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans break-words">
-                  {streamingState.content}
+                  {streamingState.content.trimStart()}
                 </pre>
                 {streamingState.steps.length > 0 && (
                   <StepsAccordion steps={streamingState.steps} />
@@ -615,7 +615,7 @@ function MobileMessageBubble({ message }: { message: Message }) {
           ? 'bg-blue-600 text-white rounded-br-md'
           : 'bg-white dark:bg-[#2a2a3c] text-gray-800 dark:text-gray-200 rounded-bl-md border border-gray-100 dark:border-[#3a3a4e]'
       }`}>
-        <pre className="text-sm whitespace-pre-wrap font-sans break-words">{message.content}</pre>
+        <pre className="text-sm whitespace-pre-wrap font-sans break-words">{message.content.trim()}</pre>
         {message.steps && message.steps.length > 0 && !isUser && (
           <StepsAccordion steps={message.steps} />
         )}
