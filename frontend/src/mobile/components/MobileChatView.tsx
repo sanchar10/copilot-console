@@ -216,7 +216,9 @@ export function MobileChatView() {
   }, [sessionId]);
 
   const handleSend = async () => {
-    if (!input.trim() || !sessionId || sending) return;
+    if (!input.trim() || !sessionId) return;
+    // Block if currently in activation phase (sending && not yet activated)
+    if (sending && !sessionActivatedRef.current) return;
     const content = input.trim();
     setInput('');
     setSending(true);
@@ -282,11 +284,11 @@ export function MobileChatView() {
         };
 
         const processEvent = (eventText: string) => {
-          // Any SSE event confirms the session is active
+          // Any SSE event confirms the session is active + clears sending lock
           if (!sessionActivatedRef.current) {
             sessionActivatedRef.current = true;
-            setSending(false);
           }
+          setSending(false);
           const lines = eventText.split(/\r?\n/);
           let eventName = '';
           let eventData = '';
