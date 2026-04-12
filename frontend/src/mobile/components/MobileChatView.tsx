@@ -447,17 +447,6 @@ export function MobileChatView() {
               </div>
             </div>
           )}
-          {streamingState.isStreaming && !streamingState.content && (
-            <div className="flex justify-start">
-              <div className="bg-white dark:bg-[#2a2a3c] rounded-2xl px-4 py-3 shadow-sm border border-gray-100 dark:border-[#3a3a4e]">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Pending ask_user card */}
           {pendingAskUser && sessionId && (
