@@ -8,6 +8,7 @@ import { useTabStore, tabId } from '../../stores/tabStore';
 import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings, compactSession } from '../../api/sessions';
 import type { AttachmentRef, UploadedFile } from '../../api/sessions';
 import { scheduleDesktopNotification, playUnreadTone } from '../../utils/desktopNotifications';
+import { openSessionTab } from '../../utils/openSession';
 import { Button } from '../common/Button';
 import { ModeSelector, type AgentMode } from './ModeSelector';
 import { PinnedIcon } from './PinIcons';
@@ -582,7 +583,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 const currentTab = useTabStore.getState().getActiveSessionId?.() || useTabStore.getState().activeTabId;
                 return currentTab !== `session:${sid}` && currentTab !== sid;
               },
-              () => { useTabStore.getState().switchTab(tabId.session(sid)); },
+              () => {
+                const session = useSessionStore.getState().sessions.find(s => s.session_id === sid);
+                if (session) openSessionTab(session);
+              },
             );
           }
         },
@@ -614,7 +618,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 const currentTab = useTabStore.getState().getActiveSessionId?.() || useTabStore.getState().activeTabId;
                 return currentTab !== `session:${sid}` && currentTab !== sid;
               },
-              () => { useTabStore.getState().switchTab(tabId.session(sid)); },
+              () => {
+                const session = useSessionStore.getState().sessions.find(s => s.session_id === sid);
+                if (session) openSessionTab(session);
+              },
             );
           }
         },
@@ -629,7 +636,10 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 const currentTab = useTabStore.getState().getActiveSessionId?.() || useTabStore.getState().activeTabId;
                 return currentTab !== `session:${sid}` && currentTab !== sid;
               },
-              () => { useTabStore.getState().switchTab(tabId.session(sid)); },
+              () => {
+                const session = useSessionStore.getState().sessions.find(s => s.session_id === sid);
+                if (session) openSessionTab(session);
+              },
             );
           }
         },
