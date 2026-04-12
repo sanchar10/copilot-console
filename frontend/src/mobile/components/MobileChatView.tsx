@@ -356,9 +356,14 @@ export function MobileChatView() {
           if (!receivedDone) {
             onDone();
           }
-        } catch {
-          // Stream interrupted — reload to get final state
-          reloadMessages(sessionId);
+        } catch (streamErr) {
+          // Intentional abort (from resumeStream/unmount) — do nothing
+          if (streamErr instanceof DOMException && streamErr.name === 'AbortError') {
+            // Stream was intentionally aborted — resumeStream handles continuation
+          } else {
+            // Real stream error — reload to get final state
+            reloadMessages(sessionId);
+          }
         }
       }
     } catch (err) {
