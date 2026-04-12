@@ -510,7 +510,9 @@ export function MobileChatView() {
           ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
           : isThinking
             ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40'
-            : 'bg-white dark:bg-[#252536] border-gray-200 dark:border-[#3a3a4e]';
+            : hasPendingInput
+              ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+              : 'bg-white dark:bg-[#252536] border-gray-200 dark:border-[#3a3a4e]';
         const placeholder = isActivating
           ? 'Activating session…'
           : hasPendingInput
