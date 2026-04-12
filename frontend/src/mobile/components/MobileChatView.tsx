@@ -45,6 +45,7 @@ export function MobileChatView() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const messageAbortRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
   const sessionActivatedRef = useRef(false);
 
@@ -165,6 +166,8 @@ export function MobileChatView() {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      messageAbortRef.current?.abort();
+      messageAbortRef.current = null;
       eventSourceRef.current?.close();
     };
   }, [sessionId]);
@@ -181,6 +184,9 @@ export function MobileChatView() {
 
   const resumeStream = useCallback((fromChunk = 0, fromStep = 0) => {
     if (!sessionId) return;
+    // Abort any active POST /messages reader to prevent duplicate consumers
+    messageAbortRef.current?.abort();
+    messageAbortRef.current = null;
     eventSourceRef.current?.close();
 
     const es = mobileApiClient.createEventSource(
@@ -256,11 +262,17 @@ export function MobileChatView() {
         // Connect session first
         await mobileApiClient.post(`/sessions/${sessionId}/connect`);
 
+        // Abort any previous message reader
+        messageAbortRef.current?.abort();
+        const abortController = new AbortController();
+        messageAbortRef.current = abortController;
+
         // POST /messages returns an SSE stream — read it directly (same as desktop)
         const response = await fetch(`${getApiBase()}/sessions/${sessionId}/messages`, {
           method: 'POST',
           headers: getHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ content, is_new_session: false }),
+          signal: abortController.signal,
         });
 
         if (!response.ok || !response.body) {
@@ -360,6 +372,8 @@ export function MobileChatView() {
     if (!sessionId) return;
     try {
       await mobileApiClient.post(`/sessions/${sessionId}/abort`);
+      messageAbortRef.current?.abort();
+      messageAbortRef.current = null;
       eventSourceRef.current?.close();
       reloadMessages(sessionId);
     } catch (err) {
