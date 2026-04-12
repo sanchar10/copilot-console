@@ -11,6 +11,7 @@ import { useChatStore } from '../stores/chatStore';
 import { useViewedStore } from '../stores/viewedStore';
 import { useTabStore, tabId } from '../stores/tabStore';
 import { getSession, connectSession, getResponseStatus, resumeResponseStream } from '../api/sessions';
+import { markSessionReady } from '../components/chat/InputBox';
 import type { Session } from '../types/session';
 
 /**
@@ -60,6 +61,8 @@ export async function openSessionTab(session: Session): Promise<void> {
 
         setStreaming(sessionId, true);
         setAgentActive(sessionId, true);
+        // Session is active — mark ready so next message skips "Activating session"
+        markSessionReady(sessionId);
 
         // Restore pending ask_user/elicitation card if present
         if (status.pending_input) {
