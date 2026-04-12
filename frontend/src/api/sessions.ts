@@ -401,6 +401,8 @@ export async function resumeResponseStream(
   onStep: (step: ChatStep) => void,
   onDone: () => void,
   onError: (error: string) => void,
+  onElicitation?: (data: ElicitationRequest) => void,
+  onAskUser?: (data: AskUserRequest) => void,
 ): Promise<void> {
   const response = await fetch(
     `${API_BASE}/sessions/${sessionId}/response-stream?from_chunk=${fromChunk}&from_step=${fromStep}`
@@ -456,6 +458,10 @@ export async function resumeResponseStream(
             onDone();
           } else if (eventName === 'error' && data.error !== undefined) {
             onError(data.error);
+          } else if (eventName === 'elicitation' && data.request_id) {
+            onElicitation?.(data as ElicitationRequest);
+          } else if (eventName === 'ask_user' && data.request_id) {
+            onAskUser?.(data as AskUserRequest);
           }
         } catch (e) {
           console.error('Failed to parse SSE data:', eventData, e);

@@ -718,7 +718,6 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
     async def generate_events() -> AsyncGenerator[dict, None]:
         """Stream events from the buffer to SSE client."""
         events_sent = 0
-        buffer.has_sse_client = True
 
         try:
             while True:
@@ -757,10 +756,6 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
             # Client disconnected - that's OK, background task should continue!
             logger.info(f"[SSE] Client disconnected for session {session_id}")
             # DON'T re-raise - let the request end cleanly without affecting background task
-        finally:
-            buffer.has_sse_client = False
-            # Rule 1: Cancel pending ask_user/elicitation when SSE client disconnects
-            copilot_service.cancel_pending_elicitations(session_id)
 
     return EventSourceResponse(generate_events())
 
@@ -801,10 +796,6 @@ async def resume_response_stream(
                 while events_sent < len(buffer.ordered_events):
                     evt = buffer.ordered_events[events_sent]
                     events_sent += 1
-                    # Skip ask_user/elicitation events — server-side Rule 1
-                    # already cancelled the Futures on SSE disconnect
-                    if evt["event"] in ("ask_user", "elicitation"):
-                        continue
                     yield {
                         "event": evt["event"],
                         "data": json.dumps(evt["data"])
