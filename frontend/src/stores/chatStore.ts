@@ -247,7 +247,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       delete newStreaming[sessionId];
       const newTokenUsage = { ...state.tokenUsagePerSession };
       delete newTokenUsage[sessionId];
-      return { messagesPerSession: newMessages, streamingPerSession: newStreaming, tokenUsagePerSession: newTokenUsage };
+      const newPendingElicitation = { ...state.pendingElicitation };
+      delete newPendingElicitation[sessionId];
+      const newResolvedElicitations = { ...state.resolvedElicitations };
+      delete newResolvedElicitations[sessionId];
+      const newPendingAskUser = { ...state.pendingAskUser };
+      delete newPendingAskUser[sessionId];
+      return {
+        messagesPerSession: newMessages,
+        streamingPerSession: newStreaming,
+        tokenUsagePerSession: newTokenUsage,
+        pendingElicitation: newPendingElicitation,
+        resolvedElicitations: newResolvedElicitations,
+        pendingAskUser: newPendingAskUser,
+      };
     }),
 
   clearAllMessages: () => set({ messagesPerSession: {}, streamingPerSession: {}, tokenUsagePerSession: {} }),

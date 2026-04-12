@@ -86,6 +86,13 @@ class SessionFileHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
+    def close_session(self, session_id: str) -> None:
+        """Close and remove the file handler for a specific session."""
+        key = f"session:{session_id}"
+        handler = self._file_handlers.pop(key, None)
+        if handler:
+            handler.close()
+
     def close(self) -> None:
         """Close all file handlers."""
         if self._server_handler:
@@ -178,6 +185,12 @@ def setup_logging(level: int = logging.INFO) -> None:
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance."""
     return logging.getLogger(name)
+
+
+def close_session_log(session_id: str) -> None:
+    """Close the file handler for a destroyed session to free the fd."""
+    if _session_file_handler:
+        _session_file_handler.close_session(session_id)
 
 
 def read_session_logs(

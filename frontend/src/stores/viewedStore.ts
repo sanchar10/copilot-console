@@ -60,7 +60,7 @@ export const useViewedStore = create<ViewedState>((set, get) => ({
       lastViewed: { ...state.lastViewed, [sessionId]: now },
     }));
     // Fire-and-forget API call
-    apiMarkViewed(sessionId);
+    apiMarkViewed(sessionId).catch(() => {});
   },
 
   hasUnread: (sessionId: string, sessionUpdatedAt: string, sessionCreatedAt?: string) => {

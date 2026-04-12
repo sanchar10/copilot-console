@@ -11,6 +11,7 @@ from pathlib import Path
 
 from copilot_console.app.config import TASK_RUNS_DIR, ensure_directories
 from copilot_console.app.models.automation import TaskRun, TaskRunSummary
+from copilot_console.app.services.storage_service import atomic_write
 
 
 class TaskRunStorageService:
@@ -56,10 +57,10 @@ class TaskRunStorageService:
         for key in ("started_at", "completed_at"):
             if data.get(key):
                 data[key] = data[key].isoformat()
-        self._run_file(run).write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        atomic_write(self._run_file(run), json.dumps(data, indent=2, default=str))
         # Save output as separate markdown file
         if run.output:
-            self._output_file(run).write_text(run.output, encoding="utf-8")
+            atomic_write(self._output_file(run), run.output)
 
     def load_run(self, run_id: str, date_str: str | None = None) -> TaskRun | None:
         """Load a task run by ID. If date_str not provided, searches all dates."""

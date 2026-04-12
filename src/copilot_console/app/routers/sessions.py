@@ -35,6 +35,41 @@ def _resolve_sub_agents(sub_agents: list[str], cwd: str, agent_id: str | None = 
     console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=agent_id)
     return resolve_selected_agents(sub_agents, cwd, mcp_service=mcp_service, console_agents=console_agents)
 
+
+def _resolve_session_config(session: Session) -> dict:
+    """Extract common MCP/tools/system-message/sub-agents config from a session.
+
+    Returns a dict with keys: cwd, mcp_servers, tools, available_tools,
+    excluded_tools, system_message, custom_agents.
+    """
+    cwd = session.cwd or os.path.expanduser("~")
+    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
+    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
+    available_tools = session.tools.builtin if session.tools.builtin else None
+    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
+
+    system_message = None
+    if session.system_message and session.system_message.get("content"):
+        system_message = {
+            "mode": session.system_message.get("mode", "replace"),
+            "content": session.system_message["content"],
+        }
+
+    custom_agents = None
+    if session.sub_agents:
+        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
+
+    return {
+        "cwd": cwd,
+        "mcp_servers": mcp_configs,
+        "tools": custom_tools if custom_tools else None,
+        "available_tools": available_tools,
+        "excluded_tools": excluded_tools,
+        "system_message": system_message,
+        "custom_agents": custom_agents,
+    }
+
+
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
@@ -209,28 +244,17 @@ async def set_session_mode(session_id: str, request: ModeSetRequest) -> dict:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Build activation params matching the SSE route pattern
-    cwd = session.cwd or os.path.expanduser("~")
-    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
-    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
-    available_tools = session.tools.builtin if session.tools.builtin else None
-    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
-    system_message = None
-    if session.system_message and session.system_message.get("content"):
-        system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
-    custom_agents = None
-    if session.sub_agents:
-        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
+    cfg = _resolve_session_config(session)
     
     try:
         confirmed_mode = await copilot_service.set_session_mode(
-            session_id, request.mode, cwd,
-            mcp_servers=mcp_configs,
-            tools=custom_tools if custom_tools else None,
-            available_tools=available_tools,
-            excluded_tools=excluded_tools,
-            system_message=system_message,
-            custom_agents=custom_agents,
+            session_id, request.mode, cfg["cwd"],
+            mcp_servers=cfg["mcp_servers"],
+            tools=cfg["tools"],
+            available_tools=cfg["available_tools"],
+            excluded_tools=cfg["excluded_tools"],
+            system_message=cfg["system_message"],
+            custom_agents=cfg["custom_agents"],
         )
         return {"mode": confirmed_mode}
     except Exception as e:
@@ -257,30 +281,20 @@ async def update_runtime_settings(session_id: str, request: RuntimeSettingsReque
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    cwd = session.cwd or os.path.expanduser("~")
-    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
-    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
-    available_tools = session.tools.builtin if session.tools.builtin else None
-    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
-    system_message = None
-    if session.system_message and session.system_message.get("content"):
-        system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
-    custom_agents = None
-    if session.sub_agents:
-        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
+    cfg = _resolve_session_config(session)
     
     try:
         result = await copilot_service.update_runtime_settings(
-            session_id, cwd,
+            session_id, cfg["cwd"],
             mode=request.mode,
             model=request.model,
             reasoning_effort=request.reasoning_effort,
-            mcp_servers=mcp_configs,
-            tools=custom_tools if custom_tools else None,
-            available_tools=available_tools,
-            excluded_tools=excluded_tools,
-            system_message=system_message,
-            custom_agents=custom_agents,
+            mcp_servers=cfg["mcp_servers"],
+            tools=cfg["tools"],
+            available_tools=cfg["available_tools"],
+            excluded_tools=cfg["excluded_tools"],
+            system_message=cfg["system_message"],
+            custom_agents=cfg["custom_agents"],
         )
         
         # Persist model/reasoning_effort changes to session.json
@@ -309,27 +323,17 @@ async def compact_session(session_id: str) -> dict:
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    cwd = session.cwd or os.path.expanduser("~")
-    mcp_configs = mcp_service.get_servers_for_sdk(session.mcp_servers)
-    custom_tools = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
-    available_tools = session.tools.builtin if session.tools.builtin else None
-    excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
-    system_message = None
-    if session.system_message and session.system_message.get("content"):
-        system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
-    custom_agents = None
-    if session.sub_agents:
-        custom_agents = _resolve_sub_agents(session.sub_agents, cwd, session.agent_id)
+    cfg = _resolve_session_config(session)
 
     try:
         result = await copilot_service.compact_session(
-            session_id, cwd,
-            mcp_servers=mcp_configs,
-            tools=custom_tools if custom_tools else None,
-            available_tools=available_tools,
-            excluded_tools=excluded_tools,
-            system_message=system_message,
-            custom_agents=custom_agents,
+            session_id, cfg["cwd"],
+            mcp_servers=cfg["mcp_servers"],
+            tools=cfg["tools"],
+            available_tools=cfg["available_tools"],
+            excluded_tools=cfg["excluded_tools"],
+            system_message=cfg["system_message"],
+            custom_agents=cfg["custom_agents"],
         )
         return result
     except Exception as e:
@@ -468,13 +472,18 @@ async def test_elicitation(session_id: str) -> dict:
     
     Pushes a fake elicitation event through both the event queue (if streaming)
     and the ResponseBuffer (for reconnect), so it works regardless of stream state.
+
+    Requires COPILOT_DEBUG=1 environment variable.
     """
-    import uuid
+    if os.environ.get("COPILOT_DEBUG", "").strip() != "1":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    import uuid as _uuid
     client = copilot_service._session_clients.get(session_id)
     if not client:
         raise HTTPException(status_code=404, detail="No active session client")
 
-    request_id = str(uuid.uuid4())
+    request_id = str(_uuid.uuid4())
     elicitation_data = {
         "request_id": request_id,
         "message": "Please configure your project settings:",
@@ -518,7 +527,6 @@ async def test_elicitation(session_id: str) -> dict:
     }
 
     # Store a future so the response endpoint works
-    import asyncio
     loop = asyncio.get_event_loop()
     future = loop.create_future()
     copilot_service._pending_elicitations[(session_id, request_id)] = future
@@ -527,7 +535,8 @@ async def test_elicitation(session_id: str) -> dict:
 
     # Push to active event queue if streaming
     if client.event_queue:
-        client.event_queue.put_nowait(evt)
+        from copilot_console.app.services.copilot_service import _safe_enqueue
+        _safe_enqueue(client.event_queue, evt)
 
     # Also push to ResponseBuffer so reconnect/SSE consumer picks it up
     buffer = await response_buffer_manager.get_buffer(session_id)
@@ -584,34 +593,15 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
         
         logger.info(f"[SSE] {'New' if request.is_new_session else 'Inactive'} session path for {session_id}")
         
-        # Get CWD for the session (use home dir as fallback)
-        cwd = session.cwd or os.path.expanduser("~")
         model = session.model
         reasoning_effort = session.reasoning_effort
-        
-        # Get MCP servers for this session
-        mcp_servers_sdk = mcp_service.get_servers_for_sdk(session.mcp_servers)
-        logger.info(f"[SSE] Loading {len(mcp_servers_sdk)} MCP servers for session {session_id}")
-        
-        # Get local/custom tools for this session
-        tools_sdk = tools_service.get_sdk_tools(session.tools.custom) if session.tools.custom else []
-        logger.info(f"[SSE] Loading {len(tools_sdk)} custom tools for session {session_id}")
-        
-        # Get built-in tool whitelist/blacklist
-        builtin_tools = session.tools.builtin if session.tools.builtin else None
-        excluded_tools = session.tools.excluded_builtin if session.tools.excluded_builtin else None
 
-        # Get system message from session field
-        system_message = None
-        if session.system_message and session.system_message.get("content"):
-            system_message = {"mode": session.system_message.get("mode", "replace"), "content": session.system_message["content"]}
-
-        # Resolve sub-agents (Agent Teams)
-        custom_agents_sdk = None
+        # Validate sub-agents before resolving config
         if session.sub_agents:
             console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=session.agent_id)
             errors = validate_selected_agents(
-                session.sub_agents, cwd, console_agents=console_agents,
+                session.sub_agents, session.cwd or os.path.expanduser("~"),
+                console_agents=console_agents,
                 exclude_agent_id=session.agent_id,
             )
             if errors:
@@ -619,10 +609,20 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                     status_code=400,
                     detail=f"Sub-agent validation failed: {'; '.join(errors)}"
                 )
-            custom_agents_sdk = resolve_selected_agents(
-                session.sub_agents, cwd, mcp_service=mcp_service,
-                console_agents=console_agents,
-            )
+
+        cfg = _resolve_session_config(session)
+        cwd = cfg["cwd"]
+        mcp_servers_sdk = cfg["mcp_servers"]
+        tools_sdk = cfg["tools"]
+        builtin_tools = cfg["available_tools"]
+        excluded_tools = cfg["excluded_tools"]
+        system_message = cfg["system_message"]
+        custom_agents_sdk = cfg["custom_agents"]
+
+        logger.info(f"[SSE] Loading {len(mcp_servers_sdk)} MCP servers for session {session_id}")
+        if tools_sdk:
+            logger.info(f"[SSE] Loading {len(tools_sdk)} custom tools for session {session_id}")
+        if custom_agents_sdk:
             logger.info(f"[SSE] Resolved {len(custom_agents_sdk)} sub-agents for session {session_id}")
 
     # Add user message to history

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from copilot_console.app.config import AGENTS_DIR, ensure_directories
 from copilot_console.app.models.agent import Agent, AgentCreate, AgentUpdate
+from copilot_console.app.services.storage_service import atomic_write
 
 if TYPE_CHECKING:
     from copilot_console.app.services.mcp_service import MCPService
@@ -43,8 +44,9 @@ class AgentStorageService:
         data = agent.model_dump()
         data["created_at"] = agent.created_at.isoformat()
         data["updated_at"] = agent.updated_at.isoformat()
-        self._agent_file(agent.id).write_text(
-            json.dumps(data, indent=2, default=str), encoding="utf-8"
+        atomic_write(
+            self._agent_file(agent.id),
+            json.dumps(data, indent=2, default=str),
         )
 
     def _ensure_id(self, data: dict, agent_file: Path) -> dict:

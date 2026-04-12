@@ -4,6 +4,7 @@ import json
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from copilot_console.app.config import PROJECTS_FILE
+from copilot_console.app.services.storage_service import atomic_write
 
 
 def _normalize_cwd(cwd: str) -> str:
@@ -34,7 +35,7 @@ def _load_projects() -> dict[str, str]:
 
 def _save_projects(mapping: dict[str, str]) -> None:
     """Persist cwd→name overrides to projects.json."""
-    PROJECTS_FILE.write_text(json.dumps(mapping, indent=2), encoding="utf-8")
+    atomic_write(PROJECTS_FILE, json.dumps(mapping, indent=2))
 
 
 def get_projects() -> dict[str, str]:

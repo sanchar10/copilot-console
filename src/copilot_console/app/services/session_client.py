@@ -1,0 +1,298 @@
+"""Per-session SDK client wrapper.
+
+Owns one CopilotClient instance per active chat session, managing its
+lifecycle (start, stop, create/resume session, RPC calls).
+"""
+
+import asyncio
+import time
+
+from copilot import CopilotClient, SubprocessConfig
+from copilot.tools import Tool
+from copilot.generated.rpc import (
+    Mode,
+    SessionModeSetParams,
+    SessionModelSwitchToParams,
+    SessionFleetStartParams,
+)
+
+# SDK >=0.1.28 requires on_permission_request for create/resume session.
+# Import approve_all if available, otherwise provide a fallback for older SDKs.
+try:
+    from copilot.session import PermissionHandler
+    approve_all_permissions = PermissionHandler.approve_all
+except (ImportError, AttributeError):
+    approve_all_permissions = None
+
+from copilot_console.app.services.logging_service import get_logger
+
+logger = get_logger(__name__)
+
+
+class SessionClient:
+    """Wrapper for a per-session CopilotClient with CWD."""
+
+    def __init__(self, session_id: str, cwd: str):
+        self.session_id = session_id
+        self.cwd = cwd
+        self.client: CopilotClient | None = None
+        self.session: object | None = None  # SDK session object
+        self.started = False
+        self.last_activity = time.time()
+        # Active event queue for elicitation handler to push events into
+        self.event_queue: asyncio.Queue | None = None
+
+    async def start(self) -> None:
+        """Start the client with CWD."""
+        if self.started:
+            return
+
+        self.client = CopilotClient(SubprocessConfig(cwd=self.cwd))
+        await self.client.start()
+        self.started = True
+        self.last_activity = time.time()
+        logger.debug(f"[{self.session_id}] Started per-session client with cwd={self.cwd}")
+
+    async def stop(self) -> None:
+        """Stop the client and destroy session."""
+        if not self.started or not self.client:
+            return
+
+        try:
+            if self.session:
+                await self.session.destroy()
+                self.session = None
+        except Exception as e:
+            logger.warning(f"[{self.session_id}] Error destroying session: {e}")
+
+        try:
+            await self.client.stop()
+        except Exception as e:
+            logger.warning(f"[{self.session_id}] Error stopping client: {e}")
+
+        self.client = None
+        self.started = False
+        logger.debug(f"[{self.session_id}] Stopped per-session client")
+
+    def touch(self) -> None:
+        """Update last activity timestamp."""
+        self.last_activity = time.time()
+
+    async def create_session(
+        self,
+        model: str,
+        mcp_servers: dict[str, dict] | None = None,
+        tools: list[Tool] | None = None,
+        available_tools: list[str] | None = None,
+        excluded_tools: list[str] | None = None,
+        system_message: dict | None = None,
+        custom_agents: list[dict] | None = None,
+        reasoning_effort: str | None = None,
+        on_elicitation_request=None,
+        on_user_input_request=None,
+    ) -> object:
+        """Create a new SDK session."""
+        await self.start()
+        assert self.client is not None
+
+        session_opts: dict = {
+            "session_id": self.session_id,
+            "model": model,
+            "streaming": True,
+        }
+
+        if approve_all_permissions:
+            session_opts["on_permission_request"] = approve_all_permissions
+
+        if on_elicitation_request:
+            session_opts["on_elicitation_request"] = on_elicitation_request
+            logger.debug(f"[{self.session_id}] Elicitation handler registered for session creation")
+
+        if on_user_input_request:
+            session_opts["on_user_input_request"] = on_user_input_request
+            logger.debug(f"[{self.session_id}] User input (ask_user) handler registered for session creation")
+
+        if mcp_servers:
+            session_opts["mcp_servers"] = mcp_servers
+
+        if tools:
+            session_opts["tools"] = tools
+
+        if available_tools:
+            session_opts["available_tools"] = available_tools
+        elif excluded_tools:
+            session_opts["excluded_tools"] = excluded_tools
+
+        if system_message:
+            session_opts["system_message"] = system_message
+
+        if custom_agents:
+            session_opts["custom_agents"] = custom_agents
+
+        if reasoning_effort:
+            session_opts["reasoning_effort"] = reasoning_effort
+
+        session_opts["working_directory"] = self.cwd
+
+        self.session = await asyncio.wait_for(
+            self.client.create_session(**session_opts),
+            timeout=30,
+        )
+        self.touch()
+        # Log capabilities to verify elicitation support
+        if hasattr(self.session, 'capabilities'):
+            logger.info(f"[{self.session_id}] Session capabilities: {self.session.capabilities}")
+        logger.debug(
+            f"[{self.session_id}] Created SDK session with model={model}, "
+            f"working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, "
+            f"tools={len(tools or [])}, system_message={'yes' if system_message else 'no'}, "
+            f"custom_agents={len(custom_agents or [])}"
+        )
+        return self.session
+
+    async def resume_session(
+        self,
+        mcp_servers: dict[str, dict] | None = None,
+        tools: list[Tool] | None = None,
+        available_tools: list[str] | None = None,
+        excluded_tools: list[str] | None = None,
+        system_message: dict | None = None,
+        custom_agents: list[dict] | None = None,
+        on_elicitation_request=None,
+        on_user_input_request=None,
+    ) -> object:
+        """Resume an existing SDK session."""
+        await self.start()
+        assert self.client is not None
+
+        try:
+            resume_opts: dict = {"streaming": True}
+            if approve_all_permissions:
+                resume_opts["on_permission_request"] = approve_all_permissions
+            if on_elicitation_request:
+                resume_opts["on_elicitation_request"] = on_elicitation_request
+            if on_user_input_request:
+                resume_opts["on_user_input_request"] = on_user_input_request
+            if mcp_servers:
+                resume_opts["mcp_servers"] = mcp_servers
+            if tools:
+                resume_opts["tools"] = tools
+            if available_tools:
+                resume_opts["available_tools"] = available_tools
+            elif excluded_tools:
+                resume_opts["excluded_tools"] = excluded_tools
+            if system_message:
+                resume_opts["system_message"] = system_message
+            if custom_agents:
+                resume_opts["custom_agents"] = custom_agents
+
+            resume_opts["working_directory"] = self.cwd
+
+            logger.debug(f"[{self.session_id}] Resuming SDK session with custom_agents={len(custom_agents or [])}")
+            self.session = await asyncio.wait_for(
+                self.client.resume_session(self.session_id, **resume_opts),
+                timeout=30,
+            )
+            self.touch()
+            logger.debug(f"[{self.session_id}] Resumed SDK session with mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}")
+            return self.session
+        except asyncio.TimeoutError:
+            logger.error(f"[{self.session_id}] Session resume timed out after 30s (MCP server may be unresponsive)")
+            raise RuntimeError(
+                f"Session activation timed out after 30s. "
+                f"An MCP server may be unresponsive. Try again or remove problematic MCP servers from this session."
+            )
+        except Exception as e:
+            logger.warning(f"[{self.session_id}] Could not resume session: {e}")
+            raise RuntimeError(f"Failed to resume session: {e}")
+
+    async def get_or_create_session(
+        self,
+        model: str,
+        mcp_servers: dict[str, dict] | None = None,
+        tools: list[Tool] | None = None,
+        available_tools: list[str] | None = None,
+        excluded_tools: list[str] | None = None,
+        system_message: dict | None = None,
+        is_new_session: bool = False,
+        custom_agents: list[dict] | None = None,
+        reasoning_effort: str | None = None,
+        on_elicitation_request=None,
+        on_user_input_request=None,
+    ) -> object:
+        """Get existing session or create/resume one."""
+        if self.session:
+            self.touch()
+            return self.session
+
+        if is_new_session:
+            logger.debug(f"[{self.session_id}] New session - creating")
+            try:
+                return await self.create_session(
+                    model, mcp_servers, tools, available_tools, excluded_tools,
+                    system_message, custom_agents, reasoning_effort,
+                    on_elicitation_request, on_user_input_request,
+                )
+            except asyncio.TimeoutError:
+                raise RuntimeError(
+                    f"Session creation timed out after 30s. "
+                    f"An MCP server may be unresponsive. Try again or remove problematic MCP servers from this session."
+                )
+
+        logger.debug(f"[{self.session_id}] Attempting to resume existing session")
+        session = await self.resume_session(
+            mcp_servers, tools, available_tools, excluded_tools,
+            system_message, custom_agents,
+            on_elicitation_request, on_user_input_request,
+        )
+        if session:
+            return session
+        raise RuntimeError(
+            f"Failed to resume session. The session may be corrupted or an MCP server may be unresponsive. "
+            f"Try again or remove problematic MCP servers from this session."
+        )
+
+    async def set_mode(self, mode: str) -> str:
+        """Set the agent mode (interactive/plan/autopilot) on the active session."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to set mode on")
+        result = await self.session.rpc.mode.set(SessionModeSetParams(mode=Mode(mode)))
+        self.touch()
+        logger.debug(f"[{self.session_id}] Mode set to {result.mode.value}")
+        return result.mode.value
+
+    async def set_model(self, model_id: str, reasoning_effort: str | None = None) -> str:
+        """Switch the model on the active session. Takes effect from the next message."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to set model on")
+        result = await self.session.rpc.model.switch_to(
+            SessionModelSwitchToParams(model_id=model_id, reasoning_effort=reasoning_effort)
+        )
+        self.touch()
+        logger.debug(f"[{self.session_id}] Model set to {result.model_id}")
+        return result.model_id or model_id
+
+    async def start_fleet(self, prompt: str | None = None) -> dict:
+        """Start fleet mode (parallel sub-agents) on the active session."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to start fleet on")
+        result = await self.session.rpc.fleet.start(SessionFleetStartParams(prompt=prompt))
+        self.touch()
+        logger.debug(f"[{self.session_id}] Fleet started: {result.started}")
+        return {"started": result.started}
+
+    async def compact(self) -> dict:
+        """Compact the session context (remove old messages to free tokens)."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to compact")
+        result = await self.session.rpc.compaction.compact()
+        self.touch()
+        logger.debug(
+            f"[{self.session_id}] Compact: success={result.success}, "
+            f"tokens_removed={result.tokens_removed}, messages_removed={result.messages_removed}"
+        )
+        return {
+            "success": result.success,
+            "tokens_removed": result.tokens_removed,
+            "messages_removed": result.messages_removed,
+        }

@@ -21,6 +21,7 @@ from copilot_console.app.models.workflow import (
     WorkflowRunStatus,
     WorkflowRunSummary,
 )
+from copilot_console.app.services.storage_service import atomic_write
 from copilot_console.app.workflow_config import WORKFLOW_RUNS_DIR, ensure_workflow_directories
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ class WorkflowRunService:
         self._save_to(self._run_file(run.id), run)
 
     def _save_to(self, target: Path, run: WorkflowRun) -> None:
-        target.write_text(self._serialize_run(run), encoding="utf-8")
+        atomic_write(target, self._serialize_run(run))
 
     def save_run(self, run: WorkflowRun) -> None:
         """Save a workflow run to the appropriate location based on status."""

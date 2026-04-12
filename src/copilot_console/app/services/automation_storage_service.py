@@ -10,6 +10,7 @@ from pathlib import Path
 
 from copilot_console.app.config import AUTOMATIONS_DIR, ensure_directories
 from copilot_console.app.models.automation import Automation, AutomationCreate, AutomationUpdate
+from copilot_console.app.services.storage_service import atomic_write
 
 
 class AutomationStorageService:
@@ -26,8 +27,9 @@ class AutomationStorageService:
         data = automation.model_dump()
         data["created_at"] = automation.created_at.isoformat()
         data["updated_at"] = automation.updated_at.isoformat()
-        self._automation_file(automation.id).write_text(
-            json.dumps(data, indent=2, default=str), encoding="utf-8"
+        atomic_write(
+            self._automation_file(automation.id),
+            json.dumps(data, indent=2, default=str),
         )
 
     def load_automation(self, automation_id: str) -> Automation | None:

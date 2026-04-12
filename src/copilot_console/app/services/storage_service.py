@@ -4,11 +4,23 @@ Only stores session name mappings and user settings - SDK handles all message hi
 """
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
 from copilot_console.app.config import DEFAULT_CWD, DEFAULT_MODEL, DEFAULT_WORKFLOW_STEP_TIMEOUT, METADATA_FILE, SESSIONS_DIR, SETTINGS_FILE, ensure_directories
 from copilot_console.app.models.session import Session
+
+
+def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
+    """Write *content* to *path* atomically via a temp file + os.replace().
+
+    This prevents data corruption if the process crashes mid-write.
+    The temp file is placed next to the target so os.replace() is same-filesystem.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding=encoding)
+    os.replace(str(tmp), str(path))
 
 
 class StorageService:
@@ -26,7 +38,7 @@ class StorageService:
                 "version": "1.0",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
-            METADATA_FILE.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+            atomic_write(METADATA_FILE, json.dumps(metadata, indent=2))
 
     def _init_settings(self) -> None:
         """Initialize settings file if it doesn't exist."""
@@ -35,7 +47,7 @@ class StorageService:
                 "default_model": DEFAULT_MODEL,
                 "default_cwd": DEFAULT_CWD,
             }
-            SETTINGS_FILE.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+            atomic_write(SETTINGS_FILE, json.dumps(settings, indent=2))
 
     def _session_dir(self, session_id: str) -> Path:
         """Get directory for a session."""
@@ -68,8 +80,9 @@ class StorageService:
             "trigger": session.trigger,
             "sub_agents": session.sub_agents,
         }
-        self._session_file(session.session_id).write_text(
-            json.dumps(session_data, indent=2, default=str), encoding="utf-8"
+        atomic_write(
+            self._session_file(session.session_id),
+            json.dumps(session_data, indent=2, default=str),
         )
 
     def load_session(self, session_id: str) -> dict | None:
@@ -84,8 +97,9 @@ class StorageService:
         """Save raw session metadata dict to disk (for direct updates)."""
         session_dir = self._session_dir(session_id)
         session_dir.mkdir(parents=True, exist_ok=True)
-        self._session_file(session_id).write_text(
-            json.dumps(data, indent=2, default=str), encoding="utf-8"
+        atomic_write(
+            self._session_file(session_id),
+            json.dumps(data, indent=2, default=str),
         )
 
     def list_all_sessions(self) -> list[dict]:
@@ -133,7 +147,7 @@ class StorageService:
         """Update user settings."""
         current = self.get_settings()
         current.update(settings)
-        SETTINGS_FILE.write_text(json.dumps(current, indent=2), encoding="utf-8")
+        atomic_write(SETTINGS_FILE, json.dumps(current, indent=2))
         return current
 
 

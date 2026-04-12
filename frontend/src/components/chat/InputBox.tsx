@@ -15,6 +15,7 @@ import { PinnedIcon } from './PinIcons';
 import { SlashCommandPalette } from './SlashCommandPalette';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
+import { fileIcon } from '../../utils/fileIcon';
 
 // Sessions whose backend SessionClient is confirmed ready.
 // Resets on page refresh — correct since backend clients are also destroyed.
@@ -61,21 +62,6 @@ interface InputBoxProps {
   prefillText?: string | null;
   /** Called after prefillText has been consumed (appended to input). */
   onPrefillConsumed?: () => void;
-}
-
-function fileIcon(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'ico'].includes(ext)) return '🖼️';
-  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return '🎬';
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)) return '🎵';
-  if (['pdf'].includes(ext)) return '📑';
-  if (['xls', 'xlsx', 'csv', 'tsv'].includes(ext)) return '📊';
-  if (['doc', 'docx', 'rtf', 'odt'].includes(ext)) return '📝';
-  if (['ppt', 'pptx'].includes(ext)) return '📽️';
-  if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) return '📦';
-  if (['js', 'ts', 'py', 'java', 'cpp', 'c', 'rs', 'go', 'rb', 'cs', 'sh', 'json', 'yaml', 'yml', 'xml', 'html', 'css'].includes(ext)) return '💻';
-  if (['md', 'txt', 'log'].includes(ext)) return '📃';
-  return '📄';
 }
 
 export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent, pinsCount, pinsOpen, onPinsToggle, prefillText, onPrefillConsumed }: InputBoxProps) {
@@ -655,6 +641,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         setStreaming(activeSessionId, false);
         setAgentActive(activeSessionId, false);
       }
+    } finally {
       setSending(null);
     }
   };

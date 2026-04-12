@@ -1,6 +1,7 @@
 import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 
 const App = lazy(() => import('./App.tsx'));
@@ -17,6 +18,7 @@ if ('serviceWorker' in navigator && window.location.pathname.startsWith('/mobile
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <ErrorBoundary>
     <BrowserRouter>
       <Suspense fallback={
         <div className="h-screen flex items-center justify-center bg-[#fafafa] dark:bg-[#1e1e2e]">
@@ -29,5 +31,6 @@ createRoot(document.getElementById('root')!).render(
         </Routes>
       </Suspense>
     </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )

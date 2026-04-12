@@ -12,6 +12,7 @@ from typing import Dict
 
 from copilot_console.app.config import APP_HOME
 from copilot_console.app.services.logging_service import get_logger
+from copilot_console.app.services.storage_service import atomic_write
 
 logger = get_logger(__name__)
 
@@ -50,8 +51,7 @@ class CompletionTimesService:
         """Save timestamps to disk."""
         try:
             APP_HOME.mkdir(parents=True, exist_ok=True)
-            with open(COMPLETION_TIMES_FILE, "w") as f:
-                json.dump(self._timestamps, f, indent=2)
+            atomic_write(COMPLETION_TIMES_FILE, json.dumps(self._timestamps, indent=2))
         except Exception as e:
             logger.error(f"Failed to save completion_times.json: {e}")
 

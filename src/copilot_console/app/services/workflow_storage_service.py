@@ -21,6 +21,7 @@ from copilot_console.app.models.workflow import (
     WorkflowMetadata,
     WorkflowUpdate,
 )
+from copilot_console.app.services.storage_service import atomic_write
 from copilot_console.app.workflow_config import WORKFLOWS_DIR, ensure_workflow_directories
 
 
@@ -91,7 +92,7 @@ class WorkflowStorageService:
             workflow_id = f"{workflow_id}-{counter}"
             yaml_file = self._yaml_file(workflow_id)
 
-        yaml_file.write_text(request.yaml_content, encoding="utf-8")
+        atomic_write(yaml_file, request.yaml_content)
 
         # Clean up any orphaned meta file with the same ID
         meta_file = WORKFLOWS_DIR / f"{workflow_id}.meta.json"
@@ -138,7 +139,7 @@ class WorkflowStorageService:
             return None
 
         if request.yaml_content is not None:
-            yaml_file.write_text(request.yaml_content, encoding="utf-8")
+            atomic_write(yaml_file, request.yaml_content)
         else:
             # Touch the file to update mtime even for metadata-only changes
             os.utime(yaml_file)

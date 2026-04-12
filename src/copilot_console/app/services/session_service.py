@@ -14,7 +14,7 @@ from copilot_console.app.models.session import Session, SessionCreate, SessionUp
 from copilot_console.app.models.agent import AgentTools
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.mcp_service import mcp_service
-from copilot_console.app.services.storage_service import storage_service
+from copilot_console.app.services.storage_service import storage_service, atomic_write
 from copilot_console.app.services.logging_service import get_logger
 
 logger = get_logger(__name__)
@@ -225,8 +225,9 @@ class SessionService:
                         stored_meta["name_set"] = False
                         try:
                             session_file = storage_service._session_file(session_id)
-                            session_file.write_text(
-                                json.dumps(stored_meta, indent=2, default=str), encoding="utf-8"
+                            atomic_write(
+                                session_file,
+                                json.dumps(stored_meta, indent=2, default=str),
                             )
                         except Exception:
                             pass  # Non-critical, name will be re-fetched next time
@@ -522,13 +523,6 @@ class SessionService:
                     return _clean_text(str(args)[:500])
             except Exception:
                 return _clean_text(str(args)[:500]) if args else None
-            if not text:
-                return text
-            # Replace literal \r\n and \n with actual newlines
-            text = text.replace('\\r\\n', '\n').replace('\\n', '\n').replace('\\r', '')
-            # Remove actual \r characters
-            text = text.replace('\r\n', '\n').replace('\r', '')
-            return text
 
         def _format_tool_output(data: object) -> str | None:
             """Format tool result for display."""
