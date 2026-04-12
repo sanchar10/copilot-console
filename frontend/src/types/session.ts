@@ -1,4 +1,5 @@
 import type { AgentTools, SystemMessage } from './agent';
+import type { ChatStep, Message } from './message';
 
 export interface Session {
   session_id: string;
@@ -21,19 +22,7 @@ export interface SessionWithMessages extends Session {
   messages: Message[];
 }
 
-export interface ChatStep {
-  title: string;
-  detail?: string;
-}
-
-export interface Message {
-  id: string;
-  sdk_message_id?: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  steps?: ChatStep[];
-}
+export type { ChatStep, Message };
 
 export interface CreateSessionRequest {
   model: string;

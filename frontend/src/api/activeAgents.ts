@@ -2,6 +2,8 @@
  * API for monitoring active agent sessions.
  */
 
+import { parseSSEStream } from '../utils/sseParser';
+
 const API_BASE = '/api';
 
 export interface ActiveAgentSession {
@@ -35,8 +37,14 @@ export async function getActiveAgents(): Promise<ActiveAgentsUpdate> {
   return response.json();
 }
 
+/** Max delay between reconnection attempts (30 seconds). */
+const MAX_RECONNECT_DELAY_MS = 30_000;
+/** Base delay for exponential backoff (1 second). */
+const BASE_RECONNECT_DELAY_MS = 1_000;
+
 /**
  * Subscribe to live updates of active agent sessions.
+ * Automatically reconnects with exponential backoff on connection loss.
  * Returns an AbortController to stop the subscription.
  */
 export function subscribeToActiveAgents(
@@ -45,7 +53,8 @@ export function subscribeToActiveAgents(
   onError: (error: string) => void
 ): AbortController {
   const controller = new AbortController();
-  
+  let attempt = 0;
+
   const connect = async () => {
     try {
       const response = await fetch(`${API_BASE}/sessions/active-agents/stream`, {
@@ -54,61 +63,46 @@ export function subscribeToActiveAgents(
       
       if (!response.ok) {
         onError('Failed to connect to active agents stream');
+        scheduleReconnect();
         return;
       }
       
       const reader = response.body?.getReader();
       if (!reader) {
         onError('No response body');
+        scheduleReconnect();
         return;
       }
-      
-      const decoder = new TextDecoder();
-      let buffer = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split(/\r?\n\r?\n/);
-        buffer = events.pop() || '';
-        
-        for (const event of events) {
-          const lines = event.split(/\r?\n/);
-          let eventName = '';
-          const dataLines: string[] = [];
-          
-          for (const line of lines) {
-            if (line.startsWith('event:')) {
-              eventName = line.replace(/^event:\s?/, '').trim();
-            } else if (line.startsWith('data:')) {
-              dataLines.push(line.replace(/^data:\s?/, ''));
-            }
-          }
-          
-          const eventData = dataLines.join('\n');
-          if (!eventData) continue;
-          
-          try {
-            const data = JSON.parse(eventData);
-            if (eventName === 'update') {
-              onUpdate(data);
-            } else if (eventName === 'completed') {
-              onCompleted(data.session_id, data.updated_at);
-            }
-          } catch (e) {
-            console.error('Failed to parse SSE data:', e);
-          }
+
+      // Connection succeeded — reset backoff
+      attempt = 0;
+
+      await parseSSEStream(reader, (eventName, data: any) => {
+        if (eventName === 'update') {
+          onUpdate(data);
+        } else if (eventName === 'completed') {
+          onCompleted(data.session_id, data.updated_at);
         }
-      }
+      });
+
+      // Stream ended normally — reconnect to keep listening
+      scheduleReconnect();
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {
-        // Normal cancellation
-        return;
+        return; // Normal cancellation
       }
       onError(e instanceof Error ? e.message : 'Unknown error');
+      scheduleReconnect();
     }
+  };
+
+  const scheduleReconnect = () => {
+    if (controller.signal.aborted) return;
+    const delay = Math.min(BASE_RECONNECT_DELAY_MS * 2 ** attempt, MAX_RECONNECT_DELAY_MS);
+    attempt++;
+    setTimeout(() => {
+      if (!controller.signal.aborted) connect();
+    }, delay);
   };
   
   connect();

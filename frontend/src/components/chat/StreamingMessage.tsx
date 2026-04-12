@@ -227,7 +227,7 @@ export function StreamingMessage({ content, steps, cwd }: StreamingMessageProps)
     stepsUserScrolledRef.current = !nearBottom;
   }, []);
 
-  const segments = splitSegments(content);
+  const segments = useMemo(() => splitSegments(content), [content]);
 
   return (
     <div className="flex gap-3">

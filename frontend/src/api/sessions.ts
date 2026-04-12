@@ -1,5 +1,7 @@
 import type { Session, SessionWithMessages, CreateSessionRequest, UpdateSessionRequest } from '../types/session';
+import type { ChatStep } from '../types/message';
 import type { SessionsResponse } from '../types/api';
+import { parseSSEStream } from '../utils/sseParser';
 
 const API_BASE = '/api';
 
@@ -245,92 +247,27 @@ export async function sendMessage(
     return;
   }
 
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      
-      // SSE events are separated by a blank line; handle both LF and CRLF
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop() || '';
-
-      for (const event of events) {
-        const lines = event.split(/\r?\n/);
-        let eventName = '';
-        const dataLines: string[] = [];
-
-        for (const line of lines) {
-          if (line.startsWith('event:')) {
-            eventName = line.replace(/^event:\s?/, '').trim();
-          } else if (line.startsWith('data:')) {
-            dataLines.push(line.replace(/^data:\s?/, ''));
-          }
-        }
-
-        const eventData = dataLines.join('\n');
-        if (!eventData) continue;
-
-        try {
-          const data = JSON.parse(eventData);
-          if (eventName === 'delta' && data.content !== undefined) {
-            onDelta(data.content);
-          } else if (eventName === 'step' && data.title) {
-            onStep(data);
-          } else if (eventName === 'usage_info' && data.tokenLimit !== undefined) {
-            onUsageInfo(data);
-          } else if (eventName === 'turn_done') {
-            onTurnDone?.(data.messageId);
-          } else if (eventName === 'done') {
-            // message_id may be undefined for buffer-based responses
-            // session_name is included when auto-naming kicks in
-            onDone(data.message_id || '', data.session_name);
-          } else if (eventName === 'error' && data.error !== undefined) {
-            onError(data.error);
-          } else if (eventName === 'mode_changed' && data.mode) {
-            onModeChanged?.(data.mode);
-          } else if (eventName === 'elicitation' && data.request_id) {
-            onElicitation?.(data as ElicitationRequest);
-          } else if (eventName === 'ask_user' && data.request_id) {
-            onAskUser?.(data as AskUserRequest);
-          }
-        } catch (e) {
-          console.error('Failed to parse SSE data:', eventData, e);
-        }
-      }
+  await parseSSEStream(reader, (eventName, data: any) => {
+    if (eventName === 'delta' && data.content !== undefined) {
+      onDelta(data.content);
+    } else if (eventName === 'step' && data.title) {
+      onStep(data);
+    } else if (eventName === 'usage_info' && data.tokenLimit !== undefined) {
+      onUsageInfo(data);
+    } else if (eventName === 'turn_done') {
+      onTurnDone?.(data.messageId);
+    } else if (eventName === 'done') {
+      onDone(data.message_id || '', data.session_name);
+    } else if (eventName === 'error' && data.error !== undefined) {
+      onError(data.error);
+    } else if (eventName === 'mode_changed' && data.mode) {
+      onModeChanged?.(data.mode);
+    } else if (eventName === 'elicitation' && data.request_id) {
+      onElicitation?.(data as ElicitationRequest);
+    } else if (eventName === 'ask_user' && data.request_id) {
+      onAskUser?.(data as AskUserRequest);
     }
-    
-    // Process any remaining buffer (best-effort)
-    if (buffer.trim()) {
-      const lines = buffer.split(/\r?\n/);
-      let eventName = '';
-      const dataLines: string[] = [];
-      for (const line of lines) {
-        if (line.startsWith('event:')) eventName = line.replace(/^event:\s?/, '').trim();
-        if (line.startsWith('data:')) dataLines.push(line.replace(/^data:\s?/, ''));
-      }
-      const eventData = dataLines.join('\n');
-      if (eventData) {
-        try {
-          const data = JSON.parse(eventData);
-          if (eventName === 'delta' && data.content !== undefined) onDelta(data.content);
-          if (eventName === 'step' && data.title) onStep(data);
-          if (eventName === 'turn_done') onTurnDone?.(data.messageId);
-          if (eventName === 'done') onDone(data.message_id || '', data.session_name);
-          if (eventName === 'elicitation' && data.request_id) onElicitation?.(data as ElicitationRequest);
-          if (eventName === 'ask_user' && data.request_id) onAskUser?.(data as AskUserRequest);
-        } catch {
-          // ignore
-        }
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
+  });
 }
 
 export interface ResponseStatus {
@@ -419,51 +356,15 @@ export async function resumeResponseStream(
     return;
   }
 
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split(/\r?\n\r?\n/);
-      buffer = events.pop() || '';
-
-      for (const event of events) {
-        const lines = event.split(/\r?\n/);
-        let eventName = '';
-        const dataLines: string[] = [];
-
-        for (const line of lines) {
-          if (line.startsWith('event:')) {
-            eventName = line.replace(/^event:\s?/, '').trim();
-          } else if (line.startsWith('data:')) {
-            dataLines.push(line.replace(/^data:\s?/, ''));
-          }
-        }
-
-        const eventData = dataLines.join('\n');
-        if (!eventData) continue;
-
-        try {
-          const data = JSON.parse(eventData);
-          if (eventName === 'delta' && data.content !== undefined) {
-            onDelta(data.content);
-          } else if (eventName === 'step' && data.title) {
-            onStep(data);
-          } else if (eventName === 'done') {
-            onDone();
-          } else if (eventName === 'error' && data.error !== undefined) {
-            onError(data.error);
-          }
-        } catch (e) {
-          console.error('Failed to parse SSE data:', eventData, e);
-        }
-      }
+  await parseSSEStream(reader, (eventName, data: any) => {
+    if (eventName === 'delta' && data.content !== undefined) {
+      onDelta(data.content);
+    } else if (eventName === 'step' && data.title) {
+      onStep(data);
+    } else if (eventName === 'done') {
+      onDone();
+    } else if (eventName === 'error' && data.error !== undefined) {
+      onError(data.error);
     }
-  } finally {
-    reader.releaseLock();
-  }
+  });
 }

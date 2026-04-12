@@ -1,11 +1,8 @@
 import { create } from 'zustand';
-import type { Message } from '../types/message';
+import type { Message, ChatStep } from '../types/message';
 import type { ElicitationRequest, AskUserRequest } from '../api/sessions';
 
-export interface ChatStep {
-  title: string;
-  detail?: string;
-}
+export type { ChatStep };
 
 export interface TokenUsage {
   tokenLimit: number;
