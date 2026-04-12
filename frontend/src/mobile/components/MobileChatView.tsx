@@ -632,7 +632,7 @@ function StepsAccordion({ steps }: { steps: ChatStep[] }) {
   if (parsed.length === 0) return null;
 
   return (
-    <div className="mt-2 border-t border-gray-200 dark:border-[#3a3a4e] pt-1.5">
+    <div className="mb-2 border-b border-gray-200 dark:border-[#3a3a4e] pb-1.5">
       <button
         onClick={() => setOpen(!open)}
         className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1"
