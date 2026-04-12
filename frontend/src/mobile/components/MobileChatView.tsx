@@ -380,6 +380,8 @@ export function MobileChatView() {
       messageAbortRef.current?.abort();
       messageAbortRef.current = null;
       eventSourceRef.current?.close();
+      setPendingAskUser(null);
+      setPendingElicitation(null);
       reloadMessages(sessionId);
     } catch (err) {
       console.error('Failed to abort:', err);
