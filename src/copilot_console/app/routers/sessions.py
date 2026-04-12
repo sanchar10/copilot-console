@@ -529,7 +529,7 @@ async def test_elicitation(session_id: str) -> dict:
     # Store a future so the response endpoint works
     loop = asyncio.get_event_loop()
     future = loop.create_future()
-    copilot_service._pending_elicitations[(session_id, request_id)] = future
+    copilot_service._elicitation_mgr._pending[(session_id, request_id)] = future
 
     evt = {"event": "elicitation", "data": elicitation_data}
 
@@ -771,7 +771,7 @@ async def get_response_status(session_id: str) -> dict:
     status = response_buffer_manager.get_status(session_id)
     
     # Check for pending ask_user/elicitation Futures
-    pending_keys = [k for k in copilot_service._pending_elicitations if k[0] == session_id]
+    pending_keys = [k for k in copilot_service._elicitation_mgr._pending if k[0] == session_id]
     if pending_keys:
         # Find the matching event data from the buffer
         buffer = response_buffer_manager._buffers.get(session_id)
