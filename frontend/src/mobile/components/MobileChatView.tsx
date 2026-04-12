@@ -46,6 +46,7 @@ export function MobileChatView() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
+  const sessionActivatedRef = useRef(false);
 
   // Pending ask_user / elicitation state
   const [pendingAskUser, setPendingAskUser] = useState<AskUserRequest | null>(null);
@@ -79,6 +80,7 @@ export function MobileChatView() {
         // Check if there's an active response to resume
         const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
         if (status.active) {
+          sessionActivatedRef.current = true;
           // Restore pending ask_user/elicitation card if present
           if (status.pending_input) {
             const evt = status.pending_input;
@@ -239,6 +241,8 @@ export function MobileChatView() {
       const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
 
       if (status.active) {
+        sessionActivatedRef.current = true;
+        setSending(false);
         // Enqueue to running agent
         await mobileApiClient.post(`/sessions/${sessionId}/enqueue`, {
           content,
@@ -278,6 +282,11 @@ export function MobileChatView() {
         };
 
         const processEvent = (eventText: string) => {
+          // Any SSE event confirms the session is active
+          if (!sessionActivatedRef.current) {
+            sessionActivatedRef.current = true;
+            setSending(false);
+          }
           const lines = eventText.split(/\r?\n/);
           let eventName = '';
           let eventData = '';
@@ -491,45 +500,84 @@ export function MobileChatView() {
       </div>
 
       {/* Input */}
-      <div className={`px-3 py-2 border-t safe-bottom ${streamingState.isStreaming && !pendingAskUser && !pendingElicitation ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40' : 'bg-white dark:bg-[#252536] border-gray-200 dark:border-[#3a3a4e]'}`}>
-        <div className="flex items-end gap-2 max-w-2xl mx-auto">
-          {streamingState.isStreaming && !pendingAskUser && !pendingElicitation ? (
-            <div className="flex-1 flex items-center gap-2 px-3 py-2.5">
-              <span className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </span>
-              <span className="text-sm text-amber-700 dark:text-amber-400">Thinking…</span>
-            </div>
-          ) : (
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder={pendingAskUser || pendingElicitation ? 'Respond above ↑' : 'Type a message...'}
-            rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            style={{ maxHeight: '120px' }}
-          />
-          )}
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || sending}
-            className="p-2.5 bg-blue-600 text-white rounded-xl disabled:opacity-40 flex-shrink-0"
-          >
+      {(() => {
+        const hasPendingInput = !!(pendingAskUser || pendingElicitation);
+        const isActivating = sending && !sessionActivatedRef.current;
+        const isThinking = streamingState.isStreaming && !hasPendingInput && !isActivating;
+        const inputBg = isActivating
+          ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+          : isThinking
+            ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40'
+            : 'bg-white dark:bg-[#252536] border-gray-200 dark:border-[#3a3a4e]';
+        const placeholder = isActivating
+          ? 'Activating session…'
+          : hasPendingInput
+            ? 'Respond above ↑'
+            : isThinking
+              ? 'Queue a follow-up…'
+              : 'Type a message...';
+        const sendDisabled = !input.trim() || isActivating || hasPendingInput;
+
+        return (
+          <div className={`px-3 py-2 border-t safe-bottom ${inputBg}`}>
+            <div className="flex items-end gap-2 max-w-2xl mx-auto">
+              {isActivating ? (
+                <div className="flex-1 flex items-center gap-2 px-3 py-2.5">
+                  <span className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Activating session…</span>
+                </div>
+              ) : isThinking ? (
+                <div className="flex-1 flex items-center gap-0">
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder={placeholder}
+                    rows={1}
+                    className="flex-1 resize-none rounded-xl border border-amber-200 dark:border-amber-700/40 bg-white/60 dark:bg-[#2a2a3c]/60 px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-amber-400 dark:placeholder-amber-500/70 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    style={{ maxHeight: '120px' }}
+                  />
+                </div>
+              ) : (
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={placeholder}
+                  rows={1}
+                  className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ maxHeight: '120px' }}
+                />
+              )}
+              <button
+                onClick={handleSend}
+                disabled={sendDisabled}
+                className="p-2.5 bg-blue-600 text-white rounded-xl disabled:opacity-40 flex-shrink-0"
+              >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
             </svg>
-          </button>
-        </div>
-      </div>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
