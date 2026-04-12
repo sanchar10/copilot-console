@@ -796,6 +796,9 @@ async def resume_response_stream(
                 while events_sent < len(buffer.ordered_events):
                     evt = buffer.ordered_events[events_sent]
                     events_sent += 1
+                    # Skip ask_user/elicitation events in replay
+                    if evt["event"] in ("ask_user", "elicitation"):
+                        continue
                     yield {
                         "event": evt["event"],
                         "data": json.dumps(evt["data"])
