@@ -563,9 +563,10 @@ export function MobileChatView() {
                       handleSend();
                     }
                   }}
+                  disabled={hasPendingInput}
                   placeholder={placeholder}
                   rows={1}
-                  className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`flex-1 resize-none rounded-xl border px-3 py-2.5 text-base focus:outline-none focus:ring-2 ${hasPendingInput ? 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 placeholder-gray-400 cursor-not-allowed' : 'border-gray-200 dark:border-[#3a3a4e] bg-gray-50 dark:bg-[#2a2a3c] text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-blue-500'}`}
                   style={{ maxHeight: '120px' }}
                 />
               )}
