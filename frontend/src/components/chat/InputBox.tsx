@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
-import { useChatStore } from '../../stores/chatStore';
+import { useChatStore, flushStreamingBuffer } from '../../stores/chatStore';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useViewedStore } from '../../stores/viewedStore';
@@ -16,25 +16,20 @@ import { fileIcon } from '../../utils/fileIcon';
 import { useFileUpload } from './useFileUpload';
 import { useSlashCommands } from './useSlashCommands';
 
-// Sessions whose backend SessionClient is confirmed ready.
-const readySessions = new Set<string>();
-
-// Per-session agent mode. Survives component mount/unmount.
-const sessionModes = new Map<string, AgentMode>();
-
+// Sessions whose backend SessionClient is confirmed ready — now in chatStore.
+// Legacy helpers re-exported for backward compatibility with tests and TabBar.
 export function clearReadySession(sessionId: string) {
-  readySessions.delete(sessionId);
-  sessionModes.delete(sessionId);
+  useChatStore.getState().clearSessionState(sessionId);
 }
 
 /** @internal — test-only */
 export function isSessionReady(sessionId: string): boolean {
-  return readySessions.has(sessionId);
+  return useChatStore.getState().isSessionReady(sessionId);
 }
 
 /** @internal — test-only */
 export function markSessionReady(sessionId: string): void {
-  readySessions.add(sessionId);
+  useChatStore.getState().markSessionReady(sessionId);
 }
 
 interface InputBoxProps {
@@ -66,6 +61,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     addMessage, appendStreamingContent, addStreamingStep, setTokenUsage,
     finalizeTurn, setElicitation, clearElicitation, setAskUser, clearAskUser,
     pendingAskUser, pendingElicitation,
+    isSessionReady: isSessionReadyFn, markSessionReady: markSessionReadyFn,
+    setSessionMode: setSessionModeStore, getSessionMode,
   } = useChatStore();
 
   const { isStreaming, latestIntent } = getStreamingState(sessionId || null);
@@ -73,37 +70,37 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   const isSending = sendingSessionId === sessionId;
   const isDisabled = isSending;
 
-  // Agent mode — persisted in module-level map
+  // Agent mode — persisted in Zustand store
   const [sessionMode, setSessionMode_] = useState<AgentMode>(
-    () => (sessionId ? sessionModes.get(sessionId) : undefined) ?? 'interactive'
+    () => (sessionId ? getSessionMode(sessionId) as AgentMode : undefined) ?? 'interactive'
   );
   const currentMode: AgentMode = isNewSession
     ? (newSessionSettings?.agentMode as AgentMode) || 'interactive'
     : sessionMode;
 
   useEffect(() => {
-    setSessionMode_(sessionId ? sessionModes.get(sessionId) ?? 'interactive' : 'interactive');
-  }, [sessionId]);
+    setSessionMode_(sessionId ? (getSessionMode(sessionId) as AgentMode) ?? 'interactive' : 'interactive');
+  }, [sessionId, getSessionMode]);
 
   const handleModeChange = useCallback(async (newMode: AgentMode) => {
     if (isNewSession) {
       useSessionStore.getState().updateNewSessionSettings({ agentMode: newMode });
     } else if (sessionId) {
       setSessionMode_(newMode);
-      sessionModes.set(sessionId, newMode);
+      setSessionModeStore(sessionId, newMode);
       try {
         const result = await updateRuntimeSettings(sessionId, { mode: newMode });
         const confirmed = (result.mode ?? newMode) as AgentMode;
         setSessionMode_(confirmed);
-        sessionModes.set(sessionId, confirmed);
-        readySessions.add(sessionId);
+        setSessionModeStore(sessionId, confirmed);
+        markSessionReadyFn(sessionId);
       } catch (err) {
         console.error('Failed to set mode:', err);
         setSessionMode_(sessionMode);
-        sessionModes.set(sessionId, sessionMode);
+        setSessionModeStore(sessionId, sessionMode);
       }
     }
-  }, [isNewSession, sessionId, sessionMode]);
+  }, [isNewSession, sessionId, sessionMode, setSessionModeStore, markSessionReadyFn]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -207,7 +204,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         });
         if (pendingAgentMode && pendingAgentMode !== 'interactive') {
           initialAgentMode = pendingAgentMode;
-          sessionModes.set(session.session_id, pendingAgentMode as AgentMode);
+          setSessionModeStore(session.session_id, pendingAgentMode);
         }
         addSession(session);
         openGenericTab({ id: tabId.session(session.session_id), type: 'session', label: session.session_name, sessionId: session.session_id });
@@ -237,7 +234,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     }
 
     // Activation lock
-    const needsLock = !readySessions.has(activeSessionId);
+    const needsLock = !isSessionReadyFn(activeSessionId);
     if (needsLock) setSending(activeSessionId);
 
     const resolvedPrompt = trimmedInput || (pendingAttachments.length > 0 ? 'See attached file(s).' : '');
@@ -260,7 +257,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     const clearSendingOnce = () => {
       if (!sendingCleared) {
         if (activationTimer) clearTimeout(activationTimer);
-        readySessions.add(activeSessionId!);
+        markSessionReadyFn(activeSessionId!);
         setSending(null);
         sendingCleared = true;
       }
@@ -291,6 +288,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         (usage) => { setTokenUsage(activeSessionId!, usage); },
         (_messageId, sessionName) => {
           if (activationTimer) clearTimeout(activationTimer);
+          flushStreamingBuffer(activeSessionId!);
           setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false);
           if (sessionName && activeSessionId) updateSessionName(activeSessionId, sessionName);
           updateSessionTimestamp(activeSessionId!);
@@ -304,11 +302,11 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             );
           }
         },
-        (error) => { if (activationTimer) clearTimeout(activationTimer); console.error('Message error:', error); setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false); },
+        (error) => { if (activationTimer) clearTimeout(activationTimer); flushStreamingBuffer(activeSessionId!); console.error('Message error:', error); setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false); },
         isCreatingNewSession, undefined,
-        (messageId?: string) => { finalizeTurn(activeSessionId!, messageId); },
+        (messageId?: string) => { flushStreamingBuffer(activeSessionId!); finalizeTurn(activeSessionId!, messageId); },
         pendingAttachments.length > 0 ? pendingAttachments : undefined,
-        (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) sessionModes.set(activeSessionId, mode as AgentMode); },
+        (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) setSessionModeStore(activeSessionId, mode); },
         initialAgentMode, isFleet,
         (data) => {
           if (activeSessionId) {

@@ -89,7 +89,7 @@ describe('chatStore', () => {
       useChatStore.getState().setStreaming('s1', true);
       useChatStore.getState().appendStreamingContent('s1', 'a');
       useChatStore.getState().appendStreamingContent('s1', 'b');
-      expect(useChatStore.getState().streamingPerSession['s1'].content).toBe('ab');
+      expect(useChatStore.getState().getStreamingState('s1').content).toBe('ab');
     });
   });
 

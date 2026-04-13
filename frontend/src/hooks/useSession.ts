@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useSessionStore } from '../stores/sessionStore';
-import { useChatStore } from '../stores/chatStore';
+import { useChatStore, flushStreamingBuffer } from '../stores/chatStore';
 import { useViewedStore } from '../stores/viewedStore';
 import { getSession, connectSession, getResponseStatus, resumeResponseStream } from '../api/sessions';
 
@@ -40,7 +40,8 @@ export function useSession() {
             }
           },
           () => {
-            // On done - finalize without message ID (SDK already saved it)
+            // On done - flush any buffered deltas, then finalize
+            flushStreamingBuffer(id);
             finalizeStreaming(id, '');
             setAgentActive(id, false);
             // Update the session timestamp in the store
@@ -52,6 +53,7 @@ export function useSession() {
           },
           (error) => {
             console.error('[Session] Resume stream error:', error);
+            flushStreamingBuffer(id);
             setStreaming(id, false);
             setAgentActive(id, false);
           },

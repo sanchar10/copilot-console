@@ -134,10 +134,10 @@ describe('InputBox integration — activation lock lifecycle', () => {
     // 8. Session should be back in the ready set
     expect(isSessionReady('session-1')).toBe(true);
 
-    // 9. The store reflects the streaming content
+    // 9. The store reflects the streaming content (via getter which includes buffered deltas)
     const state = useChatStore.getState();
     expect(state.sendingSessionId).toBeNull();
-    expect(state.streamingPerSession['session-1']?.content).toBe('Hi there!');
+    expect(state.getStreamingState('session-1').content).toBe('Hi there!');
 
     // Cleanup: finish the held promise so handleSubmit completes
     act(() => {

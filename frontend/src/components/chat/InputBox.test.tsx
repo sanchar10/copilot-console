@@ -4,8 +4,36 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 // --- Mutable mock state ---
 let mockChatState: Record<string, unknown> = {};
 
+// Store for readySessions / sessionModes (used by clearReadySession, isSessionReady, markSessionReady)
+let mockReadySessions = new Set<string>();
+let mockSessionModes: Record<string, string> = {};
+
 vi.mock('../../stores/chatStore', () => ({
-  useChatStore: () => mockChatState,
+  useChatStore: Object.assign(
+    () => mockChatState,
+    {
+      getState: () => ({
+        ...mockChatState,
+        readySessions: mockReadySessions,
+        sessionModes: mockSessionModes,
+        isSessionReady: (id: string) => mockReadySessions.has(id),
+        getSessionMode: (id: string) => mockSessionModes[id],
+        markSessionReady: (id: string) => { mockReadySessions = new Set([...mockReadySessions, id]); },
+        setSessionMode: (id: string, mode: string) => { mockSessionModes = { ...mockSessionModes, [id]: mode }; },
+        clearSessionState: (id: string) => {
+          const next = new Set(mockReadySessions);
+          next.delete(id);
+          mockReadySessions = next;
+          const modes = { ...mockSessionModes };
+          delete modes[id];
+          mockSessionModes = modes;
+        },
+        flushStreamingBuffer: vi.fn(),
+      }),
+      setState: vi.fn(),
+    },
+  ),
+  flushStreamingBuffer: vi.fn(),
 }));
 
 vi.mock('../../stores/sessionStore', () => ({
@@ -49,6 +77,8 @@ vi.mock('../../api/sessions', () => ({
 import { InputBox, clearReadySession, isSessionReady, markSessionReady } from './InputBox';
 
 function setupChat(overrides?: Partial<typeof mockChatState>) {
+  mockReadySessions = new Set<string>();
+  mockSessionModes = {};
   mockChatState = {
     sendingSessionId: null,
     getStreamingState: () => ({ isStreaming: false, latestIntent: null }),
@@ -64,6 +94,12 @@ function setupChat(overrides?: Partial<typeof mockChatState>) {
     setAskUser: vi.fn(),
     pendingAskUser: {},
     pendingElicitation: {},
+    isSessionReady: (id: string) => mockReadySessions.has(id),
+    getSessionMode: (id: string) => mockSessionModes[id],
+    markSessionReady: (id: string) => { mockReadySessions = new Set([...mockReadySessions, id]); },
+    setSessionMode: vi.fn(),
+    clearSessionState: vi.fn(),
+    flushStreamingBuffer: vi.fn(),
     ...overrides,
   };
 }
@@ -144,9 +180,7 @@ describe('InputBox — per-session sending lock', () => {
 
 describe('clearReadySession', () => {
   beforeEach(() => {
-    // Ensure clean state — clear any leftovers from prior tests
-    clearReadySession('sess-1');
-    clearReadySession('sess-2');
+    setupChat();
   });
 
   it('removes a session from the ready set', () => {

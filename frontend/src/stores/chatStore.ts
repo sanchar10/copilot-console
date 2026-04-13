@@ -25,6 +25,13 @@ export interface ResolvedElicitation {
   values?: Record<string, unknown>;
 }
 
+/** Batch window for SSE delta updates (ms). */
+export const DELTA_BATCH_MS = 50;
+
+// --- SSE delta buffer (module-level, NOT in Zustand state) ---
+const deltaBuffers: Record<string, string[]> = {};
+const flushTimers: Record<string, ReturnType<typeof setTimeout>> = {};
+
 interface ChatState {
   // Messages stored per session
   messagesPerSession: Record<string, Message[]>;
@@ -41,9 +48,15 @@ interface ChatState {
   // Ask user state per session
   pendingAskUser: Record<string, AskUserRequest | null>;
 
+  // Session readiness & mode tracking (moved from module-level singletons)
+  readySessions: Set<string>;
+  sessionModes: Record<string, string>;
+
   // Getters
   getStreamingState: (sessionId: string | null) => StreamingState;
   getTokenUsage: (sessionId: string | null) => TokenUsage | null;
+  isSessionReady: (sessionId: string) => boolean;
+  getSessionMode: (sessionId: string) => string | undefined;
 
   // Setters
   setMessages: (sessionId: string, messages: Message[]) => void;
@@ -59,6 +72,14 @@ interface ChatState {
   clearSessionMessages: (sessionId: string) => void;
   clearAllMessages: () => void;
 
+  // Session readiness & mode
+  markSessionReady: (sessionId: string) => void;
+  setSessionMode: (sessionId: string, mode: string) => void;
+  clearSessionState: (sessionId: string) => void;
+
+  // SSE delta batching
+  flushStreamingBuffer: (sessionId: string) => void;
+
   // Elicitation
   setElicitation: (sessionId: string, data: ElicitationRequest) => void;
   clearElicitation: (sessionId: string) => void;
@@ -71,6 +92,40 @@ interface ChatState {
 
 const emptyStreamingState: StreamingState = { content: '', steps: [], isStreaming: false, latestIntent: null };
 
+/**
+ * Flush buffered SSE deltas for a session into a single Zustand setState call.
+ * Called automatically after DELTA_BATCH_MS, or immediately on 'done' / cleanup.
+ */
+export function flushStreamingBuffer(sessionId: string): void {
+  const timer = flushTimers[sessionId];
+  if (timer) {
+    clearTimeout(timer);
+    delete flushTimers[sessionId];
+  }
+  const buf = deltaBuffers[sessionId];
+  if (!buf || buf.length === 0) return;
+  const flushed = buf.join('');
+  deltaBuffers[sessionId] = [];
+  useChatStore.setState((state) => {
+    const current = state.streamingPerSession[sessionId] || emptyStreamingState;
+    return {
+      streamingPerSession: {
+        ...state.streamingPerSession,
+        [sessionId]: { ...current, content: current.content + flushed },
+      },
+    };
+  });
+}
+
+/** Clear any pending delta buffer and timer for a session (cleanup). */
+function clearDeltaBuffer(sessionId: string): void {
+  if (flushTimers[sessionId]) {
+    clearTimeout(flushTimers[sessionId]);
+    delete flushTimers[sessionId];
+  }
+  delete deltaBuffers[sessionId];
+}
+
 export const useChatStore = create<ChatState>((set, get) => ({
   messagesPerSession: {},
   streamingPerSession: {},
@@ -79,16 +134,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pendingElicitation: {},
   resolvedElicitations: {},
   pendingAskUser: {},
+  readySessions: new Set<string>(),
+  sessionModes: {},
 
   getStreamingState: (sessionId) => {
     if (!sessionId) return emptyStreamingState;
-    return get().streamingPerSession[sessionId] || emptyStreamingState;
+    const stored = get().streamingPerSession[sessionId] || emptyStreamingState;
+    // Include any buffered but unflushed deltas for accurate reads
+    const buf = deltaBuffers[sessionId];
+    if (buf && buf.length > 0) {
+      return { ...stored, content: stored.content + buf.join('') };
+    }
+    return stored;
   },
 
   getTokenUsage: (sessionId) => {
     if (!sessionId) return null;
     return get().tokenUsagePerSession[sessionId] || null;
   },
+
+  isSessionReady: (sessionId) => get().readySessions.has(sessionId),
+
+  getSessionMode: (sessionId) => get().sessionModes[sessionId],
 
   setMessages: (sessionId, messages) =>
     set((state) => ({
@@ -106,16 +173,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
     })),
 
-  appendStreamingContent: (sessionId, content) =>
-    set((state) => {
-      const current = state.streamingPerSession[sessionId] || emptyStreamingState;
-      return {
-        streamingPerSession: {
-          ...state.streamingPerSession,
-          [sessionId]: { ...current, content: current.content + content },
-        },
-      };
-    }),
+  appendStreamingContent: (sessionId, content) => {
+    // Buffer deltas and flush on a timer for batching
+    if (!deltaBuffers[sessionId]) deltaBuffers[sessionId] = [];
+    deltaBuffers[sessionId].push(content);
+    if (!flushTimers[sessionId]) {
+      flushTimers[sessionId] = setTimeout(() => flushStreamingBuffer(sessionId), DELTA_BATCH_MS);
+    }
+  },
 
   addStreamingStep: (sessionId, step) =>
     set((state) => {
@@ -149,7 +214,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { tokenUsagePerSession: newTokenUsage };
     }),
 
-  finalizeStreaming: (sessionId, messageId) =>
+  finalizeStreaming: (sessionId, messageId) => {
+    flushStreamingBuffer(sessionId);
     set((state) => {
       const streaming = state.streamingPerSession[sessionId] || emptyStreamingState;
       const newStreamingPerSession = { ...state.streamingPerSession };
@@ -174,9 +240,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         streamingPerSession: newStreamingPerSession,
       };
-    }),
+    });
+  },
 
-  finalizeTurn: (sessionId, messageId) =>
+  finalizeTurn: (sessionId, messageId) => {
+    flushStreamingBuffer(sessionId);
     set((state) => {
       const streaming = state.streamingPerSession[sessionId] || emptyStreamingState;
       if (!streaming.content.trim()) return state;
@@ -216,11 +284,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [sessionId]: { content: '', steps: [], isStreaming: true, latestIntent: null },
         },
       };
-    }),
+    });
+  },
 
   setStreaming: (sessionId, isStreaming) =>
     set((state) => {
       if (isStreaming) {
+        clearDeltaBuffer(sessionId);
         return {
           streamingPerSession: {
             ...state.streamingPerSession,
@@ -228,6 +298,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
         };
       } else {
+        clearDeltaBuffer(sessionId);
         const newStreamingPerSession = { ...state.streamingPerSession };
         delete newStreamingPerSession[sessionId];
         return { streamingPerSession: newStreamingPerSession };
@@ -236,7 +307,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setSending: (sessionId) => set({ sendingSessionId: sessionId }),
 
-  clearSessionMessages: (sessionId) =>
+  clearSessionMessages: (sessionId) => {
+    clearDeltaBuffer(sessionId);
     set((state) => {
       const newMessages = { ...state.messagesPerSession };
       delete newMessages[sessionId];
@@ -250,6 +322,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       delete newResolvedElicitations[sessionId];
       const newPendingAskUser = { ...state.pendingAskUser };
       delete newPendingAskUser[sessionId];
+      const newReadySessions = new Set(state.readySessions);
+      newReadySessions.delete(sessionId);
+      const newSessionModes = { ...state.sessionModes };
+      delete newSessionModes[sessionId];
       return {
         messagesPerSession: newMessages,
         streamingPerSession: newStreaming,
@@ -257,10 +333,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
         pendingElicitation: newPendingElicitation,
         resolvedElicitations: newResolvedElicitations,
         pendingAskUser: newPendingAskUser,
+        readySessions: newReadySessions,
+        sessionModes: newSessionModes,
       };
-    }),
+    });
+  },
 
   clearAllMessages: () => set({ messagesPerSession: {}, streamingPerSession: {}, tokenUsagePerSession: {} }),
+
+  markSessionReady: (sessionId) =>
+    set((state) => {
+      const updated = new Set(state.readySessions);
+      updated.add(sessionId);
+      return { readySessions: updated };
+    }),
+
+  setSessionMode: (sessionId, mode) =>
+    set((state) => ({
+      sessionModes: { ...state.sessionModes, [sessionId]: mode },
+    })),
+
+  clearSessionState: (sessionId) => {
+    clearDeltaBuffer(sessionId);
+    set((state) => {
+      const newReadySessions = new Set(state.readySessions);
+      newReadySessions.delete(sessionId);
+      const newSessionModes = { ...state.sessionModes };
+      delete newSessionModes[sessionId];
+      return { readySessions: newReadySessions, sessionModes: newSessionModes };
+    });
+  },
+
+  flushStreamingBuffer: (sessionId) => {
+    flushStreamingBuffer(sessionId);
+  },
 
   setElicitation: (sessionId, data) =>
     set((state) => ({
