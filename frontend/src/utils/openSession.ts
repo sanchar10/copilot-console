@@ -142,9 +142,7 @@ export async function openSessionTab(session: Session): Promise<void> {
   } catch (err) {
     console.error('Failed to load session:', err);
     setMessages(sessionId, []);
-    useToastStore.getState().addToast(
-      err instanceof Error ? err.message : 'Could not load session',
-      'error',
-    );
+    const msg = err instanceof TypeError ? 'Server unavailable — could not load session' : (err instanceof Error ? err.message : 'Could not load session');
+    useToastStore.getState().addToast(msg, 'error');
   }
 }

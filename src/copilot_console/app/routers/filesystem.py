@@ -141,13 +141,14 @@ async def open_with(request: OpenWithRequest) -> dict:
                 subprocess.Popen(["code", str(cwd)])
         elif request.target == "terminal":
             if system == "Windows":
-                # Prefer PowerShell 7 (pwsh), fall back to Windows PowerShell
                 import shutil
                 shell = shutil.which("pwsh") or shutil.which("powershell") or "cmd"
                 if "pwsh" in shell or "powershell" in shell:
-                    subprocess.Popen(["cmd", "/c", "start", shell, "-NoExit", "-WorkingDirectory", str(cwd)])
+                    subprocess.Popen([shell, "-NoExit", "-Command", f"Set-Location '{cwd}'"],
+                                     creationflags=subprocess.CREATE_NEW_CONSOLE)
                 else:
-                    subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", f"cd /d {cwd}"])
+                    subprocess.Popen(["cmd", "/k", f"cd /d {cwd}"],
+                                     creationflags=subprocess.CREATE_NEW_CONSOLE)
             elif system == "Darwin":
                 subprocess.Popen(["open", "-a", "Terminal", str(cwd)])
             else:

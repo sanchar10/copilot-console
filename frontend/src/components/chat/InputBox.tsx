@@ -213,7 +213,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         activeSessionId = session.session_id;
       } catch (err) {
         console.error('Failed to create session:', err);
-        useToastStore.getState().addToast(err instanceof Error ? err.message : 'Failed to create session', 'error');
+        const msg = err instanceof TypeError ? 'Server unavailable — could not create session' : (err instanceof Error ? err.message : 'Failed to create session');
+        useToastStore.getState().addToast(msg, 'error');
         setSending(null);
         return;
       }
@@ -303,7 +304,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             );
           }
         },
-        onError: (error) => { if (activationTimer) clearTimeout(activationTimer); flushStreamingBuffer(activeSessionId!); console.error('Message error:', error); useToastStore.getState().addToast(typeof error === 'string' ? error : 'Failed to send message', 'error'); setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false); },
+        onError: (error) => { if (activationTimer) clearTimeout(activationTimer); flushStreamingBuffer(activeSessionId!); console.error('Message error:', error); useToastStore.getState().addToast(typeof error === 'string' ? error : 'Message failed — server error', 'error'); setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false); },
         isNewSession: isCreatingNewSession,
         onTurnDone: (messageId?: string) => { flushStreamingBuffer(activeSessionId!); finalizeTurn(activeSessionId!, messageId); },
         attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
@@ -334,7 +335,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     } catch (err) {
       if (activationTimer) clearTimeout(activationTimer);
       console.error('Failed to send message:', err);
-      useToastStore.getState().addToast(err instanceof Error ? err.message : 'Failed to send message', 'error');
+      const msg = err instanceof TypeError ? 'Server unavailable — message not sent' : (err instanceof Error ? err.message : 'Failed to send message');
+      useToastStore.getState().addToast(msg, 'error');
       if (activeSessionId) { setStreaming(activeSessionId, false); setAgentActive(activeSessionId, false); }
     } finally { setSending(null); }
   };
