@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from copilot_console.app.config import API_PREFIX, ensure_directories
-from copilot_console.app.routers import agents, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, workflows, pins, cli_hooks, search
+from copilot_console.app.routers import agents, auth, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, workflows, pins, cli_hooks, search
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.response_buffer import response_buffer_manager
 from copilot_console.app.services.task_runner_service import TaskRunnerService
@@ -143,6 +143,7 @@ app.add_middleware(TokenAuthMiddleware)
 
 # Include routers
 app.include_router(agents.router, prefix=API_PREFIX)
+app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(filesystem.router, prefix=API_PREFIX)
 app.include_router(logs.router, prefix=API_PREFIX)
 app.include_router(mcp.router, prefix=API_PREFIX)

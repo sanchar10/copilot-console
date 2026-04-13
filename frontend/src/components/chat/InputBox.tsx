@@ -6,6 +6,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
 import { useToastStore } from '../../stores/toastStore';
+import { useAuthStore } from '../../stores/authStore';
 import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings } from '../../api/sessions';
 import { scheduleDesktopNotification, playUnreadTone } from '../../utils/desktopNotifications';
 import { openSessionTab } from '../../utils/openSession';
@@ -147,6 +148,11 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   // --- Core submit logic (kept inline — too many closure deps to extract safely) ---
   const handleSubmit = async (overrideText?: string) => {
     const trimmedInput = (overrideText || input).trim();
+
+    // Warn if no auth is configured (non-blocking — message still sends)
+    if (!useAuthStore.getState().status.authenticated) {
+      useToastStore.getState().addToast('No auth configured — check Settings to connect a provider', 'warning');
+    }
 
     // Slash command dispatch
     let isFleet = false;

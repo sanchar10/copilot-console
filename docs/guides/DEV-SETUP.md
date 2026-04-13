@@ -96,6 +96,15 @@ If the command is not in PATH, run via Python module:
 python -m copilot_console.cli
 ```
 
+### Authentication
+
+Auth is handled in the app UI — the app always opens, no login required upfront. When you first send a message, the UI will prompt you to authenticate if needed.
+
+For CLI-based auth (optional convenience):
+```bash
+copilot-console login
+```
+
 ## Common Issues
 
 | Issue | Cause | Fix |

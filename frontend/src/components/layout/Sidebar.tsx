@@ -18,6 +18,7 @@ import { withRetry } from '../../utils/retry';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
 import { SearchModal } from '../search/SearchModal';
+import { useAuthStore, type AuthStatus } from '../../stores/authStore';
 
 export function Sidebar() {
   const { sessions, setSessions, startNewSession, setLoading, setError } = useSessionStore();
@@ -32,6 +33,8 @@ export function Sidebar() {
   const projects = useProjectStore(s => s.projects);
   const [searchOpen, setSearchOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
+  const authStatus = useAuthStore(s => s.status);
+  const setAuthStatus = useAuthStore(s => s.setStatus);
 
   // Inline helper that uses current projects state for reactivity
   const getProjectName = (cwd: string): string => {
@@ -128,6 +131,10 @@ export function Sidebar() {
     apiClient.get<{ current_version: string }>('/settings/update-check')
       .then(info => setAppVersion(info.current_version))
       .catch(() => {});
+    // Fetch auth status (non-blocking, graceful fallback)
+    apiClient.get<AuthStatus>('/auth/status')
+      .then(status => setAuthStatus(status))
+      .catch(() => setAuthStatus({ authenticated: false }));
   }, [setSessions, setAvailableModels, setDefaultModel, setDefaultReasoningEffort, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
 
   const handleNewSession = async () => {
@@ -315,6 +322,26 @@ export function Sidebar() {
 
       {/* User Settings Footer - sticky at bottom */}
       <div className="sticky bottom-0 p-2 border-t border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#252536]">
+        {/* Auth indicator */}
+        <button
+          onClick={() => { /* TODO: open auth settings panel */ }}
+          className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-[#32324a] transition-colors"
+          title={authStatus.authenticated ? `Authenticated via ${authStatus.provider || 'unknown'}` : 'No auth configured'}
+        >
+          {authStatus.authenticated ? (
+            <>
+              <span className="text-sm text-emerald-600 dark:text-emerald-400">🔒</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {authStatus.provider || 'Auth'}{authStatus.username ? ` (${authStatus.username})` : ''}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-sm text-amber-600 dark:text-amber-400">🔓</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">No auth</span>
+            </>
+          )}
+        </button>
         <button
           onClick={openSettingsModal}
           title={`Settings${appVersion ? ` · v${appVersion}` : ''}`}

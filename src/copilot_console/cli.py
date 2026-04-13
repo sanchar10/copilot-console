@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import subprocess
 import sys
 import webbrowser
 from pathlib import Path
@@ -63,6 +64,14 @@ def main():
         prog="copilot-console",
         description="Copilot Console - A feature-rich console for GitHub Copilot agents",
     )
+    subparsers = parser.add_subparsers(dest="command")
+
+    # login subcommand — convenience, NOT required
+    login_parser = subparsers.add_parser(
+        "login",
+        help="Authenticate with GitHub Copilot (optional convenience — auth is handled in the app UI)",
+    )
+
     parser.add_argument(
         "--port", "-p",
         type=int,
@@ -101,6 +110,10 @@ def main():
     )
     
     args = parser.parse_args()
+
+    # Handle login subcommand
+    if args.command == "login":
+        return _run_copilot_login()
     
     if args.version:
         from copilot_console import __version__
@@ -172,6 +185,24 @@ def main():
             tunnel_proc.terminate()
     
     return 0
+
+
+def _run_copilot_login():
+    """Run the bundled Copilot CLI login flow."""
+    try:
+        import copilot
+        copilot_bin = Path(copilot.__file__).parent / "bin" / ("copilot.exe" if sys.platform == "win32" else "copilot")
+        if not copilot_bin.exists():
+            print("  ⚠ Bundled Copilot CLI not found. Try: copilot login")
+            return 1
+        result = subprocess.run([str(copilot_bin), "login"])
+        return result.returncode
+    except ImportError:
+        print("  ⚠ github-copilot-sdk not installed. Cannot run login.")
+        return 1
+    except Exception as e:
+        print(f"  ⚠ Login failed: {e}")
+        return 1
 
 
 def _start_devtunnel(port, allow_anonymous, app_home):

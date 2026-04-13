@@ -53,29 +53,6 @@ if (-not $copilot) {
 $copilotVer = ((copilot --version 2>&1) | Select-Object -First 1) -replace '.*?(\d+\.\d+\.\d+[-\d]*).*', '$1'
 Write-Host "  [OK] Copilot CLI $copilotVer" -ForegroundColor Green
 
-# --- Check Copilot auth ---
-Write-Host ""
-$copilotConfig = "$env:USERPROFILE\.copilot\config.json"
-$needsLogin = $true
-if (Test-Path $copilotConfig) {
-    try {
-        $config = Get-Content $copilotConfig -Raw | ConvertFrom-Json
-        if ($config.logged_in_users -and $config.logged_in_users.Count -gt 0) {
-            $needsLogin = $false
-            Write-Host "  [OK] Copilot authenticated ($($config.logged_in_users[0].login))" -ForegroundColor Green
-        }
-    } catch { }
-}
-if ($needsLogin) {
-    Write-Host "  Copilot login required. Opening browser..." -ForegroundColor Yellow
-    copilot login
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  [ERROR] Copilot login failed. Run 'copilot login' manually." -ForegroundColor Red
-        exit 1
-    }
-    Write-Host "  [OK] Copilot authenticated" -ForegroundColor Green
-}
-
 # --- Install Copilot Console ---
 Write-Host ""
 Write-Host "  Installing Copilot Console..." -ForegroundColor Yellow

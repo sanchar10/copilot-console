@@ -60,29 +60,6 @@ fi
 COPILOT_VERSION=$(copilot --version 2>&1 | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?' || echo "unknown")
 echo -e "${GREEN}  [OK] Copilot CLI $COPILOT_VERSION${NC}"
 
-# --- Check Copilot auth ---
-echo ""
-COPILOT_CONFIG="$HOME/.copilot/config.json"
-NEEDS_LOGIN=true
-if [ -f "$COPILOT_CONFIG" ]; then
-    if grep -q '"logged_in_users"' "$COPILOT_CONFIG" 2>/dev/null; then
-        USER_LOGIN=$(grep -o '"login":\s*"[^"]*"' "$COPILOT_CONFIG" 2>/dev/null | head -n1 | cut -d'"' -f4)
-        if [ -n "$USER_LOGIN" ]; then
-            NEEDS_LOGIN=false
-            echo -e "${GREEN}  [OK] Copilot authenticated ($USER_LOGIN)${NC}"
-        fi
-    fi
-fi
-if [ "$NEEDS_LOGIN" = true ]; then
-    echo -e "${YELLOW}  Copilot login required. Opening browser...${NC}"
-    copilot login
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}  [ERROR] Copilot login failed. Run 'copilot login' manually.${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}  [OK] Copilot authenticated${NC}"
-fi
-
 # --- Install Copilot Console ---
 echo ""
 echo -e "${YELLOW}  Installing Copilot Console...${NC}"
