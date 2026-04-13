@@ -42,6 +42,9 @@ export function useFileUpload(sessionId?: string) {
       setAttachments((prev) => [...prev, ...results]);
     } catch (err) {
       console.error('Failed to upload files:', err);
+      const { useToastStore } = await import('../../stores/toastStore');
+      const msg = err instanceof TypeError ? 'Server unavailable — file not attached' : 'Failed to upload file';
+      useToastStore.getState().addToast(msg, 'error');
     } finally {
       setIsUploading(false);
     }
