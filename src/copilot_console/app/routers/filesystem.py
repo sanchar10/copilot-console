@@ -134,10 +134,20 @@ async def open_with(request: OpenWithRequest) -> dict:
     system = platform.system()
     try:
         if request.target == "vscode":
-            subprocess.Popen(["code", str(cwd)])
+            # Use shell=True on Windows so it finds code.cmd via PATH
+            if system == "Windows":
+                subprocess.Popen(f'code "{cwd}"', shell=True)
+            else:
+                subprocess.Popen(["code", str(cwd)])
         elif request.target == "terminal":
             if system == "Windows":
-                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", f"cd /d {cwd}"])
+                # Prefer PowerShell 7 (pwsh), fall back to Windows PowerShell
+                import shutil
+                shell = shutil.which("pwsh") or shutil.which("powershell") or "cmd"
+                if "pwsh" in shell or "powershell" in shell:
+                    subprocess.Popen(["cmd", "/c", "start", shell, "-NoExit", "-WorkingDirectory", str(cwd)])
+                else:
+                    subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", f"cd /d {cwd}"])
             elif system == "Darwin":
                 subprocess.Popen(["open", "-a", "Terminal", str(cwd)])
             else:
