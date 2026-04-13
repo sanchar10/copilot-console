@@ -185,7 +185,12 @@ def _start_devtunnel(port, allow_anonymous, app_home):
     
     # Check devtunnel is installed
     if not shutil.which("devtunnel"):
-        print("  ⚠️  devtunnel CLI not found — install with: winget install Microsoft.devtunnel")
+        if sys.platform == "darwin":
+            print("  ⚠️  devtunnel CLI not found — install with: brew install --cask devtunnel")
+        elif sys.platform == "win32":
+            print("  ⚠️  devtunnel CLI not found — install with: winget install Microsoft.devtunnel")
+        else:
+            print("  ⚠️  devtunnel CLI not found — install with: npm install -g @msdtunnel/devtunnel-cli")
         print("     Then: devtunnel user login")
         return None
     

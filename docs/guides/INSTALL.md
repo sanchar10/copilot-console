@@ -2,12 +2,12 @@
 
 ## Pre-Requisites
 
-Before installing Copilot Console, ensure the following are available. All commands below can be run in either **PowerShell** or **Command Prompt**.
+Before installing Copilot Console, ensure the following are available. All commands below can be run in either **PowerShell** or **Command Prompt** (Windows) or **Terminal** (macOS/Linux).
 
 | Requirement | Version | How to check |
 |---|---|---|
-| **Windows** | 10 or 11 | — |
-| **Python** | 3.11 or higher | `python --version` |
+| **Windows / macOS / Linux** | Windows 10/11 or macOS 10.15+ or Linux | — |
+| **Python** | 3.11 or higher | `python --version` (Windows) or `python3 --version` (macOS/Linux) |
 | **Node.js** | 18 or higher | `node --version` |
 | **GitHub Copilot CLI** | Latest | `copilot --version` |
 | **GitHub Copilot subscription** | Active | [github.com/settings/copilot](https://github.com/settings/copilot) |
@@ -15,12 +15,17 @@ Before installing Copilot Console, ensure the following are available. All comma
 
 ### Step 1: Install Python
 
-Download from [python.org](https://www.python.org/downloads/). During installation, **check "Add Python to PATH"**.
+Download from [python.org](https://www.python.org/downloads/). During installation on Windows, **check "Add Python to PATH"**.
 
 Verify:
-```powershell
+```bash
+# Windows
 python --version    # Should show 3.11+
 pip --version       # Should work
+
+# macOS/Linux
+python3 --version   # Should show 3.11+
+pip3 --version      # Should work
 ```
 
 ### Step 2: Install Node.js
@@ -28,7 +33,7 @@ pip --version       # Should work
 Download from [nodejs.org](https://nodejs.org/) (LTS version recommended).
 
 Verify:
-```powershell
+```bash
 node --version      # Should show 18+
 npm --version       # Should work
 ```
@@ -37,17 +42,17 @@ npm --version       # Should work
 
 The Copilot CLI is the runtime that Copilot Console communicates with. Install it globally:
 
-```powershell
+```bash
 npm install -g @github/copilot
 ```
 
 Verify:
-```powershell
+```bash
 copilot --version   # Should show latest
 ```
 
 Authenticate with GitHub (required before first use):
-```powershell
+```bash
 copilot login
 ```
 
@@ -55,31 +60,56 @@ copilot login
 
 Only needed if you want to access Copilot Console from your phone via `--expose`.
 
-**Option A: winget (Windows 10/11)**
+**Windows:**
 ```powershell
 winget install Microsoft.devtunnel
 ```
 
-**Option B: npm (any platform)**
-```powershell
+**macOS:**
+```bash
+brew install --cask devtunnel
+```
+
+**Linux / Other:**
+```bash
 npm install -g @msdtunnel/devtunnel-cli
 ```
 
 Then authenticate:
-```powershell
+```bash
 devtunnel user login
 ```
 
 > **Which account?** Use a **work or school (Microsoft Entra ID) account** for the best experience on all platforms. Personal Microsoft and GitHub accounts fail on Safari/iOS. If you don't have a work/school account, you can skip login and use `--allow-anonymous` mode instead — see [Mobile Companion](MOBILE-COMPANION.md#security).
 
 Verify:
-```powershell
+```bash
 devtunnel --version
 ```
 
 ---
 
-## Installation
+## Quick Install
+
+**Windows:**
+```powershell
+irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
+```
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash
+```
+
+The installer checks dependencies, installs Copilot Console, ripgrep, and optionally configures mobile access and web browsing.
+
+---
+
+## Manual Install
+
+If the quick installer doesn't work or you prefer manual installation:
+
+### Step 5: Install Copilot Console
 
 ### Option A: pipx (Recommended)
 
@@ -114,32 +144,41 @@ pip install agent-framework --pre
 ```
 
 If you used pipx, also inject it into the pipx venv:
-```powershell
+```bash
 pipx inject copilot-console agent-framework --pip-args="--pre"
 ```
 
-## Install ripgrep
+### Step 6: Install ripgrep (Optional — for cross-session search)
 
-Required for cross-session content search:
-
+**Windows:**
 ```powershell
 winget install BurntSushi.ripgrep.MSVC
 ```
 
+**macOS:**
+```bash
+brew install ripgrep
+```
+
+**Linux:**
+```bash
+sudo apt-get install ripgrep
+```
+
 Verify:
-```powershell
+```bash
 rg --version
 ```
 
 ## Verify Installation
 
-```powershell
+```bash
 copilot-console --version
 ```
 
 ## Running
 
-```powershell
+```bash
 copilot-console
 ```
 
@@ -147,7 +186,7 @@ This starts the server and opens the UI in your default browser. Press `Ctrl+C` 
 
 Common options:
 
-```powershell
+```bash
 copilot-console                      # Start with defaults
 copilot-console --no-sleep           # Prevent Windows from sleeping
 copilot-console --port 8787          # Use a specific port

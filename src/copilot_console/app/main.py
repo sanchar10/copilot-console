@@ -5,6 +5,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,23 +29,43 @@ logger = get_logger(__name__)
 # Static files directory (bundled frontend)
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
+# macOS caffeinate process
+_caffeinate_proc: Optional["subprocess.Popen[bytes]"] = None
+
 
 def _set_sleep_prevention(enable: bool) -> None:
-    """Enable or disable Windows sleep prevention via SetThreadExecutionState."""
-    if sys.platform != "win32":
-        return
-    try:
-        import ctypes
-        ES_CONTINUOUS = 0x80000000
-        ES_SYSTEM_REQUIRED = 0x00000001
-        if enable:
-            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
-            logger.info("Sleep prevention enabled — Windows will not idle-sleep")
-        else:
-            ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
-            logger.info("Sleep prevention cleared — normal sleep behavior restored")
-    except Exception as e:
-        logger.warning(f"Failed to set sleep prevention: {e}")
+    """Enable or disable sleep prevention (Windows via SetThreadExecutionState, macOS via caffeinate)."""
+    global _caffeinate_proc
+    
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ES_CONTINUOUS = 0x80000000
+            ES_SYSTEM_REQUIRED = 0x00000001
+            if enable:
+                ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+                logger.info("Sleep prevention enabled — Windows will not idle-sleep")
+            else:
+                ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+                logger.info("Sleep prevention cleared — normal sleep behavior restored")
+        except Exception as e:
+            logger.warning(f"Failed to set sleep prevention: {e}")
+    elif sys.platform == "darwin":
+        try:
+            if enable:
+                import subprocess
+                _caffeinate_proc = subprocess.Popen(
+                    ["caffeinate", "-i", "-w", str(os.getpid())],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                logger.info("Sleep prevention enabled — caffeinate running")
+            else:
+                if _caffeinate_proc:
+                    _caffeinate_proc.terminate()
+                    _caffeinate_proc = None
+                logger.info("Sleep prevention cleared")
+        except Exception as e:
+            logger.warning(f"Failed to set sleep prevention: {e}")
 
 
 @asynccontextmanager

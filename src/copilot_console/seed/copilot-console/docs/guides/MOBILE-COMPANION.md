@@ -6,12 +6,23 @@ Access Copilot Console securely from your phone — check sessions, read message
 
 Requires [devtunnel](https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started). If you used the install script or already have it, skip this.
 
+**Windows:**
 ```powershell
-# Install (pick one)
-winget install Microsoft.devtunnel          # Windows 10/11
-npm install -g @msdtunnel/devtunnel-cli     # Any platform
+winget install Microsoft.devtunnel
+```
 
-# Authenticate (required once) — use a work or school account (see note below)
+**macOS:**
+```bash
+brew install --cask devtunnel
+```
+
+**Linux / Other:**
+```bash
+npm install -g @msdtunnel/devtunnel-cli
+```
+
+Then authenticate (required once) — use a work or school account (see note below):
+```bash
 devtunnel user login
 ```
 
@@ -141,7 +152,26 @@ The token or URL is missing. Scan the QR code again from the desktop console Set
 The old token in your phone's localStorage is now invalid. Scan the new QR code from Settings.
 
 ### devtunnel not found
-Install with `winget install Microsoft.devtunnel`, then authenticate with `devtunnel user login`.
+
+**Windows:**
+```powershell
+winget install Microsoft.devtunnel
+```
+
+**macOS:**
+```bash
+brew install --cask devtunnel
+```
+
+**Linux / Other:**
+```bash
+npm install -g @msdtunnel/devtunnel-cli
+```
+
+Then authenticate:
+```bash
+devtunnel user login
+```
 
 ### Tunnel SSH window warnings in console
 Messages like "SshChannel send window is full" are normal devtunnel noise from long-lived SSE connections. They don't affect functionality.

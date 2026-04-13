@@ -48,6 +48,9 @@ export function Sidebar() {
 
   const setActiveAgentIds = useViewedStore(s => s.setActiveAgentIds);
 
+  // Detect macOS for keyboard shortcut labels
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+
   // Ctrl+K / Cmd+K global shortcut to open search
   useEffect(() => {
     const handleGlobalKey = (e: KeyboardEvent) => {
@@ -144,7 +147,7 @@ export function Sidebar() {
           <button
             onClick={() => setSearchOpen(true)}
             className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#32324a] transition-colors"
-            title="Search sessions (Ctrl+K)"
+            title={`Search sessions (${isMac ? '⌘K' : 'Ctrl+K'})`}
             aria-label="Search sessions"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -136,7 +136,12 @@ async function main() {
   if (expose) {
     if (!checkCommand('devtunnel')) {
       console.error('\x1b[31mError: devtunnel CLI not found.\x1b[0m');
-      console.error('\x1b[33mInstall: winget install Microsoft.devtunnel\x1b[0m');
+      const installCmd = process.platform === 'darwin' 
+        ? 'brew install --cask devtunnel'
+        : process.platform === 'win32'
+          ? 'winget install Microsoft.devtunnel'
+          : 'npm install -g @msdtunnel/devtunnel-cli';
+      console.error(`\x1b[33mInstall: ${installCmd}\x1b[0m`);
       console.error('Then: devtunnel user login');
       process.exit(1);
     }
