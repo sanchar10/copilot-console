@@ -13,6 +13,7 @@ import { useTabStore, tabId } from '../stores/tabStore';
 import { getSession, connectSession, getResponseStatus, resumeResponseStream } from '../api/sessions';
 import { markSessionReady } from '../components/chat/InputBox';
 import { useToastStore } from '../stores/toastStore';
+import type { AskUserRequest, ElicitationRequest } from '../api/sessions';
 import type { Session } from '../types/session';
 
 /**
@@ -69,9 +70,9 @@ export async function openSessionTab(session: Session): Promise<void> {
         if (status.pending_input) {
           const evt = status.pending_input;
           if (evt.event === 'ask_user') {
-            useChatStore.getState().setAskUser(sessionId, evt.data);
+            useChatStore.getState().setAskUser(sessionId, evt.data as unknown as AskUserRequest);
           } else if (evt.event === 'elicitation') {
-            useChatStore.getState().setElicitation(sessionId, evt.data);
+            useChatStore.getState().setElicitation(sessionId, evt.data as unknown as ElicitationRequest);
           }
         }
 

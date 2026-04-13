@@ -69,7 +69,7 @@ describe('sendMessage SSE parsing', () => {
     onAskUser = vi.fn();
   });
 
-  async function callSendMessage(chunks: string[], fetchOverrides?: Partial<Response>) {
+  async function callSendMessage(chunks: string[], _fetchOverrides?: Partial<Response>) {
     const stream = mockStream(chunks);
     globalThis.fetch = mockFetch(200, stream) as unknown as typeof fetch;
     await sendMessage(

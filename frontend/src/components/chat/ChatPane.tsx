@@ -24,8 +24,6 @@ import { updateSession, getSession, updateRuntimeSettings } from '../../api/sess
 import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents } from '../../api/agents';
 import type { AgentTools, SystemMessage, Agent, StarterPrompt, DiscoverableAgentsResponse } from '../../types/agent';
 import { useToastStore } from '../../stores/toastStore';
-import { scrollToMessageBySdkId } from '../../utils/chatUtils';
-
 // scrollToMessageBySdkId is re-exported for external consumers
 export { scrollToMessageBySdkId } from '../../utils/chatUtils';
 

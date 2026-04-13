@@ -38,8 +38,8 @@ describe('chatStore — State Cleanup (Stage 6 P1)', () => {
       const rs = state.readySessions;
       if (rs instanceof Set) {
         expect(rs.size).toBe(0);
-      } else if (rs instanceof Map) {
-        expect(rs.size).toBe(0);
+      } else if ((rs as any) instanceof Map) {
+        expect((rs as any).size).toBe(0);
       } else {
         // plain object
         expect(Object.keys(rs as Record<string, unknown>)).toHaveLength(0);
