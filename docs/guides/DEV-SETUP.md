@@ -78,6 +78,8 @@ python -m venv .venv
 pip install -e .
 ```
 
+> **Note:** In editable dev installs, the packaged `static/` directory doesn't exist. The app automatically falls back to `frontend/dist/` so you don't need to manually copy built assets — just run `npm run build` (or `npx vite build`) in `frontend/` and start the server.
+
 ### Optional: Agent Framework (for workflow support)
 ```bash
 pip install agent-framework --pre
@@ -100,7 +102,7 @@ python -m copilot_console.cli
 |-------|-------|-----|
 | `python3` still shows 3.9 on macOS | System Python shadows brew | `export PATH="/opt/homebrew/bin:$PATH"` in `~/.zshrc` |
 | `externally-managed-environment` error | Modern Python blocks global installs | Use `python3 -m venv .venv` |
-| `frontend/dist not found` at runtime | Frontend was not built | `cd frontend && npx vite build` |
+| `frontend/dist not found` at runtime | Frontend was not built | `cd frontend && npx vite build` (the app auto-detects `frontend/dist/` in dev mode) |
 | `pip install -e .` fails with hatchling error | Old pip version (<21.3) | `python3 -m pip install --upgrade pip` |
 | `npm: command not found` | Node.js not installed | `brew install node` |
 | TS errors during `npm run build` | Pre-existing strict TS issues in codebase | Use `npx vite build` instead |

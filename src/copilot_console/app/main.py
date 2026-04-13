@@ -29,6 +29,14 @@ logger = get_logger(__name__)
 # Static files directory (bundled frontend)
 STATIC_DIR = Path(__file__).parent.parent / "static"
 
+# Dev fallback: when running from source (pip install -e .),
+# static/ doesn't exist — use frontend/dist/ instead
+if not STATIC_DIR.exists():
+    _dev_dist = Path(__file__).parent.parent.parent.parent / "frontend" / "dist"
+    if _dev_dist.exists():
+        STATIC_DIR = _dev_dist
+        logger.info("Using dev fallback: serving frontend from %s", _dev_dist)
+
 # macOS caffeinate process
 _caffeinate_proc: Optional["subprocess.Popen[bytes]"] = None
 
