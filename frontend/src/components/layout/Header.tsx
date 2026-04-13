@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MCPSelector } from '../chat/MCPSelector';
 import { ToolsSelector } from '../chat/ToolsSelector';
 import { SubAgentSelector } from '../chat/SubAgentSelector';
@@ -8,6 +8,7 @@ import { FolderBrowserModal } from '../common/FolderBrowserModal';
 import { SystemPromptEditor } from '../common/SystemPromptEditor';
 import { ModelSelector } from '../common/ModelSelector';
 import { useProjectStore } from '../../stores/projectStore';
+import { useToastStore } from '../../stores/toastStore';
 import type { DiscoverableAgentsResponse } from '../../types/agent';
 import type { MCPServer, MCPServerSelections } from '../../types/mcp';
 import type { ToolInfo, ToolSelections } from '../../api/tools';
@@ -258,6 +259,10 @@ export function Header({
               </button>
             )}
 
+            {cwd && (
+              <OpenWithDropdown cwd={cwd} />
+            )}
+
             {/* Folder Browser Modal */}
             {onCwdChange && (
               <FolderBrowserModal
@@ -300,5 +305,69 @@ export function Header({
         )}
       </div>
     </header>
+  );
+}
+
+const OPEN_WITH_OPTIONS = [
+  { id: 'vscode', label: 'VS Code', icon: '<>' },
+  { id: 'terminal', label: 'Terminal', icon: '>_' },
+  { id: 'explorer', label: 'File Explorer', icon: '📁' },
+] as const;
+
+function OpenWithDropdown({ cwd }: { cwd: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleOpen = async (target: string) => {
+    setIsOpen(false);
+    try {
+      const res = await fetch('/api/filesystem/open-with', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cwd, target }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        useToastStore.getState().addToast(data.detail || 'Failed to open', 'error');
+      }
+    } catch {
+      useToastStore.getState().addToast('Failed to open — server unreachable', 'error');
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="h-[30px] w-[30px] flex items-center justify-center text-xs rounded-md bg-blue-50 dark:bg-blue-900/[0.18] text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-500/35 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+        title="Open folder with…"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-40 bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 py-1">
+          {OPEN_WITH_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => handleOpen(opt.id)}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center gap-2"
+            >
+              <span className="w-5 text-center font-mono text-[10px]">{opt.icon}</span>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

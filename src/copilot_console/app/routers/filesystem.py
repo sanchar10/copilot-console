@@ -119,6 +119,45 @@ class OpenFileRequest(BaseModel):
     path: str
 
 
+class OpenWithRequest(BaseModel):
+    cwd: str
+    target: str  # 'vscode' | 'terminal' | 'explorer'
+
+
+@router.post("/open-with")
+async def open_with(request: OpenWithRequest) -> dict:
+    """Open a folder in VS Code, Terminal, or File Explorer."""
+    cwd = Path(request.cwd)
+    if not cwd.exists() or not cwd.is_dir():
+        raise HTTPException(status_code=404, detail="Folder not found")
+
+    system = platform.system()
+    try:
+        if request.target == "vscode":
+            subprocess.Popen(["code", str(cwd)])
+        elif request.target == "terminal":
+            if system == "Windows":
+                subprocess.Popen(["cmd", "/c", "start", "cmd", "/k", f"cd /d {cwd}"])
+            elif system == "Darwin":
+                subprocess.Popen(["open", "-a", "Terminal", str(cwd)])
+            else:
+                subprocess.Popen(["x-terminal-emulator", "--working-directory", str(cwd)])
+        elif request.target == "explorer":
+            if system == "Windows":
+                subprocess.Popen(["explorer", str(cwd)])
+            elif system == "Darwin":
+                subprocess.Popen(["open", str(cwd)])
+            else:
+                subprocess.Popen(["xdg-open", str(cwd)])
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown target: {request.target}")
+        return {"status": "opened", "target": request.target, "cwd": str(cwd)}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"'{request.target}' not found — is it installed?")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to open: {e}")
+
+
 @router.post("/open")
 async def open_file(request: OpenFileRequest) -> dict:
     """Open a file with the OS default application."""
