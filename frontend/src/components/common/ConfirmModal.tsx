@@ -76,7 +76,7 @@ export function ConfirmModal({
   const styles = variantStyles[variant];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-label={title}>
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm transition-opacity"
@@ -108,6 +108,7 @@ export function ConfirmModal({
             <button
               onClick={onCancel}
               className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white/50 dark:bg-[#32324a] backdrop-blur border border-white/40 dark:border-gray-600 rounded-lg hover:bg-white/70 dark:hover:bg-[#3a3a4e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+              aria-label={cancelLabel}
             >
               {cancelLabel}
             </button>

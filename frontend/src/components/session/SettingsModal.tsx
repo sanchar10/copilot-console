@@ -154,6 +154,7 @@ export function SettingsModal() {
               onClick={() => setShowFolderPicker(true)}
               className="px-3 py-2 border border-white/40 bg-white/50 rounded-md text-sm text-gray-600 hover:bg-gray-100 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a] transition-colors"
               title="Browse folders"
+              aria-label="Browse folders"
             >
               📁
             </button>

@@ -17,6 +17,7 @@ interface WorkflowState {
   createWorkflow: (request: WorkflowCreate) => Promise<WorkflowMetadata>;
   updateWorkflow: (workflowId: string, request: WorkflowUpdate) => Promise<WorkflowMetadata>;
   deleteWorkflow: (workflowId: string) => Promise<void>;
+  clearError: () => void;
 }
 
 export const useWorkflowStore = create<WorkflowState>((set) => ({
@@ -35,23 +36,40 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   },
 
   createWorkflow: async (request) => {
-    const workflow = await workflowsApi.createWorkflow(request);
-    set((state) => ({ workflows: [...state.workflows, workflow] }));
-    return workflow;
+    try {
+      const workflow = await workflowsApi.createWorkflow(request);
+      set((state) => ({ workflows: [...state.workflows, workflow] }));
+      return workflow;
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
   },
 
   updateWorkflow: async (workflowId, request) => {
-    const updated = await workflowsApi.updateWorkflow(workflowId, request);
-    set((state) => ({
-      workflows: state.workflows.map((w) => (w.id === workflowId ? updated : w)),
-    }));
-    return updated;
+    try {
+      const updated = await workflowsApi.updateWorkflow(workflowId, request);
+      set((state) => ({
+        workflows: state.workflows.map((w) => (w.id === workflowId ? updated : w)),
+      }));
+      return updated;
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
   },
 
   deleteWorkflow: async (workflowId) => {
-    await workflowsApi.deleteWorkflow(workflowId);
-    set((state) => ({
-      workflows: state.workflows.filter((w) => w.id !== workflowId),
-    }));
+    try {
+      await workflowsApi.deleteWorkflow(workflowId);
+      set((state) => ({
+        workflows: state.workflows.filter((w) => w.id !== workflowId),
+      }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
   },
+
+  clearError: () => set({ error: null }),
 }));

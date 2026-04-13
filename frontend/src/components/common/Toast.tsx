@@ -18,7 +18,7 @@ const TYPE_ICONS: Record<ToastType, string> = {
   info: 'ℹ️',
   success: '✓',
   warning: '⚠',
-  error: '✕',
+  error: '❌',
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
@@ -50,13 +50,6 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     >
       <span className="text-base leading-none flex-shrink-0">{TYPE_ICONS[toast.type]}</span>
       <span className="flex-1 min-w-0">{toast.message}</span>
-      <button
-        onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-        className="flex-shrink-0 opacity-70 hover:opacity-100 ml-1 text-lg leading-none"
-        aria-label="Dismiss"
-      >
-        ×
-      </button>
     </div>
   );
 }

@@ -44,6 +44,9 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
       {/* Modal */}
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="relative bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-[#3a3a4e] rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col"
       >
         {/* Header */}
@@ -52,6 +55,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            aria-label="Close dialog"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

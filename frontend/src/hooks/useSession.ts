@@ -71,6 +71,8 @@ export function useSession() {
       return session;
     } catch (err) {
       console.error('Failed to load session:', err);
+      const { addToast } = await import('../stores/toastStore').then(m => m.useToastStore.getState());
+      addToast(err instanceof Error ? err.message : 'Could not load session', 'error');
       throw err;
     }
   }, [setMessages, appendStreamingContent, addStreamingStep, addMessage, setStreaming, finalizeStreaming, setAgentActive, markViewed, updateSessionTimestamp]);

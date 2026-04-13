@@ -44,30 +44,34 @@ vi.mock('../../stores/viewedStore', () => ({
 
 // --- Mock API layer with controllable sendMessage ---
 
-type SendMessageFn = typeof import('../../api/sessions').sendMessage;
-
 // Captured callbacks from the most recent sendMessage call
 let captured: {
-  onDelta: Parameters<SendMessageFn>[2];
-  onStep: Parameters<SendMessageFn>[3];
-  onDone: Parameters<SendMessageFn>[5];
-  onError: Parameters<SendMessageFn>[6];
+  onDelta: (content: string) => void;
+  onStep: (step: any) => void;
+  onDone: (messageId: string, sessionName?: string) => void;
+  onError: (error: string) => void;
   resolve: () => void;
 } | null = null;
 
-const mockSendMessage = vi.fn<SendMessageFn>(
-  async (_sid, _content, onDelta, onStep, _onUsage, onDone, onError) => {
+const mockSendMessage = vi.fn(
+  async (_sid: string, _content: string, options: any) => {
     // Store callbacks so the test can trigger them manually.
     // The promise stays open until the test calls captured.resolve()
     // (simulates an ongoing SSE stream).
     await new Promise<void>((resolve) => {
-      captured = { onDelta, onStep, onDone, onError, resolve };
+      captured = {
+        onDelta: options.onDelta,
+        onStep: options.onStep,
+        onDone: options.onDone,
+        onError: options.onError,
+        resolve,
+      };
     });
   },
 );
 
 vi.mock('../../api/sessions', () => ({
-  sendMessage: (...args: unknown[]) => mockSendMessage(...args as Parameters<SendMessageFn>),
+  sendMessage: (...args: unknown[]) => mockSendMessage(...args as [string, string, any]),
   createSession: vi.fn(),
   connectSession: vi.fn(),
   enqueueMessage: vi.fn(),

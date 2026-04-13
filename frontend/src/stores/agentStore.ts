@@ -17,6 +17,7 @@ interface AgentState {
   createAgent: (request: CreateAgentRequest) => Promise<Agent>;
   updateAgent: (agentId: string, request: UpdateAgentRequest) => Promise<Agent>;
   deleteAgent: (agentId: string) => Promise<void>;
+  clearError: () => void;
 }
 
 export const useAgentStore = create<AgentState>((set, _get) => ({
@@ -35,23 +36,40 @@ export const useAgentStore = create<AgentState>((set, _get) => ({
   },
 
   createAgent: async (request) => {
-    const agent = await agentsApi.createAgent(request);
-    set((state) => ({ agents: [...state.agents, agent] }));
-    return agent;
+    try {
+      const agent = await agentsApi.createAgent(request);
+      set((state) => ({ agents: [...state.agents, agent] }));
+      return agent;
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
   },
 
   updateAgent: async (agentId, request) => {
-    const updated = await agentsApi.updateAgent(agentId, request);
-    set((state) => ({
-      agents: state.agents.map((a) => (a.id === agentId ? updated : a)),
-    }));
-    return updated;
+    try {
+      const updated = await agentsApi.updateAgent(agentId, request);
+      set((state) => ({
+        agents: state.agents.map((a) => (a.id === agentId ? updated : a)),
+      }));
+      return updated;
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
   },
 
   deleteAgent: async (agentId) => {
-    await agentsApi.deleteAgent(agentId);
-    set((state) => ({
-      agents: state.agents.filter((a) => a.id !== agentId),
-    }));
+    try {
+      await agentsApi.deleteAgent(agentId);
+      set((state) => ({
+        agents: state.agents.filter((a) => a.id !== agentId),
+      }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
   },
+
+  clearError: () => set({ error: null }),
 }));

@@ -14,6 +14,7 @@ interface AutomationState {
 
   fetchAutomations: () => Promise<void>;
   setAutomations: (automations: AutomationWithNextRun[]) => void;
+  clearError: () => void;
 }
 
 export const useAutomationStore = create<AutomationState>((set) => ({
@@ -32,4 +33,6 @@ export const useAutomationStore = create<AutomationState>((set) => ({
   },
 
   setAutomations: (automations) => set({ automations }),
+
+  clearError: () => set({ error: null }),
 }));

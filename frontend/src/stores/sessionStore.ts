@@ -4,6 +4,7 @@ import type { MCPServer } from '../types/mcp';
 import { listMCPServers } from '../api/mcp';
 import type { AgentTools, SystemMessage } from '../types/agent';
 import { getTools, type ToolInfo } from '../api/tools';
+import { listSessions } from '../api/sessions';
 import { useTabStore } from './tabStore';
 
 interface NewSessionSettings {
@@ -46,6 +47,8 @@ interface SessionState {
   updateSessionModel: (sessionId: string, model: string, reasoningEffort: string | null) => void;
   refreshMcpServers: () => Promise<MCPServer[]>;
   refreshTools: () => Promise<ToolInfo[]>;
+  clearError: () => void;
+  fetchSessions: () => Promise<void>;
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -176,6 +179,18 @@ export const useSessionStore = create<SessionState>((set) => ({
     } catch (error) {
       console.error('Failed to refresh tools:', error);
       return [];
+    }
+  },
+
+  clearError: () => set({ error: null }),
+
+  fetchSessions: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const sessions = await listSessions();
+      set({ sessions, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 }));

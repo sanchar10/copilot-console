@@ -23,6 +23,7 @@ export interface SessionWithMessages extends Session {
 }
 
 export type { ChatStep, Message };
+export type { SendMessageOptions } from '../api/sessions';
 
 export interface CreateSessionRequest {
   model: string;

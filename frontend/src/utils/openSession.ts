@@ -12,6 +12,7 @@ import { useViewedStore } from '../stores/viewedStore';
 import { useTabStore, tabId } from '../stores/tabStore';
 import { getSession, connectSession, getResponseStatus, resumeResponseStream } from '../api/sessions';
 import { markSessionReady } from '../components/chat/InputBox';
+import { useToastStore } from '../stores/toastStore';
 import type { Session } from '../types/session';
 
 /**
@@ -140,11 +141,10 @@ export async function openSessionTab(session: Session): Promise<void> {
     await checkAndResumeActiveResponse();
   } catch (err) {
     console.error('Failed to load session:', err);
-    setMessages(sessionId, [{
-      id: 'error',
-      role: 'assistant',
-      content: `⚠️ Could not load this session.\n\nError: ${err instanceof Error ? err.message : String(err)}`,
-      timestamp: new Date().toISOString(),
-    }]);
+    setMessages(sessionId, []);
+    useToastStore.getState().addToast(
+      err instanceof Error ? err.message : 'Could not load session',
+      'error',
+    );
   }
 }

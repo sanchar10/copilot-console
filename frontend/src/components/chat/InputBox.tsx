@@ -5,6 +5,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
+import { useToastStore } from '../../stores/toastStore';
 import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings } from '../../api/sessions';
 import { scheduleDesktopNotification, playUnreadTone } from '../../utils/desktopNotifications';
 import { openSessionTab } from '../../utils/openSession';
@@ -212,6 +213,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         activeSessionId = session.session_id;
       } catch (err) {
         console.error('Failed to create session:', err);
+        useToastStore.getState().addToast(err instanceof Error ? err.message : 'Failed to create session', 'error');
         setSending(null);
         return;
       }
@@ -276,17 +278,16 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     }
 
     try {
-      await sendMessage(
-        activeSessionId, resolvedPrompt,
-        (delta) => { clearSendingOnce(); appendStreamingContent(activeSessionId!, delta); },
-        (step) => {
+      await sendMessage(activeSessionId, resolvedPrompt, {
+        onDelta: (delta) => { clearSendingOnce(); appendStreamingContent(activeSessionId!, delta); },
+        onStep: (step) => {
           clearSendingOnce();
           if (step.title?.startsWith('⟳ Compacting') || step.title?.startsWith('✓ Context compacted') || step.title?.startsWith('✗ Compaction')) {
             addMessage(activeSessionId!, { id: `system-${Date.now()}`, role: 'system', content: `${step.title}${step.detail ? ` — ${step.detail}` : ''}`, timestamp: new Date().toISOString() });
           } else { addStreamingStep(activeSessionId!, step); }
         },
-        (usage) => { setTokenUsage(activeSessionId!, usage); },
-        (_messageId, sessionName) => {
+        onUsageInfo: (usage) => { setTokenUsage(activeSessionId!, usage); },
+        onDone: (_messageId, sessionName) => {
           if (activationTimer) clearTimeout(activationTimer);
           flushStreamingBuffer(activeSessionId!);
           setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false);
@@ -302,13 +303,14 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             );
           }
         },
-        (error) => { if (activationTimer) clearTimeout(activationTimer); flushStreamingBuffer(activeSessionId!); console.error('Message error:', error); setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false); },
-        isCreatingNewSession, undefined,
-        (messageId?: string) => { flushStreamingBuffer(activeSessionId!); finalizeTurn(activeSessionId!, messageId); },
-        pendingAttachments.length > 0 ? pendingAttachments : undefined,
-        (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) setSessionModeStore(activeSessionId, mode); },
-        initialAgentMode, isFleet,
-        (data) => {
+        onError: (error) => { if (activationTimer) clearTimeout(activationTimer); flushStreamingBuffer(activeSessionId!); console.error('Message error:', error); useToastStore.getState().addToast(typeof error === 'string' ? error : 'Failed to send message', 'error'); setStreaming(activeSessionId!, false); setSending(null); setAgentActive(activeSessionId!, false); },
+        isNewSession: isCreatingNewSession,
+        onTurnDone: (messageId?: string) => { flushStreamingBuffer(activeSessionId!); finalizeTurn(activeSessionId!, messageId); },
+        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+        onModeChanged: (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) setSessionModeStore(activeSessionId, mode); },
+        agentMode: initialAgentMode,
+        fleet: isFleet,
+        onElicitation: (data) => {
           if (activeSessionId) {
             setElicitation(activeSessionId, data);
             const sid = activeSessionId; const name = newSessionSettings?.name || 'Copilot';
@@ -318,7 +320,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             );
           }
         },
-        (data) => {
+        onAskUser: (data) => {
           if (activeSessionId) {
             setAskUser(activeSessionId, data);
             const sid = activeSessionId; const name = newSessionSettings?.name || 'Copilot';
@@ -328,10 +330,11 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             );
           }
         },
-      );
+      });
     } catch (err) {
       if (activationTimer) clearTimeout(activationTimer);
       console.error('Failed to send message:', err);
+      useToastStore.getState().addToast(err instanceof Error ? err.message : 'Failed to send message', 'error');
       if (activeSessionId) { setStreaming(activeSessionId, false); setAgentActive(activeSessionId, false); }
     } finally { setSending(null); }
   };
@@ -364,7 +367,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 <span className="text-gray-500 dark:text-gray-400">{fileIcon(att.originalName)}</span>
                 <span className="text-gray-700 dark:text-gray-200 max-w-[200px] truncate">{att.originalName}</span>
                 <span className="text-gray-400 dark:text-gray-500 text-xs">({(att.size / 1024).toFixed(0)}KB)</span>
-                <button onClick={() => fileUpload.removeAttachment(idx)} className="text-gray-400 dark:text-gray-500 hover:text-red-500 ml-0.5" title="Remove">×</button>
+                <button onClick={() => fileUpload.removeAttachment(idx)} className="text-gray-400 dark:text-gray-500 hover:text-red-500 ml-0.5" title="Remove" aria-label={`Remove ${att.originalName}`}>×</button>
               </div>
             ))}
             {fileUpload.pendingFiles.map((file, idx) => (
@@ -372,7 +375,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 <span className="text-gray-500 dark:text-gray-400">{fileIcon(file.name)}</span>
                 <span className="text-gray-700 dark:text-gray-200 max-w-[200px] truncate">{file.name}</span>
                 <span className="text-gray-400 dark:text-gray-500 text-xs">({(file.size / 1024).toFixed(0)}KB)</span>
-                <button onClick={() => fileUpload.removePendingFile(idx)} className="text-gray-400 dark:text-gray-500 hover:text-red-500 ml-0.5" title="Remove">×</button>
+                <button onClick={() => fileUpload.removePendingFile(idx)} className="text-gray-400 dark:text-gray-500 hover:text-red-500 ml-0.5" title="Remove" aria-label={`Remove ${file.name}`}>×</button>
               </div>
             ))}
           </div>
@@ -385,7 +388,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
               <ModeSelector mode={currentMode} onModeChange={handleModeChange} disabled={isSending} />
             </div>
             <input ref={fileUpload.fileInputRef} type="file" multiple className="hidden" onChange={fileUpload.onFileInputChange} />
-            <button onClick={fileUpload.openFilePicker} className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-full" title="Attach files">
+            <button onClick={fileUpload.openFilePicker} className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-full" title="Attach files" aria-label="Attach files">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
@@ -400,7 +403,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 fileUpload.isDragOver ? 'border-blue-400' : slash.activeCommand ? 'border-blue-300 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-900/10' : isStreaming ? 'border-amber-300 bg-amber-50 dark:border-amber-600 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'
               }`}>
                 {slash.activeCommand && (
-                  <button onClick={slash.clearActiveCommand} className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-500/25 dark:text-blue-100 border border-blue-200 dark:border-blue-400/30 hover:bg-blue-200 dark:hover:bg-blue-500/35 transition-colors flex-shrink-0" title={`Remove /${slash.activeCommand.name} command`}>
+                  <button onClick={slash.clearActiveCommand} className="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-500/25 dark:text-blue-100 border border-blue-200 dark:border-blue-400/30 hover:bg-blue-200 dark:hover:bg-blue-500/35 transition-colors flex-shrink-0" title={`Remove /${slash.activeCommand.name} command`} aria-label={`Remove /${slash.activeCommand.name} command`}>
                     <span>{slash.activeCommand.icon}</span>
                     <span>/{slash.activeCommand.name}</span>
                     <span className="ml-0.5 text-blue-400 dark:text-blue-300">×</span>
@@ -435,12 +438,12 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 slash.activeCommand
                   ? (slash.activeCommand.requiresPrompt && !input.trim()) || isDisabled
                   : (!input.trim() && fileUpload.attachments.length === 0 && fileUpload.pendingFiles.length === 0) || isDisabled
-              } className="h-11 w-11 p-0">
+              } className="h-11 w-11 p-0" aria-label="Send message" title="Send message (Enter)">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </Button>
-              <Button onClick={handleAbort} disabled={!isStreaming} className={`h-11 w-11 p-0 ${isStreaming ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-200 dark:bg-gray-700 opacity-40 cursor-not-allowed'}`} title="Stop the agent">
+              <Button onClick={handleAbort} disabled={!isStreaming} className={`h-11 w-11 p-0 ${isStreaming ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-200 dark:bg-gray-700 opacity-40 cursor-not-allowed'}`} title="Stop the agent" aria-label="Stop the agent">
                 <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="6" width="12" height="12" rx="1" />
                 </svg>

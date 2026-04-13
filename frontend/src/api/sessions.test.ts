@@ -73,11 +73,11 @@ describe('sendMessage SSE parsing', () => {
     const stream = mockStream(chunks);
     globalThis.fetch = mockFetch(200, stream) as unknown as typeof fetch;
     await sendMessage(
-      'sess-1', 'hello',
+      'sess-1', 'hello', {
       onDelta, onStep, onUsageInfo, onDone, onError,
-      false, undefined, onTurnDone, undefined, onModeChanged,
-      undefined, undefined, onElicitation, onAskUser,
-    );
+      isNewSession: false, onTurnDone,
+      onModeChanged, onElicitation, onAskUser,
+    });
   }
 
   // --- delta events ---
@@ -232,10 +232,10 @@ describe('sendMessage SSE parsing', () => {
 
     globalThis.fetch = mockFetch(200, stream) as unknown as typeof fetch;
     await sendMessage(
-      's1', 'hi', onDelta, onStep, onUsageInfo, onDone, onError,
-      false, undefined, onTurnDone, undefined, onModeChanged,
-      undefined, undefined, onElicitation, onAskUser,
-    );
+      's1', 'hi', {
+      onDelta, onStep, onUsageInfo, onDone, onError,
+      onTurnDone, onModeChanged, onElicitation, onAskUser,
+    });
     expect(onDelta).toHaveBeenCalledWith('split');
   });
 
@@ -244,7 +244,7 @@ describe('sendMessage SSE parsing', () => {
   it('calls onError when fetch returns non-OK status', async () => {
     globalThis.fetch = mockFetch(500, null, { error: 'server down' }) as unknown as typeof fetch;
     await sendMessage(
-      's1', 'hi', onDelta, onStep, onUsageInfo, onDone, onError,
+      's1', 'hi', { onDelta, onStep, onUsageInfo, onDone, onError },
     );
     expect(onError).toHaveBeenCalledWith('server down');
     expect(onDelta).not.toHaveBeenCalled();
@@ -256,22 +256,22 @@ describe('sendMessage SSE parsing', () => {
       json: () => Promise.resolve({}),
     }) as unknown as typeof fetch;
     await sendMessage(
-      's1', 'hi', onDelta, onStep, onUsageInfo, onDone, onError,
+      's1', 'hi', { onDelta, onStep, onUsageInfo, onDone, onError },
     );
     expect(onError).toHaveBeenCalledWith('No response body');
   });
-
-  // --- fetch body construction ---
 
   it('sends attachments and agent_mode in the request body', async () => {
     const fetchSpy = mockFetch(200, mockStream([sseChunk('done', { message_id: 'm' })]));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     await sendMessage(
-      's1', 'msg', onDelta, onStep, onUsageInfo, onDone, onError,
-      true, undefined, undefined,
-      [{ type: 'file' as const, path: '/a.txt' }],
-      undefined, 'plan', false, undefined, undefined,
-    );
+      's1', 'msg', {
+      onDelta, onStep, onUsageInfo, onDone, onError,
+      isNewSession: true,
+      attachments: [{ type: 'file' as const, path: '/a.txt' }],
+      agentMode: 'plan',
+      fleet: false,
+    });
     const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
     expect(body.content).toBe('msg');
     expect(body.is_new_session).toBe(true);
@@ -283,9 +283,10 @@ describe('sendMessage SSE parsing', () => {
     const fetchSpy = mockFetch(200, mockStream([sseChunk('done', { message_id: 'm' })]));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     await sendMessage(
-      's1', 'msg', onDelta, onStep, onUsageInfo, onDone, onError,
-      false, undefined, undefined, undefined, undefined, undefined, true,
-    );
+      's1', 'msg', {
+      onDelta, onStep, onUsageInfo, onDone, onError,
+      fleet: true,
+    });
     const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
     expect(body.fleet).toBe(true);
   });
@@ -304,7 +305,7 @@ describe('sendMessage SSE parsing', () => {
     });
     globalThis.fetch = mockFetch(200, stream) as unknown as typeof fetch;
     await sendMessage(
-      's1', 'hi', onDelta, onStep, onUsageInfo, onDone, onError,
+      's1', 'hi', { onDelta, onStep, onUsageInfo, onDone, onError },
     );
     // Should not throw; done event still fires
     expect(onDone).toHaveBeenCalledWith('ok', undefined);

@@ -201,24 +201,32 @@ export interface AttachmentRef {
   displayName?: string;
 }
 
+export interface SendMessageOptions {
+  onDelta: (content: string) => void;
+  onStep: (step: ChatStep) => void;
+  onUsageInfo: (usage: { tokenLimit: number; currentTokens: number; messagesLength: number }) => void;
+  onDone: (messageId: string, sessionName?: string) => void;
+  onError: (error: string) => void;
+  isNewSession?: boolean;
+  onTurnDone?: (messageId?: string) => void;
+  attachments?: AttachmentRef[];
+  onModeChanged?: (mode: string) => void;
+  agentMode?: string;
+  fleet?: boolean;
+  onElicitation?: (data: ElicitationRequest) => void;
+  onAskUser?: (data: AskUserRequest) => void;
+}
+
 export async function sendMessage(
   sessionId: string,
   content: string,
-  onDelta: (content: string) => void,
-  onStep: (step: ChatStep) => void,
-  onUsageInfo: (usage: { tokenLimit: number; currentTokens: number; messagesLength: number }) => void,
-  onDone: (messageId: string, sessionName?: string) => void,
-  onError: (error: string) => void,
-  isNewSession: boolean = false,
-  _onPendingMessages?: () => void,
-  onTurnDone?: (messageId?: string) => void,
-  attachments?: AttachmentRef[],
-  onModeChanged?: (mode: string) => void,
-  agentMode?: string,
-  fleet?: boolean,
-  onElicitation?: (data: ElicitationRequest) => void,
-  onAskUser?: (data: AskUserRequest) => void,
+  options: SendMessageOptions,
 ): Promise<void> {
+  const {
+    onDelta, onStep, onUsageInfo, onDone, onError,
+    isNewSession = false, onTurnDone, attachments,
+    onModeChanged, agentMode, fleet, onElicitation, onAskUser,
+  } = options;
   const body: Record<string, unknown> = { content, is_new_session: isNewSession };
   if (attachments && attachments.length > 0) {
     body.attachments = attachments;
