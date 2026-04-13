@@ -13,7 +13,6 @@ _UNAUTHENTICATED = {
     "authenticated": False,
     "provider": None,
     "login": None,
-    "login_command": "copilot-console login",
 }
 
 
@@ -38,7 +37,6 @@ async def get_auth_status():
             "authenticated": bool(is_authed),
             "provider": "github" if is_authed else None,
             "login": login or None,
-            "login_command": "copilot-console login",
         }
     except Exception:
         logger.debug("Auth status check failed — reporting unauthenticated", exc_info=True)

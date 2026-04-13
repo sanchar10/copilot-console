@@ -4,6 +4,7 @@ Orchestrate local GitHub Copilot multi-agent sessions, workflows, and automation
 
 ![Copilot Console](https://img.shields.io/badge/Copilot-Console-blue?style=flat-square)
 ![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows)
+![macOS](https://img.shields.io/badge/Platform-macOS_(experimental)-999999?style=flat-square&logo=apple)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square)
 ![License MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
@@ -13,7 +14,9 @@ Orchestrate local GitHub Copilot multi-agent sessions, workflows, and automation
 
 A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli). Built with the [Copilot Python SDK](https://github.com/github/copilot-sdk).
 
-> **Platform:** Windows only (tested on Windows 10/11). Releases pending for macOS/Linux.
+> **Why?** Sessions pile up fast across repos and tasks. Context gets lost between threads. You can't check progress from your phone. Console solves these with a visual layer on top of Copilot CLI — organize work, control context per session, search across everything, and monitor from anywhere. Move beyond chat to effectively managing your work.
+
+> **Platform:** Windows (tested on Windows 10/11). macOS support is experimental — install via `bash` script, see [Contributing](docs/guides/CONTRIBUTING.md). Linux support pending.
 
 ---
 
@@ -22,7 +25,7 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 | | Feature | Description |
 |---|---|---|
 | 🖥️ | **Visual Session Management** | Multiple sessions in a tabbed interface with per-session context management: system prompt, model, tools, MCP servers, agents, and working directory |
-| 🔀 | **Workflows** | Multi-agent YAML pipelines using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — chain agents deterministically and watch events stream in real-time |
+| 🔀 | **Workflows** | Multi-agent YAML pipelines (experimental) using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — chain agents deterministically and watch events stream in real-time |
 | ⚡ | **Slash Commands & Fleet** | Type `/` for command palette — `/fleet` fires parallel sub-agents, `/compact` compresses context, `/help` for quick reference. Inline chips with auto-complete |
 | ⏰ | **Automations** | Cron-scheduled agent runs with a Runs dashboard and live session access |
 | 📂 | **Project Facilitation** | Folder-based session filtering, cross-session search with keyword highlighting, pin responses with notes |
@@ -33,6 +36,9 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 | 🔧 | **Custom Tools** | Drop Python functions into `~/.copilot-console/tools/` to easily create selectable agent tools |
 | 📎 | **Files & Images** | Drag-and-drop files and paste images into messages to give agents visual and textual context |
 | 🎨 | **Rich Rendering** | Markdown, syntax highlighting, Mermaid diagrams, streaming, reasoning steps |
+| 💬 | **Interactive Q&A** | Agents ask structured questions when they need input — works on desktop and mobile |
+| 🔔 | **Desktop Notifications** | Get notified when agents finish or need your input, even from native CLI sessions |
+| 📂 | **Open With** | Quickly open project folders in VS Code, Terminal, or File Explorer |
 
 ---
 
@@ -60,8 +66,14 @@ Enable via `cli-notify on` from the command line, or toggle in Console Settings.
 
 One command to install (or upgrade):
 
+**Windows:**
 ```powershell
 irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
+```
+
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash
 ```
 
 Then start:
@@ -93,8 +105,8 @@ Options:
   --port, -p PORT    Port to run the server on (default: 8765)
   --host HOST        Host to bind to (default: 127.0.0.1)
   --no-browser       Don't automatically open browser on start
-  --no-sleep         Prevent Windows from sleeping while running
-                     (useful when scheduled tasks need to run overnight)
+  --no-sleep         Prevent system from sleeping while running
+                     (Windows: SetThreadExecutionState, macOS: caffeinate)
   --expose           Enable remote access via devtunnel for mobile companion
   --allow-anonymous  Allow anonymous tunnel access (token-secured, no login on phone). Recommended only for testing. Requires --expose.
   --version, -v      Show version and exit

@@ -1,5 +1,7 @@
 # Troubleshooting
 
+## General Issues
+
 ### `copilot-console` command not found
 - If installed with `pipx`: Run `pipx ensurepath` and **restart the terminal**
 - If installed with `pip`: Try `python -m copilot_console.cli`
@@ -31,6 +33,52 @@ This only prevents idle sleep — manual sleep is still possible.
 ### Port already in use
 ```powershell
 copilot-console --port 9000
+```
+
+## macOS Issues
+
+### Python: use `python3` not `python`
+
+On macOS, the system Python (`python`) is often Python 2, which is outdated. Always use `python3`:
+
+```bash
+# Correct
+python3 --version    # Should show 3.11+
+pip3 install ...
+
+# Incorrect
+python --version     # May be Python 2
+```
+
+When installing or using Python packages, use `python3 -m pip` or `pip3` to ensure you're using the correct version.
+
+### Sleep Prevention Doesn't Work (caffeinate not active)
+
+If Copilot Console is scheduled to run automations but your Mac is still sleeping, the `caffeinate` command may not be running properly.
+
+**Check Activity Monitor:**
+1. Open Activity Monitor (Cmd+Space, type "Activity Monitor")
+2. Search for `caffeinate` in the Process list
+3. If not found, check Console.app for errors: Cmd+Space → "Console" → search for "caffeinate"
+
+**Workaround:** Manually keep your Mac awake using System Preferences → Battery → disable "Turn display off after" and "Put hard disks to sleep"
+
+### devtunnel: Install via Homebrew on macOS
+
+If you want to access Copilot Console from your phone (`--expose` flag), install devtunnel using Homebrew:
+
+```bash
+brew install --cask devtunnel
+```
+
+Then authenticate:
+```bash
+devtunnel user login
+```
+
+Verify:
+```bash
+devtunnel --version
 ```
 
 ## SDK / CLI Version Compatibility

@@ -217,7 +217,7 @@
   <!-- ─── HERO ─── -->
   <section class="hero-gradient grid-pattern pt-32 pb-20 px-6">
     <div class="max-w-6xl mx-auto">
-      <div class="text-center max-w-3xl mx-auto mb-16">
+      <div class="text-center max-w-4xl mx-auto mb-16">
         <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-accent-light text-xs font-mono mb-6 fade-in">
           <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
           Built on GitHub Copilot SDK
@@ -226,9 +226,9 @@
           Your Copilot CLI,<br>
           <span class="bg-gradient-to-r from-accent-light to-indigo-400 bg-clip-text text-transparent">visualized.</span>
         </h1>
-        <p class="text-lg sm:text-xl text-gray-400 leading-relaxed max-w-2xl mx-auto mb-10 fade-in stagger-2">
-          Orchestrate multi-agent sessions, workflows, and automations from a unified control center.
-          Get mobile notifications. Run fleet operations. Browse the web with AI.
+        <p class="text-lg sm:text-xl text-gray-400 leading-relaxed max-w-4xl mx-auto mb-10 fade-in stagger-2">
+          Copilot CLI is powerful — but sessions pile up, context gets lost across tasks, and you're tied to the desk.
+          Console gives you visual session management, per-session context control, cross-session search, and mobile access. Move beyond chat to effectively managing your work.
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 fade-in stagger-3">
           <a href="#install"
@@ -327,7 +327,7 @@
               Mobile notifications &amp; continuity
             </h2>
             <p class="text-gray-400 text-lg leading-relaxed mb-6">
-              Get push notifications on your phone when any agent finishes. Continue the conversation from mobile — reply, review, or start new tasks on the go. Install as a PWA for a native-like experience.
+              Get push notifications on your phone when any agent finishes. Continue the conversation from mobile — reply or review tasks on the go. Install as a PWA for a native-like experience.
             </p>
             <div class="install-glow rounded-xl p-5 mb-5">
               <p class="text-sm text-gray-300 font-mono">
@@ -385,38 +385,37 @@
       </div>
     </section>
 
-    <!-- Feature 4: Workflows -->
+    <!-- Feature 4: Ask User / Interactive Q&A -->
     <section class="feature-section py-24 px-6">
       <div class="max-w-6xl mx-auto">
         <div class="grid lg:grid-cols-2 gap-16 items-center">
           <div class="fade-in">
             <div class="inline-flex items-center gap-2 text-accent-light text-sm font-mono mb-4">
-              <span>🔀</span> Deterministic Pipelines
+              <span>💬</span> Interactive Q&amp;A
             </div>
             <h2 class="font-display font-700 text-3xl sm:text-4xl text-white mb-5 tracking-tight">
-              Workflows
+              Agents ask <em>you</em> when they need to
             </h2>
             <p class="text-gray-400 text-lg leading-relaxed mb-6">
-              Chain agents into deterministic YAML pipelines. Each step's output flows to the next — no prompt drift, no hallucinated routing. Define once, run reliably, watch events stream in real-time.
-            </p>
+              When an agent needs clarification, it asks a structured question right in the conversation. Works seamlessly on desktop and mobile.</p>
             <ul class="space-y-3 text-gray-400">
               <li class="flex items-start gap-3">
                 <span class="text-accent mt-0.5">▸</span>
-                <span>YAML-defined multi-step agent pipelines</span>
+                <span>Structured elicitation — agents ask targeted questions mid-conversation</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="text-accent mt-0.5">▸</span>
-                <span>Built on Agent Framework + Copilot SDK</span>
+                <span>Works on desktop &amp; mobile — answer from anywhere</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="text-accent mt-0.5">▸</span>
-                <span>Live event streaming — watch each step execute</span>
+                <span>Resilient — pending questions survive connection drops on mobile</span>
               </li>
             </ul>
           </div>
           <div class="fade-in stagger-2">
             <div class="screenshot-glow rounded-xl overflow-hidden border border-white/10">
-              <img src="screenshots/workflow-run-dark.jpg" alt="Workflow pipeline running with live event streaming" class="w-full rounded-xl">
+              <img src="screenshots/ask-user.jpg" alt="Agent asking the user a structured question mid-conversation" class="w-full rounded-xl" onerror="this.parentElement.classList.add('screenshot-placeholder');this.parentElement.style.height='320px';this.alt='Screenshot placeholder';this.style.display='none';this.parentElement.innerHTML='📸 Ask User screenshot'">
             </div>
           </div>
         </div>
@@ -469,42 +468,63 @@
         <div class="feature-card fade-in stagger-1 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">⏰</div>
           <h3 class="font-display font-600 text-white text-lg mb-2">Automations</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Cron-scheduled agent runs. Runs dashboard for all executions — continue any run's conversation or watch a live agent in real-time.</p>
+          <p class="text-gray-400 text-sm leading-relaxed">Schedule agent runs on cron. Runs dashboard for all executions — continue any run's conversation or watch a live agent in real-time.</p>
         </div>
 
         <!-- Card: Agent Library -->
         <div class="feature-card fade-in stagger-2 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">🤖</div>
           <h3 class="font-display font-600 text-white text-lg mb-2">Agent Library</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Reusable agent personalities with custom prompts, models, tools, and MCP servers. Launch sessions from any agent with one click.</p>
+          <p class="text-gray-400 text-sm leading-relaxed">Reusable agent configs with custom prompts, models, tools, and MCP servers. Launch sessions from any agent with one click.</p>
         </div>
 
         <!-- Card: Agent Teams -->
         <div class="feature-card fade-in stagger-3 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">🤝</div>
           <h3 class="font-display font-600 text-white text-lg mb-2">Agent Teams</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Compose agents into teams with automatic delegation. Each sub-agent runs in its own context with specialized tools.</p>
+          <p class="text-gray-400 text-sm leading-relaxed">Multi-agent delegation — compose agents into teams. Each sub-agent runs in its own context with specialized tools.</p>
         </div>
 
         <!-- Card: Files & Images -->
         <div class="feature-card fade-in stagger-4 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">📎</div>
-          <h3 class="font-display font-600 text-white text-lg mb-2">Files & Images</h3>
+          <h3 class="font-display font-600 text-white text-lg mb-2">Files &amp; Images</h3>
           <p class="text-gray-400 text-sm leading-relaxed">Drag-and-drop files, paste images, attach context to any message. Give your agent the visual and textual context it needs.</p>
         </div>
 
         <!-- Card: MCP & Custom Tools -->
         <div class="feature-card fade-in stagger-5 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">🔌</div>
-          <h3 class="font-display font-600 text-white text-lg mb-2">MCP & Custom Tools</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Global and per-session MCP server management. Drop Python functions as custom tools into a folder. Built-in Tool Builder agent.</p>
+          <h3 class="font-display font-600 text-white text-lg mb-2">MCP &amp; Custom Tools</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Extend with plugins — global and per-session MCP server management. Drop Python functions as custom tools. Built-in Tool Builder agent.</p>
         </div>
 
-        <!-- Card: Agentic Web Browsing -->
+        <!-- Card: Web Browsing -->
         <div class="feature-card fade-in stagger-6 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">🌐</div>
-          <h3 class="font-display font-600 text-white text-lg mb-2">Agentic Web Browsing</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Bundled Playwright MCP server for autonomous web navigation. Fill forms, extract data, take screenshots — all through natural language.</p>
+          <h3 class="font-display font-600 text-white text-lg mb-2">Web Browsing</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Autonomous web navigation via bundled Playwright MCP. Fill forms, extract data, take screenshots — all through natural language.</p>
+        </div>
+
+        <!-- Card: Desktop Notifications -->
+        <div class="feature-card fade-in bg-surface-700/50 border border-white/5 rounded-xl p-6">
+          <div class="text-2xl mb-3">🔔</div>
+          <h3 class="font-display font-600 text-white text-lg mb-2">Desktop Notifications</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Know when agents finish. Native desktop notifications so you never miss a completed task, even when Console is in the background.</p>
+        </div>
+
+        <!-- Card: Open With -->
+        <div class="feature-card fade-in bg-surface-700/50 border border-white/5 rounded-xl p-6">
+          <div class="text-2xl mb-3">📂</div>
+          <h3 class="font-display font-600 text-white text-lg mb-2">Open With</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Open project folders in VS Code, Terminal, or Explorer with one click. Jump straight from Console into your favorite editor.</p>
+        </div>
+
+        <!-- Card: Workflows -->
+        <div class="feature-card fade-in bg-surface-700/50 border border-white/5 rounded-xl p-6">
+          <div class="text-2xl mb-3">🔀</div>
+          <h3 class="font-display font-600 text-white text-lg mb-2">Workflows <span class="text-xs text-gray-500 font-mono">(experimental)</span></h3>
+          <p class="text-gray-400 text-sm leading-relaxed">Multi-agent YAML pipelines — chain agents into deterministic steps. Each step's output flows to the next with live event streaming.</p>
         </div>
       </div>
     </div>
@@ -518,15 +538,17 @@
           One command to install
         </h2>
         <p class="text-gray-400 text-lg mb-10">
-          Works on Windows 10/11. Checks prerequisites, installs dependencies, and sets up everything.
+          Works on Windows, macOS/Linux—checks prerequisites, installs dependencies, and you’re all set.
         </p>
       </div>
 
       <div class="fade-in stagger-1 code-block p-6 text-left mb-8">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-xs text-gray-500 font-mono">❯ PowerShell</span>
+        <div class="flex items-center gap-3 mb-4">
+          <button onclick="document.getElementById('tab-ps').classList.remove('hidden');document.getElementById('tab-bash').classList.add('hidden');this.classList.add('text-accent-light','border-accent');this.classList.remove('text-gray-500','border-transparent');this.nextElementSibling.classList.remove('text-accent-light','border-accent');this.nextElementSibling.classList.add('text-gray-500','border-transparent')" class="text-xs font-mono pb-1 border-b-2 text-accent-light border-accent transition-colors">❯ PowerShell</button>
+          <button onclick="document.getElementById('tab-bash').classList.remove('hidden');document.getElementById('tab-ps').classList.add('hidden');this.classList.add('text-accent-light','border-accent');this.classList.remove('text-gray-500','border-transparent');this.previousElementSibling.classList.remove('text-accent-light','border-accent');this.previousElementSibling.classList.add('text-gray-500','border-transparent')" class="text-xs font-mono pb-1 border-b-2 text-gray-500 border-transparent transition-colors">❯ Bash</button>
         </div>
-        <pre class="font-mono text-sm sm:text-base leading-relaxed overflow-x-auto"><code><span class="text-gray-500"># Install (or upgrade)</span>
+        <div id="tab-ps">
+          <pre class="font-mono text-sm sm:text-base leading-relaxed overflow-x-auto"><code><span class="text-gray-500"># Install (or upgrade)</span>
 <span class="text-accent-light">irm</span> <span class="text-green-400">https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1</span> <span class="text-accent-light">|</span> <span class="text-accent-light">iex</span>
 
 <span class="text-gray-500"># Start</span>
@@ -534,6 +556,17 @@
 
 <span class="text-gray-500"># With mobile companion</span>
 <span class="text-accent-light">copilot-console</span> <span class="text-yellow-300">--expose</span> <span class="text-yellow-300">--no-sleep</span></code></pre>
+        </div>
+        <div id="tab-bash" class="hidden">
+          <pre class="font-mono text-sm sm:text-base leading-relaxed overflow-x-auto"><code><span class="text-gray-500"># Install (or upgrade)</span>
+<span class="text-accent-light">curl</span> <span class="text-yellow-300">-fsSL</span> <span class="text-green-400">https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh</span> <span class="text-accent-light">|</span> <span class="text-accent-light">bash</span>
+
+<span class="text-gray-500"># Start</span>
+<span class="text-accent-light">copilot-console</span>
+
+<span class="text-gray-500"># With mobile companion</span>
+<span class="text-accent-light">copilot-console</span> <span class="text-yellow-300">--expose</span> <span class="text-yellow-300">--no-sleep</span></code></pre>
+        </div>
       </div>
 
       <div class="fade-in stagger-2 flex flex-col sm:flex-row items-center justify-center gap-4">

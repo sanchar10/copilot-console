@@ -17,6 +17,8 @@ Before installing Copilot Console, ensure the following are available. All comma
 
 Download from [python.org](https://www.python.org/downloads/). During installation on Windows, **check "Add Python to PATH"**.
 
+> **macOS/Linux Note:** macOS support is experimental. Use `python3` and `pip3` on macOS/Linux.
+
 Verify:
 ```bash
 # Windows
