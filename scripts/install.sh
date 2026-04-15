@@ -302,17 +302,9 @@ if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
     fi
     if command -v devtunnel &> /dev/null; then
         echo -e "${GREEN}  [OK] devtunnel installed${NC}"
-        echo ""
-        echo -e "${YELLOW}  Signing in to devtunnel...${NC}"
-        echo -e "${YELLOW}  TIP: Use a work or school (Entra ID) account for best iOS/Safari support.${NC}"
-        echo -e "${GRAY}  If you only have a personal account, use --allow-anonymous mode instead.${NC}"
-        devtunnel user login
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}  [OK] devtunnel authenticated${NC}"
-            MOBILE_ENABLED=true
-        else
-            echo -e "${YELLOW}  [WARN] devtunnel login failed. Run 'devtunnel user login' manually.${NC}"
-        fi
+        MOBILE_ENABLED=true
+        echo -e "${YELLOW}  [NOTE] Run 'devtunnel user login' to authenticate before first use.${NC}"
+        echo -e "${GRAY}  TIP: Use a work or school (Entra ID) account for best iOS/Safari support.${NC}"
     fi
 else
     echo -e "${GRAY}  Skipped. Enable later with 'cli-notify on' or see docs/guides/MOBILE-COMPANION.md${NC}"
@@ -323,10 +315,11 @@ echo ""
 if [ "$MOBILE_ENABLED" = true ]; then
     echo -e "${CYAN}  Ready! Complete mobile setup:${NC}"
     echo ""
-    echo -e "    1. Run:  copilot-console --expose --no-sleep"
-    echo -e "    2. Open Settings -> scan QR code on your phone"
-    echo -e "    3. Install as PWA when prompted"
-    echo -e "    4. Allow notifications when the browser asks"
+    echo -e "    1. Run:  devtunnel user login"
+    echo -e "    2. Run:  copilot-console --expose --no-sleep"
+    echo -e "    3. Open Settings -> scan QR code on your phone"
+    echo -e "    4. Install as PWA when prompted"
+    echo -e "    5. Allow notifications when the browser asks"
     echo ""
     echo -e "${GRAY}  After this, CLI notifications work automatically.${NC}"
 else

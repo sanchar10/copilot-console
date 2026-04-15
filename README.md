@@ -16,7 +16,7 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 
 > **Why?** Sessions pile up fast across repos and tasks. Context gets lost between threads. You are stuck at your desk waiting for agent to finish. Console solves these with a visual layer on top of Copilot CLI — organize work, control context per session, search across everything, and monitor from anywhere. Move beyond chat to effectively managing your work.
 
-> **Platform:** Windows (tested on Windows 10/11). macOS support is experimental — install via `bash` script, see [Contributing](docs/guides/CONTRIBUTING.md). Linux support pending.
+> **Platform:** Windows and macOS. Linux support pending.
 
 ---
 
