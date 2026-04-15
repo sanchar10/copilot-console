@@ -203,7 +203,7 @@ echo -e "${CYAN}  Optional: Agentic Web Browsing${NC}"
 echo -e "${GRAY}  Adds autonomous web navigation via Playwright MCP server.${NC}"
 echo -e "${GRAY}  Uses your system browser (Edge or Chrome).${NC}"
 echo ""
-read -p "  Enable agentic web browsing? (y/N) " SETUP_PLAYWRIGHT
+read -p "  Enable agentic web browsing? (y/N) " SETUP_PLAYWRIGHT < /dev/tty
 if [[ "$SETUP_PLAYWRIGHT" =~ ^[Yy]$ ]]; then
     MCP_CONFIG_PATH="$HOME/.copilot-console/mcp-config.json"
     ADD_PLAYWRIGHT=true
@@ -261,7 +261,7 @@ echo -e "${CYAN}  Optional: Mobile Access & CLI Notifications${NC}"
 echo -e "${GRAY}  Access sessions from your phone, get push notifications when${NC}"
 echo -e "${GRAY}  any Copilot CLI session finishes. Requires devtunnel.${NC}"
 echo ""
-read -p "  Enable mobile access & notifications? (y/N) " SETUP_MOBILE
+read -p "  Enable mobile access & notifications? (y/N) " SETUP_MOBILE < /dev/tty
 if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
     # Enable CLI notifications
     if command -v cli-notify &> /dev/null; then
