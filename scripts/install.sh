@@ -91,6 +91,23 @@ echo -e "${YELLOW}  │  ⏳ This may take 3-5 minutes — please wait...     �
 echo -e "${YELLOW}  └─────────────────────────────────────────────────────┘${NC}"
 echo ""
 
+# --- Ensure pip is available (Ubuntu/Debian often ship without it) ---
+if ! python3 -m pip --version &> /dev/null; then
+    echo -e "${YELLOW}  pip not found — installing python3-pip...${NC}"
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update -qq && sudo apt-get install -y -qq python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+    fi
+    if ! python3 -m pip --version &> /dev/null; then
+        echo -e "${RED}  [ERROR] Could not install pip. Install manually: sudo apt install python3-pip${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}  [OK] pip installed${NC}"
+fi
+
 # Install Agent Framework (pre-release) — required for workflow orchestration
 echo -e "${GRAY}  Installing Microsoft Agent Framework (pre-release)...${NC}"
 AF_INSTALLED=false
