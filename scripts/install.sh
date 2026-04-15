@@ -87,7 +87,12 @@ echo ""
 # Install Agent Framework (pre-release) — required for workflow orchestration
 echo -e "${GRAY}  Installing Microsoft Agent Framework (pre-release)...${NC}"
 AF_INSTALLED=false
-if python3 -m pip install --user --quiet agent-framework --pre 2>&1; then
+# Detect virtualenv — --user is incompatible with venvs
+PIP_USER_FLAG="--user"
+if [ -n "${VIRTUAL_ENV:-}" ] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
+    PIP_USER_FLAG=""
+fi
+if python3 -m pip install $PIP_USER_FLAG --quiet agent-framework --pre 2>&1; then
     AF_INSTALLED=true
     echo -e "${GREEN}  [OK] Agent Framework installed${NC}"
 else
@@ -109,7 +114,7 @@ else
     echo -e "${YELLOW}  [WARN] pipx not found, using pip instead.${NC}"
 fi
 if [ "$INSTALLED" = false ]; then
-    python3 -m pip install --user --no-cache-dir --ignore-installed "$WHL_URL" 2>&1 | \
+    python3 -m pip install $PIP_USER_FLAG --no-cache-dir --ignore-installed "$WHL_URL" 2>&1 | \
         grep -E 'Downloading.*copilot.agent.console|Installing collected' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
     if [ $? -eq 0 ]; then
         INSTALLED=true
