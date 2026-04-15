@@ -51,9 +51,16 @@ echo -e "${GREEN}  [OK] Node.js $NODE_VERSION${NC}"
 # --- Check/Install Copilot CLI ---
 if ! command -v copilot &> /dev/null; then
     echo -e "${YELLOW}  Installing GitHub Copilot CLI...${NC}"
-    npm install -g @github/copilot &> /dev/null
+    # Try without sudo first, then with sudo (Linux often needs it for global installs)
+    if npm install -g @github/copilot &> /dev/null 2>&1; then
+        true  # success
+    elif command -v sudo &> /dev/null; then
+        echo -e "${GRAY}  Retrying with sudo...${NC}"
+        sudo npm install -g @github/copilot &> /dev/null 2>&1 || true
+    fi
     if ! command -v copilot &> /dev/null; then
         echo -e "${RED}  [ERROR] Failed to install Copilot CLI${NC}"
+        echo -e "${YELLOW}     Try manually: sudo npm install -g @github/copilot${NC}"
         exit 1
     fi
 fi
