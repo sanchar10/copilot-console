@@ -127,27 +127,25 @@ class OpenWithRequest(BaseModel):
 @router.post("/open-with")
 async def open_with(request: OpenWithRequest) -> dict:
     """Open a folder in VS Code, Terminal, or File Explorer."""
-    cwd = Path(request.cwd)
+    cwd = Path(request.cwd).resolve()
     if not cwd.exists() or not cwd.is_dir():
         raise HTTPException(status_code=404, detail="Folder not found")
 
     system = platform.system()
     try:
         if request.target == "vscode":
-            # Use shell=True on Windows so it finds code.cmd via PATH
-            if system == "Windows":
-                subprocess.Popen(f'code "{cwd}"', shell=True)
-            else:
-                subprocess.Popen(["code", str(cwd)])
+            import shutil
+            code_cmd = shutil.which("code") or "code"
+            subprocess.Popen([code_cmd, str(cwd)])
         elif request.target == "terminal":
             if system == "Windows":
                 import shutil
                 shell = shutil.which("pwsh") or shutil.which("powershell") or "cmd"
                 if "pwsh" in shell or "powershell" in shell:
-                    subprocess.Popen([shell, "-NoExit", "-Command", f"Set-Location '{cwd}'"],
+                    subprocess.Popen([shell, "-NoExit", "-Command", "Set-Location", str(cwd)],
                                      creationflags=subprocess.CREATE_NEW_CONSOLE)
                 else:
-                    subprocess.Popen(["cmd", "/k", f"cd /d {cwd}"],
+                    subprocess.Popen(["cmd", "/k", "cd", "/d", str(cwd)],
                                      creationflags=subprocess.CREATE_NEW_CONSOLE)
             elif system == "Darwin":
                 subprocess.Popen(["open", "-a", "Terminal", str(cwd)])

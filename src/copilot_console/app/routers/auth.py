@@ -75,21 +75,8 @@ async def _check_sdk_auth() -> dict | None:
         return None
 
 
-async def _check_functional_auth() -> dict | None:
-    """If the main client is started, sessions work → user is authenticated."""
-    try:
-        if copilot_service._main_client is not None and copilot_service._main_started:
-            return {
-                "authenticated": True,
-                "provider": "github",
-                "login": None,
-            }
-    except Exception:
-        pass
-    return None
 
-
-def _run_gh_auth_status() -> subprocess.CompletedProcess:
+def _run_gh_auth_status()-> subprocess.CompletedProcess:
     """Synchronous helper — runs ``gh auth status --active``."""
     return subprocess.run(
         ["gh", "auth", "status", "--active"],
@@ -138,7 +125,7 @@ async def _check_gh_cli_auth() -> dict | None:
 async def get_auth_status():
     """Return current authentication status.
 
-    Checks multiple sources in order — SDK, functional probe, GitHub CLI.
+    Checks multiple sources in order — SDK, then GitHub CLI.
     Always returns a valid response, never crashes.
     """
     try:
@@ -147,12 +134,7 @@ async def get_auth_status():
         if result:
             return result
 
-        # 2. Functional probe — main client already working
-        result = await _check_functional_auth()
-        if result:
-            return result
-
-        # 3. GitHub CLI fallback
+        # 2. GitHub CLI fallback
         result = await _check_gh_cli_auth()
         if result:
             return result
