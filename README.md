@@ -71,7 +71,7 @@ One command to install (or upgrade):
 irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
 ```
 
-**macOS / Linux:**
+**macOS (experimental):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash
 ```
