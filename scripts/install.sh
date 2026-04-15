@@ -116,7 +116,12 @@ PIP_USER_FLAG="--user"
 if [ -n "${VIRTUAL_ENV:-}" ] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
     PIP_USER_FLAG=""
 fi
-if python3 -m pip install $PIP_USER_FLAG --quiet agent-framework --pre 2>&1; then
+# PEP 668: Ubuntu 24.04+ marks system Python as externally-managed
+PIP_BREAK_FLAG=""
+if python3 -c "import sysconfig; p=sysconfig.get_path('stdlib'); exit(0 if __import__('os').path.exists(p+'/../EXTERNALLY-MANAGED') else 1)" 2>/dev/null; then
+    PIP_BREAK_FLAG="--break-system-packages"
+fi
+if python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --quiet agent-framework --pre 2>&1; then
     AF_INSTALLED=true
     echo -e "${GREEN}  [OK] Agent Framework installed${NC}"
 else
@@ -138,7 +143,7 @@ else
     echo -e "${YELLOW}  [WARN] pipx not found, using pip instead.${NC}"
 fi
 if [ "$INSTALLED" = false ]; then
-    python3 -m pip install $PIP_USER_FLAG --no-cache-dir --ignore-installed "$WHL_URL" 2>&1 | \
+    python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --no-cache-dir --ignore-installed "$WHL_URL" 2>&1 | \
         grep -E 'Downloading.*copilot.agent.console|Installing collected' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
     if [ $? -eq 0 ]; then
         INSTALLED=true
