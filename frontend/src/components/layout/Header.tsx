@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ScrollableRow } from '../common/ScrollableRow';
 import { MCPSelector } from '../chat/MCPSelector';
 import { ToolsSelector } from '../chat/ToolsSelector';
 import { SubAgentSelector } from '../chat/SubAgentSelector';
@@ -146,10 +147,10 @@ export function Header({
 
   return (
     <header className="h-14 border-b border-gray-100 dark:border-[#3a3a4e] bg-white dark:bg-[#252536] shadow-sm dark:shadow-black/20 flex items-center px-6 relative z-20">
-      <div className="flex items-center gap-3 flex-1 min-w-0 [&>*]:flex-shrink-0">
-        {sessionName ? (
-          <>
-            {/* Session Name - clickable to edit */}
+      {sessionName ? (
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Session Name - fixed, not scrollable */}
+          <div className="flex-shrink-0">
             {isEditingName ? (
               <input
                 type="text"
@@ -169,10 +170,13 @@ export function Header({
                 {sessionName}
               </h2>
             )}
+          </div>
 
-            {/* Separator */}
-            <div className="h-5 w-[2px] bg-gray-300 dark:bg-gray-600 mx-0.5" />
+          {/* Separator */}
+          <div className="h-5 w-[2px] bg-gray-300 dark:bg-gray-600 mx-0.5 flex-shrink-0" />
 
+          {/* Scrollable controls area */}
+          <ScrollableRow className="flex items-center gap-3 [&>*]:flex-shrink-0">
             {/* System Prompt — locked after session creation */}
             {onSystemMessageChange && (
               <SystemPromptEditor
@@ -263,20 +267,6 @@ export function Header({
               <OpenWithDropdown cwd={cwd} />
             )}
 
-            {/* Folder Browser Modal */}
-            {onCwdChange && (
-              <FolderBrowserModal
-                isOpen={showFolderBrowser}
-                onClose={() => setShowFolderBrowser(false)}
-                onSelect={(path) => {
-                  onCwdChange(path);
-                }}
-                initialPath={cwd}
-                disableSelect={hasActiveResponse || isActivating}
-                disableSelectReason={isActivating ? 'Please wait, session is activating...' : hasActiveResponse ? 'Please wait, agent is responding...' : undefined}
-              />
-            )}
-
             {/* Sessions using same project folder */}
             {cwd && onRelatedSessionClick && (
               <RelatedSessions
@@ -299,11 +289,25 @@ export function Header({
                 />
               </div>
             )}
-          </>
-        ) : (
-          <h2 className="text-gray-500 dark:text-gray-400">Select or create a session</h2>
-        )}
-      </div>
+          </ScrollableRow>
+
+          {/* Folder Browser Modal — rendered outside scroll area */}
+          {onCwdChange && (
+            <FolderBrowserModal
+              isOpen={showFolderBrowser}
+              onClose={() => setShowFolderBrowser(false)}
+              onSelect={(path) => {
+                onCwdChange(path);
+              }}
+              initialPath={cwd}
+              disableSelect={hasActiveResponse || isActivating}
+              disableSelectReason={isActivating ? 'Please wait, session is activating...' : hasActiveResponse ? 'Please wait, agent is responding...' : undefined}
+            />
+          )}
+        </div>
+      ) : (
+        <h2 className="text-gray-500 dark:text-gray-400">Select or create a session</h2>
+      )}
     </header>
   );
 }
