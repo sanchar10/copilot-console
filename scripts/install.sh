@@ -118,7 +118,8 @@ if [ -n "${VIRTUAL_ENV:-}" ] || python3 -c "import sys; sys.exit(0 if sys.prefix
 fi
 # PEP 668: Ubuntu 24.04+ marks system Python as externally-managed
 PIP_BREAK_FLAG=""
-if python3 -c "import sysconfig; p=sysconfig.get_path('stdlib'); exit(0 if __import__('os').path.exists(p+'/../EXTERNALLY-MANAGED') else 1)" 2>/dev/null; then
+PY_STDLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null)
+if [ -f "${PY_STDLIB}/EXTERNALLY-MANAGED" ] 2>/dev/null || [ -f "${PY_STDLIB}/../EXTERNALLY-MANAGED" ] 2>/dev/null; then
     PIP_BREAK_FLAG="--break-system-packages"
 fi
 if python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --quiet agent-framework --pre 2>&1; then
