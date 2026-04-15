@@ -48,6 +48,7 @@ src/copilot_console/
 │   │   ├── settings.py         # User settings
 │   │   ├── cli_hooks.py        # Bridge from CLI agentStop hook
 │   │   └── ... (search, filesystem, logs, pins, push, etc.)
+
 │   └── middleware/
 │       ├── auth.py             # Bearer token for remote (non-localhost) access
 │       └── selective_gzip.py   # Compress >1KB responses, skip SSE
@@ -399,4 +400,131 @@ Seed Content:
 - Deployed to ~/.copilot-console/ on CLI run
 
 ---
+
+## v0.7.0 Release Prep (2026-04-13)
+
+### Tasks Completed
+
+**TASK A: Interactive Input Guide (docs/guides/INTERACTIVE-INPUT.md)**
+- Created comprehensive guide covering both ask_user and elicitation in a single, user-friendly document
+- Covers: What it is, Two mechanisms (ask_user vs. elicitation), UI layout, Skip behavior, Mobile support, Reconnect resilience, Desktop notifications, Best practices
+- Added placeholder for screenshot (TODO comment)
+- Duplicated content to seed location: `src/copilot_console/seed/copilot-console/docs/guides/INTERACTIVE-INPUT.md`
+- Positioned docs/guides/ as user-facing reference material
+
+**TASK B: Changelog v0.7.0 (CHANGELOG.md)**
+- Organized 87 commits into structured, semantically meaningful categories:
+  - ✨ Features: 20 entries (ask_user, elicitation, auth UI, "Open with", agent management, audio, code blocks)
+  - 🐛 Bug Fixes: 35+ entries (state/connectivity, lifecycle, mobile UX, elicitation internals, error handling, session mgmt)
+  - ♻️ Refactoring: SSE parser consolidation, ChatStep dedup, component decomposition, stage refactors
+  - 📱 Mobile: Full section covering input, streaming, step rendering, reconnect
+  - 🏗️ Architecture: Core refactoring, revert & stabilization, code cleanup
+  - 📝 Documentation: Setup guides, DEV-SETUP.md, codebase survey
+  - 🚀 Platform Support: macOS/Linux install.sh, caffeinate, cross-platform messages
+- Added release summary paragraph highlighting major themes
+- Each category focuses on user-facing value rather than individual commits
+
+### Key Decisions
+- Grouped related commits (e.g., all ask_user/elicitation work → one Features entry) to avoid repetition
+- Separated mobile work into dedicated section for visibility
+- Emphasized architectural improvements (SSE parser, refactors) but kept focus on user features
+- Used emojis for quick visual scanning of changelog categories
+- Added date: 2026-04-13 (release date)
+
+---
+
+### CROSS-PLATFORM AUDIT (2025-07-17)
+
+**Key Findings — Windows → macOS Compatibility**
+
+1. **Core architecture is already cross-platform.** pathlib.Path used throughout config.py, all storage services, and CLI. os.path.* functions in agent_discovery_service.py are inherently portable. Filesystem router (filesystem.py) already has Windows/macOS/Linux branching for drive listing, parent path, and file opening.
+
+2. **Blockers are installation-only.** The only 🔴 Blockers are the absence of a `scripts/install.sh` for macOS (install.ps1 is PowerShell-only). The core Python app starts and runs fine on macOS.
+
+3. **Sleep prevention (`main.py:32-47`) is Windows-only** — uses `ctypes.windll.kernel32.SetThreadExecutionState`. Needs macOS equivalent via `caffeinate -i -w <pid>` subprocess. The guard `if sys.platform != "win32": return` means it silently no-ops on macOS (safe but feature-missing).
+
+4. **devtunnel error messages hardcode `winget install`** in `cli.py:188` and `dev.js:136`. Needs platform-aware alternatives (`brew install --cask devtunnel` for macOS).
+
+5. **Frontend keyboard shortcut tooltip** says "Ctrl+K" in `Sidebar.tsx:142` but the handler correctly uses `e.ctrlKey || e.metaKey` (works on both). Only the label needs fixing to show ⌘K on Mac.
+
+6. **Documentation** uses `powershell` code fences throughout seed docs. Needs `sh`/`bash` alternatives.
+
+7. **Scope estimate: ~10-12 hours** — focused sprint, not a refactor. Main work is install.sh + caffeinate + message fixes + docs.
+
+Full audit: `.squad/decisions/inbox/keaton-xplat-audit.md`
+
+---
+
+### COPILOT_SERVICE.PY SPLIT ARCHITECTURE (2025-07-18)
+
+**Decision:** Split `copilot_service.py` (1,412 lines) into 4 modules:
+1. `session_client.py` (~250 lines) — `SessionClient` class + SDK permission imports
+2. `elicitation_service.py` (~120 lines) — `ElicitationManager` class for interactive futures
+3. `event_processor.py` (~280 lines) — `EventProcessor` class for SDK→SSE event translation
+4. `copilot_service.py` (~400 lines) — slimmed coordinator, keeps singleton + all public methods
+
+**Import graph:** All 3 new modules are leaf modules. `copilot_service.py` imports them. No circular deps.
+
+**Key pattern:** Shared state accessed via callbacks (e.g., `get_client: Callable`) not direct dict access. `_session_clients` dict stays exclusively in `CopilotService`.
+
+**No breaking changes:** External imports (`from copilot_service import copilot_service`) unchanged.
+
+**Full decision:** `.squad/decisions/inbox/keaton-copilot-service-split.md`
+
+---
+
+## CROSS-TEAM: Stage 2 Wave 1 Summary (2026-04-12)
+
+### McManus Completed Infrastructure Hardening
+
+McManus executed 5 independent backend fixes in preparation for module split:
+
+1. **Atomic writes pattern** — All 11 storage services now use `atomic_write(path, content)` from storage_service.py. Prevents data corruption on crash (write to .tmp then os.replace).
+
+2. **Bounded SSE event queue** — Per-session event queue maxsize=1000. `_safe_enqueue()` drops oldest non-sentinel event on backpressure. Never call `put_nowait()` directly.
+
+3. **Session log handler cleanup** — Added `close_session_log(session_id)` to logging_service.py. Wired into `destroy_session_client()`. Prevents unbounded FD growth.
+
+4. **test-elicitation endpoint gating** — Returns 404 in production. Set COPILOT_DEBUG=1 to enable during UI development.
+
+5. **Session message lock cleanup** — `self._session_msg_locks.pop(session_id, None)` in `destroy_session_client()`. Prevents unbounded dict growth.
+
+### Hockney Created Pre-Refactor Characterization Tests
+
+Hockney wrote 77 tests across 3 files to capture current behavior before module split:
+- **test_copilot_service.py** — 35 tests covering CopilotService public API (session lifecycle, elicitation, models caching, stop/cleanup)
+- **test_storage_service.py** — 18 tests covering StorageService write/read fidelity (roundtrip, merge, corrupt file handling)
+- **test_session_config.py** — 24 tests covering config resolution, migrations, session cleanup
+
+All 77 tests passing. These are the regression suite for module split.
+
+### Architecture Ready for Implementation
+
+All prerequisites satisfied:
+- ✅ Keaton: Architecture design complete (4-module split decision documented)
+- ✅ McManus: Infrastructure hardened (atomic writes, bounded queue, cleanup)
+- ✅ Hockney: Test suite in place (77 characterization tests, all passing)
+
+Next: McManus implements module split in 4 sequential steps, with test gates.
+
+---
+
+### Stage 3 Frontend Restructuring — Code Review (2025-07-18)
+
+**Verdict:** APPROVED ✅
+
+Reviewed Fenster's Stage 3 decomposition. Key findings:
+- SSE parser (`utils/sseParser.ts`) is clean — handles multi-line data, CRLF, buffer flush, reader lock release
+- Exponential backoff in `activeAgents.ts` is correct: `min(1s * 2^attempt, 30s)`, resets on success, aborts cleanly
+- `ChatStep` has exactly 1 canonical definition in `types/message.ts`, re-exported from `session.ts` and `chatStore.ts`
+- `useFileUpload` hook: clean encapsulation, proper cleanup with `consumeAttachments/consumePendingFiles`
+- `useSlashCommands` hook: correct state isolation, no leaked closures
+- `PinsDrawer` props match exactly what ChatPane was passing inline
+- `scrollToMessageBySdkId` re-exported from ChatPane for backward compat (SearchModal imports it)
+- `useMemo` on `splitSegments()` in StreamingMessage — correct dependency on `[content]`
+- `npx tsc --noEmit` passes with 0 errors
+- No circular dependencies detected between hooks/components/utils
+- `useMessageSender` was not extracted — `handleSubmit` kept inline due to closure deps (correct call)
+
+No functionality breakage detected.
 

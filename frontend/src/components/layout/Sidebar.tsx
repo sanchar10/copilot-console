@@ -322,34 +322,15 @@ export function Sidebar() {
 
       {/* User Settings Footer - sticky at bottom */}
       <div className="sticky bottom-0 p-2 border-t border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#252536]">
-        {/* Auth indicator */}
         <button
-          onClick={() => { /* TODO: open auth settings panel */ }}
-          className="w-full flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-[#32324a] transition-colors"
-          title={authStatus.authenticated ? `Authenticated via ${authStatus.provider || 'unknown'}` : 'No auth configured'}
-        >
-          {authStatus.authenticated ? (
-            <>
-              <span className="text-sm text-emerald-600 dark:text-emerald-400">🔒</span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {authStatus.provider || 'Auth'}{authStatus.username ? ` (${authStatus.username})` : ''}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-amber-600 dark:text-amber-400">🔓</span>
-              <span className="text-xs text-gray-500 dark:text-gray-400">No auth</span>
-            </>
-          )}
-        </button>
-        <button
-          onClick={openSettingsModal}
-          title={`Settings${appVersion ? ` · v${appVersion}` : ''}`}
+          onClick={() => openSettingsModal()}
+          title={`Settings${appVersion ? ` · v${appVersion}` : ''}${authStatus.authenticated ? ` · Authenticated via ${authStatus.provider || 'unknown'}` : ' · No auth configured'}`}
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-[#32324a] transition-colors"
         >
           <span className="text-base">⚙️</span>
           <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-gray-100">Settings</span>
-          {appVersion && <span className="text-[10px] text-gray-500 dark:text-gray-400">v{appVersion}</span>}
+          <span className="text-xs leading-none">{authStatus.authenticated ? '🔒' : '🔓'}</span>
+          {appVersion && <span className="text-[10px] leading-none text-gray-500 dark:text-gray-400">v{appVersion}</span>}
         </button>
       </div>
 

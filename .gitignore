@@ -37,6 +37,7 @@ pnpm-debug.log*
 # Build outputs
 frontend/dist/
 src/copilot_console/static/
+src/copilot_console/seed/copilot-console/docs/**/*.md
 *.local
 
 # IDE

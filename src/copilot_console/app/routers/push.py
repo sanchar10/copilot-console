@@ -36,6 +36,17 @@ async def subscribe(subscription: PushSubscription) -> dict:
     return {"status": "subscribed"}
 
 
+@router.get("/subscriptions")
+async def list_subscriptions() -> dict:
+    """List all registered push notification subscriptions."""
+    subs = push_subscription_service.get_all()
+    return {
+        "subscriptions": [
+            {"endpoint": s.get("endpoint", "")} for s in subs
+        ],
+    }
+
+
 @router.delete("/subscribe")
 async def unsubscribe(request: UnsubscribeRequest) -> dict:
     """Remove a device's push notification subscription."""

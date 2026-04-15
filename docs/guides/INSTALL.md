@@ -12,6 +12,7 @@ Before installing Copilot Console, ensure the following are available. All comma
 | **GitHub Copilot CLI** | Latest | `copilot --version` |
 | **GitHub Copilot subscription** | Active | [github.com/settings/copilot](https://github.com/settings/copilot) |
 | **devtunnel** *(optional)* | Latest | `devtunnel --version` |
+| **ripgrep** | Latest | `rg --version` |
 
 ### Step 1: Install Python
 
@@ -117,10 +118,10 @@ If the quick installer doesn't work or you prefer manual installation:
 
 [pipx](https://pipx.pypa.io/) installs Python applications in isolated environments and automatically adds them to PATH.
 
-```powershell
+```shell
 # Install pipx if not already installed
-pip install --user pipx
-python -m pipx ensurepath
+pip install --user pipx      # Use pip3 on macOS/Linux
+python -m pipx ensurepath    # Use python3 on macOS/Linux
 # Close and reopen the terminal after this
 
 # Install Copilot Console (replace URL with latest .whl from Releases page)
@@ -131,7 +132,7 @@ pipx install https://github.com/sanchar10/copilot-console/releases/download/<VER
 
 ### Option B: pip
 
-```powershell
+```shell
 pip install https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
 ```
 
@@ -141,7 +142,7 @@ pip install https://github.com/sanchar10/copilot-console/releases/download/<VERS
 
 Required for workflow orchestration. Agent Framework is pre-release and needs the `--pre` flag:
 
-```powershell
+```shell
 pip install agent-framework --pre
 ```
 
@@ -150,7 +151,7 @@ If you used pipx, also inject it into the pipx venv:
 pipx inject copilot-console agent-framework --pip-args="--pre"
 ```
 
-### Step 6: Install ripgrep (Optional — for cross-session search)
+### Step 6: Install ripgrep (for session content search)
 
 **Windows:**
 ```powershell
@@ -190,7 +191,7 @@ Common options:
 
 ```bash
 copilot-console                      # Start with defaults
-copilot-console --no-sleep           # Prevent Windows from sleeping
+copilot-console --no-sleep           # Prevent system from sleeping
 copilot-console --port 8787          # Use a specific port
 copilot-console --expose --no-sleep  # Mobile access + prevent sleep
 ```
@@ -202,14 +203,14 @@ Run `copilot-console --help` for all options.
 Get notified on your phone when any Copilot CLI terminal session finishes — even sessions started from the terminal outside Console.
 
 Enable from the command line:
-```powershell
+```shell
 cli-notify on
 ```
 
 Or toggle it in **Console Settings** (gear icon → CLI Notifications).
 
 To disable:
-```powershell
+```shell
 cli-notify off
 ```
 
@@ -240,22 +241,31 @@ Once configured, enable the Playwright MCP server in any session's settings to u
 
 When a new version is available, the app shows a banner with the install command. To update manually:
 
-```powershell
+```shell
 pipx install --force https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
 ```
 
 ## Uninstalling
 
-```powershell
+```shell
 # Disable CLI notifications (if enabled)
 cli-notify off
 
 # Remove Copilot Console
-pipx uninstall copilot-console
+pip uninstall copilot-console       # Windows
+pip3 uninstall copilot-console      # macOS/Linux
 ```
+
+> **Note:** If you installed with `pipx`, use `pipx uninstall copilot-console` instead to also clean up the isolated environment.
 
 This removes the application but keeps session data and settings in `~/.copilot-console/`. To remove everything:
 
+**Windows (PowerShell):**
 ```powershell
 Remove-Item -Recurse -Force "$env:USERPROFILE\.copilot-console"
+```
+
+**macOS / Linux:**
+```bash
+rm -rf ~/.copilot-console
 ```

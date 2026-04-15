@@ -118,7 +118,7 @@ npm run dev
 
 ## Running Tests
 
-```powershell
+```shell
 # Backend tests
 uv run pytest tests/ --ignore=tests/e2e -q      # uv
 python -m pytest tests/ --ignore=tests/e2e -q    # pip (venv activated)
@@ -142,14 +142,14 @@ This repo’s wheel is built by GitHub Actions, not manually on developer machin
 
 If you need to regenerate the wheel for the *same* version (without bumping version numbers), force-move the tag to the desired commit and force-push it:
 
-```powershell
+```shell
 git tag -f v0.6.0 <commit_sha>
 git push -f origin v0.6.0
 ```
 
 ### Local build (optional)
 
-```powershell
+```shell
 # Build frontend
 npm run build --prefix frontend
 
@@ -157,14 +157,14 @@ npm run build --prefix frontend
 pip install build
 python -m build --wheel
 
-# Output: dist\copilot_console-<version>-py3-none-any.whl
+# Output: dist/copilot_console-<version>-py3-none-any.whl
 ```
 
 ## Mobile Companion (Dev Mode)
 
 To test the mobile companion during development:
 
-```powershell
+```shell
 # Start with tunnel (secure — same Microsoft work/school account on phone)
 npm run dev -- --expose
 

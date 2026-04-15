@@ -93,6 +93,7 @@ copilot-console
 6. **Build a micro-app** — Go to **Agents** → **Dev Lead** → **New Session**, pick a starter prompt, and watch a 6-agent team build a full-stack app.
 7. **Run a workflow** — Go to **Workflows**, open **Emoji Poem** or **Codebase Health Check**, click **▶ Run**.
 8. **Go mobile** — Run `copilot-console` with `--expose`, scan the QR code from Settings on your phone, and continue from anywhere.
+9. **Ask the Console Guide** — Start a session with the built-in 📖 **Copilot Console Guide** agent from the Agent Library. Ask it anything about features, setup, or troubleshooting — it reads the bundled docs to give you accurate answers.
 
 ---
 
@@ -114,14 +115,14 @@ Options:
 
 ### Examples
 
-```powershell
+```shell
 # Run on a custom port
 copilot-console --port 9000
 
 # Run without opening browser
 copilot-console --no-browser
 
-# Keep PC awake for overnight scheduled tasks
+# Keep system awake for overnight scheduled tasks
 copilot-console --no-sleep
 
 # Enable mobile companion (secure — requires same Microsoft work/school account on phone)
@@ -135,21 +136,21 @@ copilot-console --expose --allow-anonymous
 
 ## Configuration
 
-All data is stored in `C:\Users\<username>\.copilot-console\`:
+All data is stored in `~/.copilot-console/`:
 
 ```
-.copilot-console\
+.copilot-console/
 ├── settings.json        # Default model, working directory
 ├── mcp-config.json      # MCP server configurations (global)
-├── sessions\            # Session metadata and settings
-├── agents\              # Agent library definitions
-├── workflows\           # Workflow YAML definitions
-├── workflow-runs\       # Workflow run history and working directories
-├── automations\         # Automation definitions
-├── task-runs\           # Automation run history
-├── tools\               # Custom Python tools (drop .py files here)
-├── mcp-servers\         # Drop-in MCP server scripts (stdio / local)
-├── logs\                # Application logs
+├── sessions/            # Session metadata and settings
+├── agents/              # Agent library definitions
+├── workflows/           # Workflow YAML definitions
+├── workflow-runs/       # Workflow run history and working directories
+├── automations/         # Automation definitions
+├── task-runs/           # Automation run history
+├── tools/               # Custom Python tools (drop .py files here)
+├── mcp-servers/         # Drop-in MCP server scripts (stdio / local)
+├── logs/                # Application logs
 └── viewed.json          # Read/unread tracking
 ```
 

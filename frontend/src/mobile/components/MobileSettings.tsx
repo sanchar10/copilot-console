@@ -10,6 +10,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
   isPushSubscribed,
+  verifyPushSubscriptionWithServer,
 } from '../mobileClient';
 import { QRScanner } from './QRScanner';
 
@@ -28,13 +29,30 @@ export function MobileSettings({ onConnectionChange }: Props) {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
+  const [pushRemovedMessage, setPushRemovedMessage] = useState(false);
 
-  // Check push subscription status on mount
+  // Check push subscription status on mount and verify with server
   useEffect(() => {
     if ('Notification' in window) {
       setPushPermission(Notification.permission);
     }
-    isPushSubscribed().then(setPushEnabled).catch(() => {});
+    isPushSubscribed().then((locallySubscribed) => {
+      setPushEnabled(locallySubscribed);
+
+      // If locally subscribed, verify the backend still has this device registered
+      if (locallySubscribed) {
+        verifyPushSubscriptionWithServer().then((serverRegistered) => {
+          if (serverRegistered === false) {
+            // Subscription was removed from the console — flip toggle off and notify user
+            setPushEnabled(false);
+            setPushRemovedMessage(true);
+            setTimeout(() => setPushRemovedMessage(false), 5000);
+            // Clean up the stale local subscription
+            unsubscribeFromPush().catch(() => {});
+          }
+        });
+      }
+    }).catch(() => {});
   }, []);
 
   const handleSave = async () => {
@@ -284,6 +302,12 @@ export function MobileSettings({ onConnectionChange }: Props) {
             {pushPermission === 'denied' && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
                 Notifications are blocked. Enable them in your device's settings for this app.
+              </p>
+            )}
+
+            {pushRemovedMessage && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                Notifications were disabled from the desktop console.
               </p>
             )}
           </section>

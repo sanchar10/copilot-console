@@ -241,7 +241,7 @@ export async function unsubscribeFromPush(): Promise<boolean> {
   }
 }
 
-/** Check if currently subscribed to push */
+/** Check if currently subscribed to push (local service worker check only) */
 export async function isPushSubscribed(): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
@@ -249,5 +249,24 @@ export async function isPushSubscribed(): Promise<boolean> {
     return subscription !== null;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Verify the local push subscription is still registered on the backend.
+ * Returns true if registered, false if removed (e.g., from desktop console).
+ * Returns null if verification couldn't be performed (no local subscription, network error, etc.).
+ */
+export async function verifyPushSubscriptionWithServer(): Promise<boolean | null> {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return null;
+
+    const data = await mobileApiClient.get<{ subscriptions: { endpoint: string }[] }>('/push/subscriptions');
+    const serverEndpoints = data.subscriptions.map((s) => s.endpoint);
+    return serverEndpoints.includes(subscription.endpoint);
+  } catch {
+    return null;
   }
 }

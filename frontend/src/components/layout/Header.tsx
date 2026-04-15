@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { ScrollableRow } from '../common/ScrollableRow';
 import { MCPSelector } from '../chat/MCPSelector';
 import { ToolsSelector } from '../chat/ToolsSelector';
 import { SubAgentSelector } from '../chat/SubAgentSelector';
@@ -175,8 +174,8 @@ export function Header({
           {/* Separator */}
           <div className="h-5 w-[2px] bg-gray-300 dark:bg-gray-600 mx-0.5 flex-shrink-0" />
 
-          {/* Scrollable controls area */}
-          <ScrollableRow className="flex items-center gap-3 [&>*]:flex-shrink-0">
+          {/* Controls area */}
+          <div className="flex items-center gap-3 flex-1 min-w-0 [&>*]:flex-shrink-0">
             {/* System Prompt — locked after session creation */}
             {onSystemMessageChange && (
               <SystemPromptEditor
@@ -289,7 +288,7 @@ export function Header({
                 />
               </div>
             )}
-          </ScrollableRow>
+          </div>
 
           {/* Folder Browser Modal — rendered outside scroll area */}
           {onCwdChange && (

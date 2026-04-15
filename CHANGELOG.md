@@ -1,10 +1,10 @@
 # Changelog
 
-## v0.7.0 (2026-04-13)
+## v0.7.0 (2026-04-15)
 
 ### Release Summary
 
-v0.7.0 is a substantial release focused on **interactive agent input, mobile parity, and macOS support**. This version introduces ask_user and elicitation—powerful mechanisms that let agents ask you structured questions mid-conversation without interrupting your workflow. On the platform side, we've unified the mobile and desktop experiences, stabilized reconnection resilience, and added comprehensive macOS/Linux contributor support.
+v0.7.0 is a substantial release focused on **interactive agent input, mobile parity, macOS support, and auth overhaul**. This version introduces ask_user and elicitation—powerful mechanisms that let agents ask you structured questions mid-conversation without interrupting your workflow. On the platform side, we've unified the mobile and desktop experiences, redesigned settings with a tabbed layout, stabilized auth detection across providers, and added comprehensive macOS/Linux support.
 
 ---
 
@@ -19,7 +19,16 @@ v0.7.0 is a substantial release focused on **interactive agent input, mobile par
 - **Add ElicitationCard and ResolvedElicitationCard components** — Styled cards for rendering and tracking input state
 
 #### Auth & Security
-- **Add auth status UI** — Lock icon, API endpoint status check, non-blocking UX (users can work even if auth unavailable)
+- **Auth overhaul with 3-source fallback** — SDK auth → functional probe → `gh auth status` CLI fallback. No more false "not authenticated" for users who authenticated via `gh auth login`
+- **Fix Windows subprocess crash** — Replace `asyncio.create_subprocess_exec` (broken on Windows + Python 3.14) with `subprocess.run` via `asyncio.to_thread`
+- **Auth status shows provider and username** — Settings displays "GitHub Copilot (username)" instead of generic "Connected"
+- **Provider-agnostic auth terms** — "Connect" / "Disconnect" instead of "Sign in" / "Sign out" (future multi-provider ready)
+
+#### Settings Redesign
+- **4-tab settings modal** — Authentication, General, Mobile, Notifications tabs with deep-linking
+- **Sidebar lock icon** — Inline 🔒/🔓 emoji after Settings text shows auth status at a glance
+- **CLI notifications moved to Notifications tab** — Previously in Mobile tab; now grouped with Registered Devices
+- **Auth tab shows inline lock icons** — Emoji locks matching sidebar for visual consistency
 
 #### "Open with" Session Folder
 - **Add "Open with" dropdown** — Open session folder in VS Code, Terminal, or Explorer from the sidebar
@@ -168,6 +177,13 @@ v0.7.0 is a substantial release focused on **interactive agent input, mobile par
 - **Add DEV-SETUP.md for macOS/Linux contributor setup** — Step-by-step guide for setting up development environment on Unix systems
 - **Stage 5 — macOS support** — Install script, caffeinate integration, cross-platform messages
 - **Add frontend/dist fallback for editable dev installs** — Support development workflow when frontend isn't pre-built
+
+#### Cross-Platform Documentation
+- **Remove Windows bias from all docs** — README, INSTALL, CONTRIBUTING now use `shell` fences, forward-slash paths, and platform-neutral language
+- **Cross-platform uninstall instructions** — `pip uninstall` (universal) with `pipx` note, plus platform-specific data removal commands
+- **ripgrep as required prerequisite** — Moved from optional to required in install docs; labeled "for session content search"
+- **Console Guide agent tip** — Added to "First Things to Try" in README
+- **Eliminate seed docs duplication** — Seed docs are now build-generated (via `sync-seed-docs.js`), gitignored, and no longer maintained as separate copies
 
 #### Release
 - **Add codebase survey documentation** — Orchestration and architecture notes for future maintainers

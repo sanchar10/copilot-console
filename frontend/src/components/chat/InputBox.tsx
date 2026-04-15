@@ -11,7 +11,6 @@ import { sendMessage, createSession, connectSession, enqueueMessage, abortSessio
 import { scheduleDesktopNotification, playUnreadTone } from '../../utils/desktopNotifications';
 import { openSessionTab } from '../../utils/openSession';
 import { Button } from '../common/Button';
-import { ScrollableRow } from '../common/ScrollableRow';
 import { ModeSelector, type AgentMode } from './ModeSelector';
 import { PinnedIcon } from './PinIcons';
 import { SlashCommandPalette } from './SlashCommandPalette';
@@ -390,18 +389,12 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           </div>
         )}
         {fileUpload.isUploading && <div className="text-xs text-gray-400 dark:text-gray-500 mb-1">Uploading...</div>}
-        {/* Input row — scrollable on narrow screens */}
-        <ScrollableRow
-          className="flex items-center gap-3"
-          fadeFromLight="from-white"
-          fadeFromDark="dark:from-[#1e1e2e]"
-        >
-          {/* Mode selector — inline in flow */}
-          <div className="flex-shrink-0">
-            <ModeSelector mode={currentMode} onModeChange={handleModeChange} disabled={isSending} />
-          </div>
-
-          <div className="flex-shrink-0">
+        {/* Input row */}
+        <div className="flex gap-3 items-center relative">
+          <div className="w-8 flex-shrink-0 relative flex items-center justify-center">
+            <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap z-10">
+              <ModeSelector mode={currentMode} onModeChange={handleModeChange} disabled={isSending} />
+            </div>
             <input ref={fileUpload.fileInputRef} type="file" multiple className="hidden" onChange={fileUpload.onFileInputChange} />
             <button onClick={fileUpload.openFilePicker} className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 disabled:opacity-50 rounded-full" title="Attach files" aria-label="Attach files">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -410,11 +403,12 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             </button>
           </div>
 
-          <div className="flex-1 min-w-[200px] relative">
+          <div className="flex-1 min-w-0 relative">
             {slash.showSlashPalette && (
               <SlashCommandPalette query={slash.slashQuery} onSelect={(cmd) => { slash.handleSlashSelect(cmd); setInput(''); }} onDismiss={slash.handleSlashDismiss} />
             )}
-            <div className={`flex items-center gap-2 rounded-lg border px-3 pt-2 pb-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent dark:bg-[#2a2a3c] ${
+            <div className="flex items-center gap-2">
+              <div className={`flex-1 min-w-0 flex items-center gap-2 rounded-lg border px-3 pt-2 pb-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent dark:bg-[#2a2a3c] ${
               fileUpload.isDragOver ? 'border-blue-400' : slash.activeCommand ? 'border-blue-300 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-900/10' : isStreaming ? 'border-amber-300 bg-amber-50 dark:border-amber-600 dark:bg-amber-900/20' : 'border-gray-300 dark:border-gray-600'
             }`}>
               {slash.activeCommand && (
@@ -449,34 +443,34 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
                 />
               </div>
             </div>
+              <Button onClick={() => handleSubmit()} disabled={
+                slash.activeCommand
+                  ? (slash.activeCommand.requiresPrompt && !input.trim()) || isDisabled
+                  : (!input.trim() && fileUpload.attachments.length === 0 && fileUpload.pendingFiles.length === 0) || isDisabled
+              } className="h-11 w-11 p-0" aria-label="Send message" title="Send message (Enter)">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </Button>
+              <Button onClick={handleAbort} disabled={!isStreaming} className={`h-11 w-11 p-0 ${isStreaming ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-200 dark:bg-gray-700 opacity-40 cursor-not-allowed'}`} title="Stop the agent" aria-label="Stop the agent">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="6" width="12" height="12" rx="1" />
+                </svg>
+              </Button>
+            </div>
+
+            {/* Pins button — positioned outside right */}
+            {onPinsToggle && (pinsCount ?? 0) > 0 && (
+              <button type="button" onClick={onPinsToggle}
+                className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 h-11 w-11 flex items-center justify-center rounded-lg transition-colors ${pinsOpen ? 'bg-red-50 dark:bg-red-900/30 ring-1 ring-red-200 dark:ring-red-800' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                title={pinsOpen ? 'Close pins drawer' : 'Open pins drawer'}
+              >
+                <PinnedIcon size={16} />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">{pinsCount}</span>
+              </button>
+            )}
           </div>
-
-          <Button onClick={() => handleSubmit()} disabled={
-            slash.activeCommand
-              ? (slash.activeCommand.requiresPrompt && !input.trim()) || isDisabled
-              : (!input.trim() && fileUpload.attachments.length === 0 && fileUpload.pendingFiles.length === 0) || isDisabled
-          } className="h-11 w-11 p-0 flex-shrink-0" aria-label="Send message" title="Send message (Enter)">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-          </Button>
-          <Button onClick={handleAbort} disabled={!isStreaming} className={`h-11 w-11 p-0 flex-shrink-0 ${isStreaming ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-200 dark:bg-gray-700 opacity-40 cursor-not-allowed'}`} title="Stop the agent" aria-label="Stop the agent">
-            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-              <rect x="6" y="6" width="12" height="12" rx="1" />
-            </svg>
-          </Button>
-
-          {/* Pins button — inline in flow */}
-          {onPinsToggle && (pinsCount ?? 0) > 0 && (
-            <button type="button" onClick={onPinsToggle}
-              className={`relative h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-lg transition-colors ${pinsOpen ? 'bg-red-50 dark:bg-red-900/30 ring-1 ring-red-200 dark:ring-red-800' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-              title={pinsOpen ? 'Close pins drawer' : 'Open pins drawer'}
-            >
-              <PinnedIcon size={16} />
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">{pinsCount}</span>
-            </button>
-          )}
-        </ScrollableRow>
+        </div>
       </div>
     </div>
   );
