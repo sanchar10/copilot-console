@@ -322,8 +322,12 @@ if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
                 npm install -g @msdtunnel/devtunnel-cli &> /dev/null
             fi
         else
-            # Linux
-            npm install -g @msdtunnel/devtunnel-cli &> /dev/null
+            # Linux — npm global install needs sudo
+            if npm install -g @msdtunnel/devtunnel-cli &> /dev/null 2>&1; then
+                true
+            elif command -v sudo &> /dev/null; then
+                sudo npm install -g @msdtunnel/devtunnel-cli &> /dev/null 2>&1 || true
+            fi
         fi
         if ! command -v devtunnel &> /dev/null; then
             echo -e "${RED}  [ERROR] Failed to install devtunnel.${NC}"
