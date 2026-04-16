@@ -170,8 +170,10 @@ fi
 
 # --- Verify ---
 # Ensure ~/.local/bin is in PATH (pip --user installs go here on Linux)
+PATH_MODIFIED=false
 if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$PATH:$HOME/.local/bin"
+    PATH_MODIFIED=true
     # Persist to shell config
     SHELL_RC=""
     if [ -f "$HOME/.zshrc" ]; then
@@ -359,6 +361,8 @@ if [ "$MOBILE_ENABLED" = true ]; then
     echo -e "${GRAY}  After this, CLI notifications work automatically.${NC}"
 else
     echo -e "${CYAN}  Ready! Run 'copilot-console' to start.${NC}"
-    echo -e "${YELLOW}  [NOTE] If 'copilot-console' is not found, open a new terminal first.${NC}"
+    if [ "$PATH_MODIFIED" = true ]; then
+        echo -e "${YELLOW}  [NOTE] If 'copilot-console' is not found, open a new terminal first.${NC}"
+    fi
 fi
 echo ""
