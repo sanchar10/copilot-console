@@ -173,8 +173,7 @@ fi
 PATH_MODIFIED=false
 if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$PATH:$HOME/.local/bin"
-    PATH_MODIFIED=true
-    # Persist to shell config
+    # Persist to shell config (only if not already there)
     SHELL_RC=""
     if [ -f "$HOME/.zshrc" ]; then
         SHELL_RC="$HOME/.zshrc"
@@ -185,6 +184,7 @@ if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
         if ! grep -q '\.local/bin' "$SHELL_RC" 2>/dev/null; then
             echo 'export PATH="$PATH:$HOME/.local/bin"' >> "$SHELL_RC"
             echo -e "${GREEN}  [OK] Added ~/.local/bin to PATH in $(basename $SHELL_RC)${NC}"
+            PATH_MODIFIED=true
         fi
     fi
 fi
@@ -329,8 +329,14 @@ if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
                 npm install -g @msdtunnel/devtunnel-cli &> /dev/null
             fi
         else
-            # Linux — use official Microsoft installer (npm method unreliable on Linux)
+            # Linux — use official Microsoft installer (downloads binary directly)
             curl -sL https://aka.ms/DevTunnelCliInstall 2>/dev/null | bash &> /dev/null || true
+            # The installer may place devtunnel in ~/bin or ~/.local/bin — ensure they're in PATH
+            for p in "$HOME/bin" "$HOME/.local/bin"; do
+                if [ -f "$p/devtunnel" ] && [[ ":$PATH:" != *":$p:"* ]]; then
+                    export PATH="$PATH:$p"
+                fi
+            done
         fi
         if ! command -v devtunnel &> /dev/null; then
             echo -e "${RED}  [ERROR] Failed to install devtunnel.${NC}"
