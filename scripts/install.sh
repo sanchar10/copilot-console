@@ -327,12 +327,8 @@ if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
                 npm install -g @msdtunnel/devtunnel-cli &> /dev/null
             fi
         else
-            # Linux — npm global install needs sudo
-            if npm install -g @msdtunnel/devtunnel-cli &> /dev/null 2>&1; then
-                true
-            elif command -v sudo &> /dev/null; then
-                sudo npm install -g @msdtunnel/devtunnel-cli &> /dev/null 2>&1 || true
-            fi
+            # Linux — use official Microsoft installer (npm method unreliable on Linux)
+            curl -sL https://aka.ms/DevTunnelCliInstall 2>/dev/null | bash &> /dev/null || true
         fi
         if ! command -v devtunnel &> /dev/null; then
             echo -e "${RED}  [ERROR] Failed to install devtunnel.${NC}"
@@ -363,5 +359,6 @@ if [ "$MOBILE_ENABLED" = true ]; then
     echo -e "${GRAY}  After this, CLI notifications work automatically.${NC}"
 else
     echo -e "${CYAN}  Ready! Run 'copilot-console' to start.${NC}"
+    echo -e "${YELLOW}  [NOTE] If 'copilot-console' is not found, open a new terminal first.${NC}"
 fi
 echo ""
