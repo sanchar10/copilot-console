@@ -4,7 +4,8 @@ Orchestrate local GitHub Copilot multi-agent sessions, workflows, and automation
 
 ![Copilot Console](https://img.shields.io/badge/Copilot-Console-blue?style=flat-square)
 ![Windows](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows)
-![macOS](https://img.shields.io/badge/Platform-macOS_(experimental)-999999?style=flat-square&logo=apple)
+![macOS](https://img.shields.io/badge/Platform-macOS-999999?style=flat-square&logo=apple)
+![Linux](https://img.shields.io/badge/Platform-Linux-FCC624?style=flat-square&logo=linux&logoColor=black)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square)
 ![License MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
@@ -16,7 +17,7 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 
 > **Why?** Sessions pile up fast across repos and tasks. Context gets lost between threads. You are stuck at your desk waiting for agent to finish. Console solves these with a visual layer on top of Copilot CLI — organize work, control context per session, search across everything, and monitor from anywhere. Move beyond chat to effectively managing your work.
 
-> **Platform:** Windows and macOS (experimental). Linux support pending.
+> **Platform:** Windows, macOS, and Linux (Ubuntu 22.04+).
 
 ---
 
@@ -71,7 +72,7 @@ One command to install (or upgrade):
 irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
 ```
 
-**macOS (experimental):**
+**macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash
 ```

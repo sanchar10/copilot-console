@@ -18,7 +18,7 @@ Before installing Copilot Console, ensure the following are available. All comma
 
 Download from [python.org](https://www.python.org/downloads/). During installation on Windows, **check "Add Python to PATH"**.
 
-> **macOS/Linux Note:** macOS support is experimental. Use `python3` and `pip3` on macOS/Linux.
+> **macOS/Linux Note:** Use `python3` and `pip3` on macOS/Linux.
 
 Verify:
 ```bash
@@ -73,9 +73,9 @@ winget install Microsoft.devtunnel
 brew install --cask devtunnel
 ```
 
-**Linux / Other:**
+**Linux:**
 ```bash
-npm install -g @msdtunnel/devtunnel-cli
+curl -sL https://aka.ms/DevTunnelCliInstall | bash
 ```
 
 Then authenticate:
