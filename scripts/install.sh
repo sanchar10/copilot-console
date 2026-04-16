@@ -169,25 +169,30 @@ if [ "$USED_PIPX" = true ] && [ "$AF_INSTALLED" = true ]; then
 fi
 
 # --- Verify ---
+# Ensure ~/.local/bin is in PATH (pip --user installs go here on Linux)
+if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$PATH:$HOME/.local/bin"
+    # Persist to shell config
+    SHELL_RC=""
+    if [ -f "$HOME/.zshrc" ]; then
+        SHELL_RC="$HOME/.zshrc"
+    elif [ -f "$HOME/.bashrc" ]; then
+        SHELL_RC="$HOME/.bashrc"
+    fi
+    if [ -n "$SHELL_RC" ]; then
+        if ! grep -q '\.local/bin' "$SHELL_RC" 2>/dev/null; then
+            echo 'export PATH="$PATH:$HOME/.local/bin"' >> "$SHELL_RC"
+            echo -e "${GREEN}  [OK] Added ~/.local/bin to PATH in $(basename $SHELL_RC)${NC}"
+        fi
+    fi
+fi
+
 if command -v copilot-console &> /dev/null; then
     AC_VERSION=$(copilot-console --version 2>&1)
     echo -e "${GREEN}  [OK] $AC_VERSION${NC}"
 else
-    # Check user bin directory
-    USER_BIN=""
-    if [ -d "$HOME/.local/bin" ] && [ -f "$HOME/.local/bin/copilot-console" ]; then
-        USER_BIN="$HOME/.local/bin"
-    fi
-    if [ -n "$USER_BIN" ]; then
-        echo -e "${GREEN}  [OK] Installed${NC}"
-        if [[ ":$PATH:" != *":$USER_BIN:"* ]]; then
-            echo -e "${YELLOW}  [NOTE] Add to PATH: export PATH=\"\$PATH:$USER_BIN\"${NC}"
-            echo -e "${YELLOW}        Add this line to your ~/.bashrc or ~/.zshrc${NC}"
-        fi
-    else
-        echo -e "${GREEN}  [OK] Installed${NC}"
-        echo -e "${YELLOW}  [NOTE] Restart your terminal, then run 'copilot-console'.${NC}"
-    fi
+    echo -e "${GREEN}  [OK] Installed${NC}"
+    echo -e "${YELLOW}  [NOTE] Restart your terminal, then run 'copilot-console'.${NC}"
 fi
 
 # --- Install ripgrep (for cross-session search) ---
