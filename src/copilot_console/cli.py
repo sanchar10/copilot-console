@@ -4,6 +4,7 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 import webbrowser
 from pathlib import Path
 from threading import Timer
@@ -44,9 +45,17 @@ def initialize_app_directory():
     return app_home
 
 
-def open_browser_delayed(url: str, delay: float = 1.5):
-    """Open browser after a short delay to let server start."""
+def open_browser_delayed(url: str, delay: float = 0.5):
+    """Open browser after server is confirmed ready (or fallback delay)."""
+    import urllib.request
     def _open():
+        # Poll until server responds (max ~8 seconds)
+        for _ in range(16):
+            try:
+                urllib.request.urlopen(url, timeout=0.5)
+                break
+            except Exception:
+                time.sleep(0.5)
         webbrowser.open(url)
     Timer(delay, _open).start()
 
@@ -191,7 +200,7 @@ def _start_devtunnel(port, allow_anonymous, app_home):
         elif sys.platform == "win32":
             print("  ⚠️  devtunnel CLI not found — install with: winget install Microsoft.devtunnel")
         else:
-            print("  ⚠️  devtunnel CLI not found — install with: npm install -g @msdtunnel/devtunnel-cli")
+            print("  ⚠️  devtunnel CLI not found — install with: curl -sL https://aka.ms/DevTunnelCliInstall | bash")
         print("     Then: devtunnel user login")
         return None
     

@@ -38,7 +38,6 @@ export function SettingsModal() {
   const [selectedModel, setSelectedModel] = useState(defaultModel);
   const [selectedEffort, setSelectedEffort] = useState<string | null>(defaultReasoningEffort);
   const [selectedCwd, setSelectedCwd] = useState(defaultCwd);
-  const [desktopNotifications, setDesktopNotifications] = useState<string>('all');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
@@ -57,11 +56,6 @@ export function SettingsModal() {
     setSelectedEffort(defaultReasoningEffort);
     setSelectedCwd(defaultCwd);
     setError(null);
-    if (isSettingsModalOpen) {
-      getSettings().then(s => {
-        setDesktopNotifications(s.desktop_notifications ?? 'all');
-      }).catch(() => {});
-    }
   }, [defaultModel, defaultReasoningEffort, defaultCwd, isSettingsModalOpen]);
 
   const handleSave = async () => {
@@ -137,12 +131,10 @@ export function SettingsModal() {
           selectedModel={selectedModel}
           selectedEffort={selectedEffort}
           selectedCwd={selectedCwd}
-          desktopNotifications={desktopNotifications}
           error={error}
           onModelChange={(id, effort) => { setSelectedModel(id); setSelectedEffort(effort); }}
           onEffortChange={setSelectedEffort}
           onCwdChange={setSelectedCwd}
-          onDesktopNotificationsChange={setDesktopNotifications}
           onBrowseFolders={() => setShowFolderPicker(true)}
         />
       )}
@@ -178,19 +170,17 @@ interface GeneralTabProps {
   selectedModel: string;
   selectedEffort: string | null;
   selectedCwd: string;
-  desktopNotifications: string;
   error: string | null;
   onModelChange: (id: string, effort: string | null) => void;
   onEffortChange: (effort: string | null) => void;
   onCwdChange: (cwd: string) => void;
-  onDesktopNotificationsChange: (val: string) => void;
   onBrowseFolders: () => void;
 }
 
 function GeneralTab({
   availableModels, selectedModel, selectedEffort, selectedCwd,
-  desktopNotifications, error,
-  onModelChange, onEffortChange, onCwdChange, onDesktopNotificationsChange,
+  error,
+  onModelChange, onEffortChange, onCwdChange,
   onBrowseFolders,
 }: GeneralTabProps) {
   const { theme, setTheme } = useTheme();
@@ -243,44 +233,6 @@ function GeneralTab({
         </p>
       </div>
 
-      {/* Desktop Notifications */}
-      <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-          Desktop Notifications
-        </label>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          Show browser notifications when agent completes or needs input (30s delay, only if unread).
-        </p>
-        <div className="flex gap-1">
-          {(['all', 'input_only', 'off'] as const).map(opt => (
-            <button
-              key={opt}
-              type="button"
-              onClick={async () => {
-                if (opt !== 'off') {
-                  const granted = await requestNotificationPermission();
-                  if (!granted) return;
-                }
-                onDesktopNotificationsChange(opt);
-                setDesktopNotificationSetting(opt);
-                try {
-                  await updateSettings({ desktop_notifications: opt } as any);
-                } catch {
-                  // revert handled by parent
-                }
-              }}
-              className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
-                desktopNotifications === opt
-                  ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
-                  : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
-              }`}
-            >
-              {opt === 'all' ? 'All responses' : opt === 'input_only' ? 'Input needed only' : 'Off'}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Theme */}
       <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -329,15 +281,28 @@ function MobileTab({ isOpen }: { isOpen: boolean }) {
   const [apiToken, setApiToken] = useState<string | null>(null);
   const [tunnelUrl, setTunnelUrl] = useState('');
   const [exposeMode, setExposeMode] = useState(false);
+  const [devtunnelInstalled, setDevtunnelInstalled] = useState<boolean | null>(null);
+  const [devtunnelLoggedIn, setDevtunnelLoggedIn] = useState(false);
+  const [devtunnelInstallCmd, setDevtunnelInstallCmd] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!isOpen) return;
-    apiClient.get<{ api_token: string; tunnel_url: string; expose: boolean }>('/settings/mobile-companion')
+    apiClient.get<{
+      api_token: string;
+      tunnel_url: string;
+      expose: boolean;
+      devtunnel_installed: boolean;
+      devtunnel_logged_in: boolean;
+      devtunnel_install_cmd: string;
+    }>('/settings/mobile-companion')
       .then(data => {
         setApiToken(data.api_token);
         if (data.tunnel_url) setTunnelUrl(data.tunnel_url);
         setExposeMode(data.expose);
+        setDevtunnelInstalled(data.devtunnel_installed);
+        setDevtunnelLoggedIn(data.devtunnel_logged_in);
+        setDevtunnelInstallCmd(data.devtunnel_install_cmd);
       })
       .catch(() => {
         apiClient.get<{ api_token: string }>('/settings/api-token')
@@ -395,9 +360,21 @@ function MobileTab({ isOpen }: { isOpen: boolean }) {
       ) : (
         <div className="bg-gray-50 dark:bg-[#1e1e2e] rounded-lg p-4 text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {exposeMode
-              ? 'Waiting for tunnel to connect...'
-              : <>Run <code className="bg-gray-100 dark:bg-[#32324a] px-1.5 py-0.5 rounded text-xs font-mono">copilot-console --expose</code> to enable mobile access</>}
+            {devtunnelInstalled === false ? (
+              <>
+                <span className="block mb-2">devtunnel CLI is not installed.</span>
+                <code className="bg-gray-100 dark:bg-[#32324a] px-2 py-1 rounded text-xs font-mono select-all">{devtunnelInstallCmd}</code>
+              </>
+            ) : devtunnelInstalled && !devtunnelLoggedIn ? (
+              <>
+                <span className="block mb-2">devtunnel is installed but not logged in.</span>
+                <code className="bg-gray-100 dark:bg-[#32324a] px-2 py-1 rounded text-xs font-mono">devtunnel user login</code>
+              </>
+            ) : exposeMode ? (
+              'Waiting for tunnel to connect...'
+            ) : (
+              <>Run <code className="bg-gray-100 dark:bg-[#32324a] px-1.5 py-0.5 rounded text-xs font-mono">copilot-console --expose</code> to enable mobile access</>
+            )}
           </p>
         </div>
       )}
@@ -473,6 +450,7 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
   const [cliNotifications, setCliNotifications] = useState(false);
+  const [desktopNotifications, setDesktopNotificationsLocal] = useState<string>('off');
 
   const fetchSubscriptions = useCallback(async () => {
     setLoading(true);
@@ -491,6 +469,7 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
     fetchSubscriptions();
     getSettings().then(s => {
       setCliNotifications(s.cli_notifications ?? false);
+      setDesktopNotificationsLocal(s.desktop_notifications ?? 'off');
     }).catch(() => {});
   }, [isOpen, fetchSubscriptions]);
 
@@ -514,6 +493,45 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
       setRemoving(null);
     }
   };
+
+  const desktopToggle = (
+    <div className="mb-4">
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+        Desktop Notifications
+      </label>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        Show browser notifications when agent completes or needs input (30s delay, only if unread).
+      </p>
+      <div className="flex gap-1">
+        {(['all', 'input_only', 'off'] as const).map(opt => (
+          <button
+            key={opt}
+            type="button"
+            onClick={async () => {
+              if (opt !== 'off') {
+                const granted = await requestNotificationPermission();
+                if (!granted) return;
+              }
+              setDesktopNotificationsLocal(opt);
+              setDesktopNotificationSetting(opt);
+              try {
+                await updateSettings({ desktop_notifications: opt } as any);
+              } catch {
+                // best-effort
+              }
+            }}
+            className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+              desktopNotifications === opt
+                ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
+                : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
+            }`}
+          >
+            {opt === 'all' ? 'All responses' : opt === 'input_only' ? 'Input needed only' : 'Off'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const cliToggle = (
     <div className="mb-4">
@@ -557,6 +575,7 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
   if (loading) {
     return (
       <div className="space-y-4">
+        {desktopToggle}
         {cliToggle}
         <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4 flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent" />
@@ -569,6 +588,7 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
   if (subscriptions.length === 0) {
     return (
       <div className="space-y-4">
+        {desktopToggle}
         {cliToggle}
         <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
           <div className="bg-gray-50 dark:bg-[#1e1e2e] rounded-lg p-6 text-center">
@@ -586,6 +606,7 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
 
   return (
     <div className="space-y-4">
+      {desktopToggle}
       {cliToggle}
       <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4 space-y-2">
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">

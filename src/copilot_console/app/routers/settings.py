@@ -1,6 +1,9 @@
 """Settings router - user preferences and update checks."""
 
 import os
+import shutil
+import subprocess
+import sys
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -153,16 +156,42 @@ async def regenerate_api_token(request: Request) -> dict:
 async def get_mobile_companion_info(request: Request) -> dict:
     """Get mobile companion connection info (tunnel URL, expose mode, token).
     
+    Also checks devtunnel installation and login status for smart UI guidance.
     Only accessible from localhost.
     """
     if not _is_localhost(request):
         raise HTTPException(status_code=403, detail="Only accessible from localhost")
     settings = storage_service.get_settings()
     expose = os.environ.get("COPILOT_EXPOSE") == "1"
+    
+    # Check devtunnel status for smart UI guidance
+    devtunnel_installed = shutil.which("devtunnel") is not None
+    devtunnel_logged_in = False
+    if devtunnel_installed:
+        try:
+            result = subprocess.run(
+                ["devtunnel", "user", "show"],
+                capture_output=True, text=True, timeout=5
+            )
+            devtunnel_logged_in = result.returncode == 0 and "not logged in" not in result.stdout.lower()
+        except Exception:
+            pass
+    
+    # OS-appropriate install command
+    if sys.platform == "darwin":
+        install_cmd = "brew install --cask devtunnel"
+    elif sys.platform == "win32":
+        install_cmd = "winget install Microsoft.devtunnel"
+    else:
+        install_cmd = "curl -sL https://aka.ms/DevTunnelCliInstall | bash"
+    
     return {
         "expose": expose,
         "tunnel_url": settings.get("tunnel_url", ""),
         "api_token": get_or_create_api_token(),
+        "devtunnel_installed": devtunnel_installed,
+        "devtunnel_logged_in": devtunnel_logged_in,
+        "devtunnel_install_cmd": install_cmd,
     }
 
 
