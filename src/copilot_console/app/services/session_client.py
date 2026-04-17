@@ -285,7 +285,7 @@ class SessionClient:
         """Compact the session context (remove old messages to free tokens)."""
         if not self.session:
             raise RuntimeError(f"[{self.session_id}] No active session to compact")
-        result = await self.session.rpc.compaction.compact()
+        result = await self.session.rpc.history.compact()
         self.touch()
         logger.debug(
             f"[{self.session_id}] Compact: success={result.success}, "
