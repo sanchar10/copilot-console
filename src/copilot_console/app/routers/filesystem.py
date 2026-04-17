@@ -136,7 +136,10 @@ async def open_with(request: OpenWithRequest) -> dict:
         if request.target == "vscode":
             import shutil
             code_cmd = shutil.which("code") or "code"
-            subprocess.Popen([code_cmd, str(cwd)])
+            if system == "Windows":
+                subprocess.Popen([code_cmd, str(cwd)], shell=True)
+            else:
+                subprocess.Popen([code_cmd, str(cwd)])
         elif request.target == "terminal":
             if system == "Windows":
                 import shutil

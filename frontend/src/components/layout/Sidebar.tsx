@@ -100,11 +100,12 @@ export function Sidebar() {
     async function loadData() {
       setLoading(true);
       try {
-        const [sessionsData, modelsData, settingsData] = await withRetry(() =>
-          Promise.all([listSessions(), fetchModels(), getSettings()])
+        const [sessionsData, modelsData, settingsData, authData] = await withRetry(() =>
+          Promise.all([listSessions(), fetchModels(), getSettings(), apiClient.get<AuthStatus>('/auth/status')])
         );
         setSessions(sessionsData);
         setAvailableModels(modelsData);
+        setAuthStatus(authData);
         setDefaultModel(settingsData.default_model);
         setDefaultReasoningEffort(settingsData.default_reasoning_effort ?? null);
         if (settingsData.default_cwd) {
@@ -120,6 +121,10 @@ export function Sidebar() {
             setDesktopNotificationSetting(settingsData.desktop_notifications as 'all' | 'input_only' | 'off');
           });
         }
+        // Fetch app version (non-blocking, server is confirmed up)
+        apiClient.get<{ current_version: string }>('/settings/update-check')
+          .then(info => setAppVersion(info.current_version))
+          .catch(() => {});
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data');
       } finally {
@@ -127,14 +132,6 @@ export function Sidebar() {
       }
     }
     loadData();
-    // Fetch app version from backend (non-blocking)
-    apiClient.get<{ current_version: string }>('/settings/update-check')
-      .then(info => setAppVersion(info.current_version))
-      .catch(() => {});
-    // Fetch auth status (non-blocking, graceful fallback)
-    apiClient.get<AuthStatus>('/auth/status')
-      .then(status => setAuthStatus(status))
-      .catch(() => setAuthStatus({ authenticated: false }));
   }, [setSessions, setAvailableModels, setDefaultModel, setDefaultReasoningEffort, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
 
   const handleNewSession = async () => {
@@ -324,12 +321,12 @@ export function Sidebar() {
       <div className="sticky bottom-0 p-2 border-t border-gray-200 dark:border-[#3a3a4e] bg-white dark:bg-[#252536]">
         <button
           onClick={() => openSettingsModal()}
-          title={`Settings${appVersion ? ` · v${appVersion}` : ''}${authStatus.authenticated ? ` · Authenticated via ${authStatus.provider || 'unknown'}` : ' · No auth configured'}`}
+          title={`Settings${appVersion ? ` · v${appVersion}` : ''}${authStatus.authenticated === null ? ' · Checking auth...' : authStatus.authenticated ? ` · Authenticated via ${authStatus.provider || 'unknown'}` : ' · No auth configured'}`}
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-[#32324a] transition-colors"
         >
           <span className="text-base">⚙️</span>
           <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-gray-100">Settings</span>
-          <span className="text-xs leading-none">{authStatus.authenticated ? '🔒' : '🔓'}</span>
+          <span className="text-xs leading-none">{authStatus.authenticated === null ? '⏳' : authStatus.authenticated ? '🔒' : '🔓'}</span>
           {appVersion && <span className="text-[10px] leading-none text-gray-500 dark:text-gray-400">v{appVersion}</span>}
         </button>
       </div>

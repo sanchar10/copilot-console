@@ -58,6 +58,7 @@ async def _check_sdk_auth() -> dict | None:
         await copilot_service._start_main_client()
         client = copilot_service._main_client
         if client is None:
+            logger.warning("SDK client is None after _start_main_client()")
             return None
 
         status = await client.get_auth_status()
@@ -65,13 +66,15 @@ async def _check_sdk_auth() -> dict | None:
         if not is_authed:
             return None
 
+        login = getattr(status, "login", None) or None
+        logger.debug(f"SDK auth confirmed — login={login}")
         return {
             "authenticated": True,
             "provider": "github",
-            "login": getattr(status, "login", None) or None,
+            "login": login,
         }
-    except Exception:
-        logger.debug("SDK auth check failed", exc_info=True)
+    except Exception as e:
+        logger.warning(f"SDK auth check failed: {type(e).__name__}: {e}")
         return None
 
 

@@ -1,5 +1,6 @@
 """Settings router - user preferences and update checks."""
 
+import asyncio
 import os
 import shutil
 import subprocess
@@ -164,14 +165,15 @@ async def get_mobile_companion_info(request: Request) -> dict:
     settings = storage_service.get_settings()
     expose = os.environ.get("COPILOT_EXPOSE") == "1"
     
-    # Check devtunnel status for smart UI guidance
+    # Check devtunnel status for smart UI guidance (non-blocking)
     devtunnel_installed = shutil.which("devtunnel") is not None
     devtunnel_logged_in = False
     if devtunnel_installed:
         try:
-            result = subprocess.run(
+            result = await asyncio.to_thread(
+                subprocess.run,
                 ["devtunnel", "user", "show"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5,
             )
             devtunnel_logged_in = result.returncode == 0 and "not logged in" not in result.stdout.lower()
         except Exception:
