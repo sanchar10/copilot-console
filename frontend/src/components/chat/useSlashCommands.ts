@@ -28,6 +28,27 @@ export function useSlashCommands(sessionId?: string) {
             timestamp: new Date().toISOString(),
           });
         }
+      } else if (cmd.name === 'compact') {
+        if (sessionId) {
+          compactSession(sessionId).then(result => {
+            const detail = result.success
+              ? `tokens freed: ${result.tokens_removed ?? '?'}`
+              : 'compaction failed';
+            addMessage(sessionId, {
+              id: `system-compact-${Date.now()}`,
+              role: 'system',
+              content: `📦 Compact: ${detail}`,
+              timestamp: new Date().toISOString(),
+            });
+          }).catch(err => {
+            addMessage(sessionId, {
+              id: `system-error-${Date.now()}`,
+              role: 'system',
+              content: `❌ Failed to compact: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              timestamp: new Date().toISOString(),
+            });
+          });
+        }
       }
       return;
     }
