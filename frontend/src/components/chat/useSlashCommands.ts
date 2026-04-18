@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useSessionStore } from '../../stores/sessionStore';
-import { useToastStore } from '../../stores/toastStore';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
 import { compactSession, selectAgent, deselectAgent } from '../../api/sessions';
@@ -124,12 +123,8 @@ export function useSlashCommands(sessionId?: string) {
         });
       }
     } else if (isNewSession) {
-      // New session — store in newSessionSettings, defer to create_session
+      // New session — silently store in newSessionSettings, defer to create_session
       useSessionStore.getState().updateNewSessionSettings({ pendingAgent: agentName || undefined });
-      useToastStore.getState().addToast(
-        agentName ? `🤖 Agent "${agentName}" queued for new session` : '✨ Agent reset to Copilot (default)',
-        'info',
-      );
     } else if (sessionId) {
       // Resumed session — store in chatStore, defer to send_message pipeline
       if (agentName) {
