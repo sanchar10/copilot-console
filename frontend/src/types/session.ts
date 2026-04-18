@@ -44,4 +44,6 @@ export interface UpdateSessionRequest {
   tools?: AgentTools;
   system_message?: SystemMessage | null;
   sub_agents?: string[];
+  model?: string;
+  reasoning_effort?: string;
 }

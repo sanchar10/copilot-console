@@ -214,8 +214,14 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
           updateSessionModel(sessionId, session.model, session.reasoning_effort ?? null);
         }
       }
+    } else {
+      // Resumed (not active) — persist to session.json so backend reads it on activation
+      try {
+        await updateSession(sessionId, { model, reasoning_effort: reasoningEffort ?? undefined });
+      } catch (error) {
+        console.error('Failed to persist model to session.json:', error);
+      }
     }
-    // Resumed (not active) — local update only, model read from session metadata on activation
   }, [sessionId, session, updateSessionModel]);
 
   // Fetch discoverable sub-agents (all sources, grouped by section)
