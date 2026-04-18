@@ -55,20 +55,22 @@ export function useSlashCommands(sessionId?: string) {
               timestamp: new Date().toISOString(),
             });
           });
-        } else if (sessionId) {
-          // New or resumed session — store pending, defer to sendMessage
+        } else {
+          // New session (no sessionId) or resumed session (not active) — store pending
           const { isNewSession } = useSessionStore.getState();
           if (isNewSession) {
             useSessionStore.getState().updateNewSessionSettings({ pendingCompact: true });
-          } else {
+          } else if (sessionId) {
             useChatStore.getState().setPendingCompact(sessionId, true);
           }
-          addMessage(sessionId, {
-            id: `system-compact-${Date.now()}`,
-            role: 'system',
-            content: '📦 Compact: queued — will run when session activates',
-            timestamp: new Date().toISOString(),
-          });
+          if (sessionId) {
+            addMessage(sessionId, {
+              id: `system-compact-${Date.now()}`,
+              role: 'system',
+              content: '📦 Compact: queued — will run when session activates',
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
       return;
