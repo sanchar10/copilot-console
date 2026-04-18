@@ -304,7 +304,7 @@ class SessionClient:
                 "messages_removed": result.messages_removed,
             }
         except Exception as e:
-            logger.debug(f"[{self.session_id}] Compact no-op: {e}")
+            logger.warning(f"[{self.session_id}] Compact error, sending graceful no-op: {e}")
             return noop
 
     async def set_agent(self, agent_name: str) -> dict:
