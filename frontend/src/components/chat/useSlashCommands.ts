@@ -99,21 +99,26 @@ export function useSlashCommands(sessionId?: string) {
     const { isNewSession } = useSessionStore.getState();
 
     if (sessionId && isSessionReady(sessionId)) {
-      // Active session — fire RPC immediately
+      // Active session — fire RPC immediately, use server-confirmed response
       try {
         if (agentName) {
-          await selectAgent(sessionId, agentName);
+          const result = await selectAgent(sessionId, agentName);
+          const confirmed = result.agent?.display_name || result.agent?.name || agentName;
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: `🤖 Agent: switched to "${confirmed}"`,
+            timestamp: new Date().toISOString(),
+          });
         } else {
           await deselectAgent(sessionId);
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: '✨ Agent: switched to Copilot (default)',
+            timestamp: new Date().toISOString(),
+          });
         }
-        addMessage(sessionId, {
-          id: `system-agent-${Date.now()}`,
-          role: 'system',
-          content: agentName
-            ? `🤖 Agent: switched to "${agentName}"`
-            : '✨ Agent: switched to Copilot (default)',
-          timestamp: new Date().toISOString(),
-        });
       } catch (err) {
         addMessage(sessionId, {
           id: `system-error-${Date.now()}`,
@@ -127,20 +132,8 @@ export function useSlashCommands(sessionId?: string) {
       useSessionStore.getState().updateNewSessionSettings({ pendingAgent: agentName || undefined });
     } else if (sessionId) {
       // Resumed session — store in chatStore, defer to send_message pipeline
-      if (agentName) {
-        useChatStore.getState().setPendingAgent(sessionId, agentName);
-      } else {
-        // Clear any pending agent to revert to default
-        useChatStore.getState().setPendingAgent(sessionId, '');
-      }
-      addMessage(sessionId, {
-        id: `system-agent-${Date.now()}`,
-        role: 'system',
-        content: agentName
-          ? `🤖 Agent "${agentName}" queued — will activate when session starts`
-          : '✨ Agent reset to Copilot (default)',
-        timestamp: new Date().toISOString(),
-      });
+      // Use '__deselect__' sentinel so backend calls deselect_agent() instead of set_agent()
+      useChatStore.getState().setPendingAgent(sessionId, agentName || '__deselect__');
     }
   }, [sessionId, addMessage]);
 

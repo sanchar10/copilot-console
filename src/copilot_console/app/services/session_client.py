@@ -323,7 +323,7 @@ class SessionClient:
         self.touch()
         agent = result.agent
         logger.debug(f"[{self.session_id}] Agent selected: {agent.name}")
-        return {"name": agent.name}
+        return {"name": agent.name, "display_name": agent.display_name}
 
     async def list_agents(self) -> list[dict]:
         """List available custom agents on the active session."""

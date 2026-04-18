@@ -611,11 +611,19 @@ class CopilotService:
         # after session.send() completes. We defer it to post-turn below.
         pending_compact = compact
 
-        # Select agent if requested (from new/resumed session)
-        if agent:
+        # Select or deselect agent if requested (from new/resumed session)
+        if agent == '__deselect__':
+            try:
+                await client.deselect_agent()
+                yield {"event": "step", "data": {"title": "✨ Agent: switched to Copilot (default)"}}
+            except Exception as e:
+                logger.warning(f"[{session_id}] Failed to deselect agent: {e}")
+                yield {"event": "step", "data": {"title": "✗ Agent deselection failed", "detail": str(e)}}
+        elif agent:
             try:
                 result = await client.set_agent(agent)
-                yield {"event": "step", "data": {"title": f"🤖 Agent selected", "detail": result.get("name", agent)}}
+                confirmed = result.get("display_name") or result.get("name", agent)
+                yield {"event": "step", "data": {"title": f"🤖 Agent: switched to \"{confirmed}\""}}
             except Exception as e:
                 logger.warning(f"[{session_id}] Failed to select agent '{agent}': {e}")
                 yield {"event": "step", "data": {"title": "✗ Agent selection failed", "detail": str(e)}}

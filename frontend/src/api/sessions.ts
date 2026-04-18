@@ -172,7 +172,7 @@ export async function compactSession(sessionId: string): Promise<{ success: bool
   return response.json();
 }
 
-export async function selectAgent(sessionId: string, agentName: string): Promise<{ agent?: { name: string } }> {
+export async function selectAgent(sessionId: string, agentName: string): Promise<{ agent?: { name: string; display_name?: string } }> {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/agent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

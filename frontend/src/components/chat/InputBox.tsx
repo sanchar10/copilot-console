@@ -319,7 +319,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         onDelta: (delta) => { clearSendingOnce(); appendStreamingContent(activeSessionId!, delta); },
         onStep: (step) => {
           clearSendingOnce();
-          if (step.title?.startsWith('⟳ Compacting') || step.title?.startsWith('✓ Context compacted') || step.title?.startsWith('✗ Compaction')) {
+          if (step.title?.startsWith('⟳ Compacting') || step.title?.startsWith('✓ Context compacted') || step.title?.startsWith('✗ Compaction')
+              || step.title?.startsWith('🤖 Agent:') || step.title?.startsWith('✨ Agent:') || step.title?.startsWith('✗ Agent')) {
             addMessage(activeSessionId!, { id: `system-${Date.now()}`, role: 'system', content: `${step.title}${step.detail ? ` — ${step.detail}` : ''}`, timestamp: new Date().toISOString() });
           } else { addStreamingStep(activeSessionId!, step); }
         },
