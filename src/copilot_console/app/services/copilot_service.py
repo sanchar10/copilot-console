@@ -610,16 +610,24 @@ class CopilotService:
         if compact:
             try:
                 result = await client.compact()
-                logger.debug(f"[{session_id}] Deferred compact: {result}")
+                tokens = result.get("tokens_removed", 0)
+                msgs = result.get("messages_removed", 0)
+                if tokens or msgs:
+                    yield {"event": "step", "data": {"title": f"✓ Context compacted", "detail": f"freed {tokens} tokens, removed {msgs} messages"}}
+                else:
+                    yield {"event": "step", "data": {"title": f"✓ Context compacted", "detail": "nothing to compact"}}
             except Exception as e:
                 logger.warning(f"[{session_id}] Deferred compact failed: {e}")
+                yield {"event": "step", "data": {"title": "✗ Compaction failed", "detail": str(e)}}
 
         # Select agent if requested (from new/resumed session)
         if agent:
             try:
-                await client.set_agent(agent)
+                result = await client.set_agent(agent)
+                yield {"event": "step", "data": {"title": f"🤖 Agent selected", "detail": result.get("name", agent)}}
             except Exception as e:
                 logger.warning(f"[{session_id}] Failed to select agent '{agent}': {e}")
+                yield {"event": "step", "data": {"title": "✗ Agent selection failed", "detail": str(e)}}
 
         done = asyncio.Event()
 
