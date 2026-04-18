@@ -36,7 +36,13 @@ export function useSlashCommands(sessionId?: string) {
         }
       } else if (cmd.name === 'compact') {
         if (sessionId && isSessionReady(sessionId)) {
-          // Active session — fire immediately
+          // Active session — show progress, fire immediately
+          addMessage(sessionId, {
+            id: `system-compact-progress-${Date.now()}`,
+            role: 'system',
+            content: '⟳ Compacting context...',
+            timestamp: new Date().toISOString(),
+          });
           compactSession(sessionId).then(result => {
             const tokens = result.tokens_removed ?? 0;
             const msgs = result.messages_removed ?? 0;
@@ -65,6 +71,7 @@ export function useSlashCommands(sessionId?: string) {
           } else if (sessionId) {
             useChatStore.getState().setPendingCompact(sessionId, true);
           }
+          // Show queued message (only when we have a sessionId to attach it to)
           if (sessionId) {
             addMessage(sessionId, {
               id: `system-compact-${Date.now()}`,
