@@ -153,12 +153,14 @@ class SessionClient:
 
     async def resume_session(
         self,
+        model: str | None = None,
         mcp_servers: dict[str, dict] | None = None,
         tools: list[Tool] | None = None,
         available_tools: list[str] | None = None,
         excluded_tools: list[str] | None = None,
         system_message: dict | None = None,
         custom_agents: list[dict] | None = None,
+        reasoning_effort: str | None = None,
         on_elicitation_request=None,
         on_user_input_request=None,
     ) -> object:
@@ -186,6 +188,10 @@ class SessionClient:
                 resume_opts["system_message"] = system_message
             if custom_agents:
                 resume_opts["custom_agents"] = custom_agents
+            if model:
+                resume_opts["model"] = model
+            if reasoning_effort:
+                resume_opts["reasoning_effort"] = reasoning_effort
 
             resume_opts["working_directory"] = self.cwd
 
@@ -242,8 +248,8 @@ class SessionClient:
 
         logger.debug(f"[{self.session_id}] Attempting to resume existing session")
         session = await self.resume_session(
-            mcp_servers, tools, available_tools, excluded_tools,
-            system_message, custom_agents,
+            model, mcp_servers, tools, available_tools, excluded_tools,
+            system_message, custom_agents, reasoning_effort,
             on_elicitation_request, on_user_input_request,
         )
         if session:
