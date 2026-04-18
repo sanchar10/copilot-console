@@ -44,9 +44,11 @@ interface InputBoxProps {
   onPinsToggle?: () => void;
   prefillText?: string | null;
   onPrefillConsumed?: () => void;
+  /** Agent items for the /agent submenu picker */
+  agentPickerItems?: import('./SlashCommandPalette').AgentPickerItem[];
 }
 
-export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent, pinsCount, pinsOpen, onPinsToggle, prefillText, onPrefillConsumed }: InputBoxProps) {
+export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent, pinsCount, pinsOpen, onPinsToggle, prefillText, onPrefillConsumed, agentPickerItems }: InputBoxProps) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -165,7 +167,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         isFleet = true;
         slash.clearActiveCommand();
       } else {
-        if (slash.activeCommand.requiresPrompt && !trimmedInput) return;
+        if (slash.activeCommand.interaction === 'prompt' && !trimmedInput) return;
         setInput('');
         const cmd = slash.activeCommand;
         slash.clearActiveCommand();
@@ -435,7 +437,13 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
 
           <div className="flex-1 min-w-0 relative">
             {slash.showSlashPalette && (
-              <SlashCommandPalette query={slash.slashQuery} onSelect={(cmd) => { slash.handleSlashSelect(cmd); setInput(''); }} onDismiss={slash.handleSlashDismiss} />
+              <SlashCommandPalette
+                query={slash.slashQuery}
+                onSelect={(cmd) => { slash.handleSlashSelect(cmd); setInput(''); }}
+                onDismiss={slash.handleSlashDismiss}
+                agentItems={agentPickerItems}
+                onAgentSelect={(name) => { slash.handleAgentSelect(name); setInput(''); }}
+              />
             )}
             <div className="flex items-center gap-2">
               <div className={`flex-1 min-w-0 flex items-center gap-2 rounded-lg border px-3 pt-2 pb-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent dark:bg-[#2a2a3c] ${
@@ -475,7 +483,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
             </div>
               <Button onClick={() => handleSubmit()} disabled={
                 slash.activeCommand
-                  ? (slash.activeCommand.requiresPrompt && !input.trim()) || isDisabled
+                  ? (slash.activeCommand.interaction === 'prompt' && !input.trim()) || isDisabled
                   : (!input.trim() && fileUpload.attachments.length === 0 && fileUpload.pendingFiles.length === 0) || isDisabled
               } className="h-11 w-11 p-0" aria-label="Send message" title="Send message (Enter)">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

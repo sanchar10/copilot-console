@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, memo } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo, memo } from 'react';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -9,6 +9,7 @@ import { StreamingMessage } from './StreamingMessage';
 import { ElicitationCard, ResolvedElicitationCard } from './ElicitationCard';
 import { AskUserCard } from './AskUserCard';
 import { InputBox, clearReadySession } from './InputBox';
+import type { AgentPickerItem } from './SlashCommandPalette';
 import { TabBar } from './TabBar';
 import { Header } from '../layout/Header';
 import { AgentLibrary } from '../agents/AgentLibrary';
@@ -285,6 +286,27 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
     }
   }, [session?.agent_id]);
 
+  // Build agent picker items from session's selected sub_agents + discoverable metadata
+  const agentPickerItems: AgentPickerItem[] = useMemo(() => {
+    const subAgents = session?.sub_agents || [];
+    if (!discoverableAgents || subAgents.length === 0) return [];
+    // Build a lookup from prefixed ID → agent metadata
+    const agentLookup = new Map<string, { name: string; displayName: string; description?: string }>();
+    for (const section of Object.values(discoverableAgents)) {
+      for (const agent of section.agents) {
+        agentLookup.set(agent.id, { name: agent.name, displayName: agent.display_name, description: agent.description });
+      }
+    }
+    // Only include agents that are in the session's sub_agents selection
+    return subAgents
+      .map((id) => {
+        const meta = agentLookup.get(id);
+        if (!meta) return null;
+        return { name: meta.name, displayName: meta.displayName, description: meta.description };
+      })
+      .filter((item): item is AgentPickerItem => item !== null);
+  }, [session?.sub_agents, discoverableAgents]);
+
   const handleRelatedSessionClick= useCallback(async (targetSessionId: string) => {
     const { messagesPerSession, setMessages } = useChatStore.getState();
     const targetTabId = `session:${targetSessionId}`;
@@ -419,6 +441,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
             onPinsToggle={() => setPinsOpen((v) => !v)}
             prefillText={askPrefill}
             onPrefillConsumed={() => setAskPrefill(null)}
+            agentPickerItems={agentPickerItems}
           />
         </div>
 
@@ -500,7 +523,26 @@ export function ChatPane() {
     }
   }, [isNewSession, newSessionSettings?.agentId]);
 
-  const handleNewSessionRelatedClick = useCallback(async (targetSessionId: string) => {
+  // Build agent picker items for new session
+  const newSessionAgentPickerItems: AgentPickerItem[] = useMemo(() => {
+    const subAgents = newSessionSettings?.subAgents || [];
+    if (!newSessionDiscoverableAgents || subAgents.length === 0) return [];
+    const agentLookup = new Map<string, { name: string; displayName: string; description?: string }>();
+    for (const section of Object.values(newSessionDiscoverableAgents)) {
+      for (const agent of section.agents) {
+        agentLookup.set(agent.id, { name: agent.name, displayName: agent.display_name, description: agent.description });
+      }
+    }
+    return subAgents
+      .map((id) => {
+        const meta = agentLookup.get(id);
+        if (!meta) return null;
+        return { name: meta.name, displayName: meta.displayName, description: meta.description };
+      })
+      .filter((item): item is AgentPickerItem => item !== null);
+  }, [newSessionSettings?.subAgents, newSessionDiscoverableAgents]);
+
+  const handleNewSessionRelatedClick= useCallback(async (targetSessionId: string) => {
     const { messagesPerSession, setMessages } = useChatStore.getState();
     const targetTabId = `session:${targetSessionId}`;
     if (useTabStore.getState().isTabOpen(targetTabId)) {
@@ -608,7 +650,7 @@ export function ChatPane() {
               )}
             </div>
           </div>
-          <InputBox promptToSend={newSessionPromptToSend} onPromptSent={() => setNewSessionPromptToSend(null)} />
+          <InputBox promptToSend={newSessionPromptToSend} onPromptSent={() => setNewSessionPromptToSend(null)} agentPickerItems={newSessionAgentPickerItems} />
         </div>
       )}
       {!showNewSession && activeTab?.type === 'agent-library' && <AgentLibrary />}

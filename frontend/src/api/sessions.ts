@@ -184,6 +184,16 @@ export async function selectAgent(sessionId: string, agentName: string): Promise
   return response.json();
 }
 
+export async function deselectAgent(sessionId: string): Promise<{ status: string }> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/agent`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to deselect agent: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // --- Repo Agent APIs ---
 
 

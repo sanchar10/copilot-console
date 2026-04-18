@@ -15,10 +15,13 @@ export interface SlashCommand {
   description: string;
   /** Emoji icon */
   icon: string;
-  /** If true, the send button requires the user to type a prompt after the chip */
-  requiresPrompt: boolean;
-  /** If true, the command runs immediately on selection (no chip/send flow) */
-  executeImmediately: boolean;
+  /**
+   * Interaction mode:
+   * - 'immediate': runs on selection, no further input (e.g. /compact, /help)
+   * - 'prompt': shows chip, user types a prompt, then sends (e.g. /fleet)
+   * - 'submenu': opens a second-level picker in the palette (e.g. /agent)
+   */
+  interaction: 'immediate' | 'prompt' | 'submenu';
   /** Placeholder text shown in the input when this command is active */
   placeholder?: string;
   /** The API action type: 'api' calls a backend endpoint, 'client' runs locally */
@@ -34,8 +37,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     name: 'fleet',
     description: 'Run with parallel sub-agents',
     icon: '🚀',
-    requiresPrompt: true,
-    executeImmediately: false,
+    interaction: 'prompt',
     placeholder: 'Describe the task to parallelize...',
     actionType: 'api',
     endpoint: 'fleet',
@@ -45,8 +47,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     name: 'compact',
     description: 'Compact session context',
     icon: '📦',
-    requiresPrompt: false,
-    executeImmediately: true,
+    interaction: 'immediate',
     actionType: 'api',
     endpoint: 'compact',
     usage: '',
@@ -55,8 +56,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     name: 'help',
     description: 'Show available commands',
     icon: '❓',
-    requiresPrompt: false,
-    executeImmediately: true,
+    interaction: 'immediate',
     actionType: 'client',
     usage: '',
   },
@@ -64,12 +64,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     name: 'agent',
     description: 'Select a custom agent',
     icon: '🤖',
-    requiresPrompt: true,
-    executeImmediately: false,
-    placeholder: 'Enter agent name...',
+    interaction: 'submenu',
     actionType: 'api',
     endpoint: 'agent',
-    usage: '[agent-name]',
+    usage: '',
   },
 ];
 

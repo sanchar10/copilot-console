@@ -372,6 +372,26 @@ async def select_agent(session_id: str, request: AgentSelectRequest) -> dict:
         raise HTTPException(status_code=500, detail=f"Failed to select agent: {e}")
 
 
+@router.delete("/{session_id}/agent")
+async def deselect_agent(session_id: str) -> dict:
+    """Deselect the current custom agent, reverting to Copilot default."""
+    set_session_context(session_id)
+    if not copilot_service.is_session_active(session_id):
+        raise HTTPException(status_code=404, detail="Session not active")
+
+    try:
+        client = copilot_service._session_clients.get(session_id)
+        if not client:
+            raise HTTPException(status_code=404, detail="No active session client")
+        result = await client.deselect_agent()
+        return {"status": "deselected", **result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{session_id}] Failed to deselect agent: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to deselect agent: {e}")
+
+
 @router.get("/{session_id}/agents")
 async def list_agents(session_id: str) -> dict:
     """List available custom agents on an active session."""

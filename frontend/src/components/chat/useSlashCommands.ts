@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useSessionStore } from '../../stores/sessionStore';
+import { useToastStore } from '../../stores/toastStore';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
-import { compactSession, selectAgent } from '../../api/sessions';
+import { compactSession, selectAgent, deselectAgent } from '../../api/sessions';
 import { isSessionReady } from './InputBox';
 
 /**
@@ -22,7 +23,7 @@ export function useSlashCommands(sessionId?: string) {
   const handleSlashSelect = useCallback((cmd: SlashCommand) => {
     setShowSlashPalette(false);
     setSlashQuery('');
-    if (cmd.executeImmediately) {
+    if (cmd.interaction === 'immediate') {
       if (cmd.name === 'help') {
         const helpLines = SLASH_COMMANDS.map(c => `${c.icon} **/${c.name}** — ${c.description}`).join('\n');
         const helpContent = `Available commands:\n${helpLines}`;
@@ -84,7 +85,68 @@ export function useSlashCommands(sessionId?: string) {
       }
       return;
     }
-    setActiveCommand(cmd);
+    // 'submenu' commands are handled by the palette itself (second-level picker)
+    // 'prompt' commands show a chip
+    if (cmd.interaction === 'prompt') {
+      setActiveCommand(cmd);
+    }
+  }, [sessionId, addMessage]);
+
+  /**
+   * Handle agent selection from the two-level palette picker.
+   * agentName = null means "deselect / revert to Copilot default"
+   */
+  const handleAgentSelect = useCallback(async (agentName: string | null) => {
+    const { isNewSession } = useSessionStore.getState();
+
+    if (sessionId && isSessionReady(sessionId)) {
+      // Active session — fire RPC immediately
+      try {
+        if (agentName) {
+          await selectAgent(sessionId, agentName);
+        } else {
+          await deselectAgent(sessionId);
+        }
+        addMessage(sessionId, {
+          id: `system-agent-${Date.now()}`,
+          role: 'system',
+          content: agentName
+            ? `🤖 Agent: switched to "${agentName}"`
+            : '✨ Agent: switched to Copilot (default)',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        addMessage(sessionId, {
+          id: `system-error-${Date.now()}`,
+          role: 'system',
+          content: `❌ Failed to select agent: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } else if (isNewSession) {
+      // New session — store in newSessionSettings, defer to create_session
+      useSessionStore.getState().updateNewSessionSettings({ pendingAgent: agentName || undefined });
+      useToastStore.getState().addToast(
+        agentName ? `🤖 Agent "${agentName}" queued for new session` : '✨ Agent reset to Copilot (default)',
+        'info',
+      );
+    } else if (sessionId) {
+      // Resumed session — store in chatStore, defer to send_message pipeline
+      if (agentName) {
+        useChatStore.getState().setPendingAgent(sessionId, agentName);
+      } else {
+        // Clear any pending agent to revert to default
+        useChatStore.getState().setPendingAgent(sessionId, '');
+      }
+      addMessage(sessionId, {
+        id: `system-agent-${Date.now()}`,
+        role: 'system',
+        content: agentName
+          ? `🤖 Agent "${agentName}" queued — will activate when session starts`
+          : '✨ Agent reset to Copilot (default)',
+        timestamp: new Date().toISOString(),
+      });
+    }
   }, [sessionId, addMessage]);
 
   const handleSlashDismiss = useCallback(() => {
@@ -112,41 +174,6 @@ export function useSlashCommands(sessionId?: string) {
           content: `✓ Context compacted — ${detail}`,
           timestamp: new Date().toISOString(),
         });
-      } else if (cmd.name === 'agent') {
-        const agentName = prompt.trim();
-        if (!agentName) {
-          addMessage(sessionId, {
-            id: `system-agent-${Date.now()}`,
-            role: 'system',
-            content: '🤖 Agent: please provide an agent name',
-            timestamp: new Date().toISOString(),
-          });
-          return;
-        }
-        if (isSessionReady(sessionId)) {
-          // Active session — fire immediately
-          const result = await selectAgent(sessionId, agentName);
-          addMessage(sessionId, {
-            id: `system-agent-${Date.now()}`,
-            role: 'system',
-            content: `🤖 Agent: selected "${result.agent?.name || agentName}"`,
-            timestamp: new Date().toISOString(),
-          });
-        } else {
-          // New or resumed session — store pending, defer to sendMessage
-          const { isNewSession } = useSessionStore.getState();
-          if (isNewSession) {
-            useSessionStore.getState().updateNewSessionSettings({ pendingAgent: agentName });
-          } else {
-            useChatStore.getState().setPendingAgent(sessionId, agentName);
-          }
-          addMessage(sessionId, {
-            id: `system-agent-${Date.now()}`,
-            role: 'system',
-            content: `🤖 Agent: "${agentName}" queued — will activate when session starts`,
-            timestamp: new Date().toISOString(),
-          });
-        }
       }
     } catch (err) {
       console.error(`Failed to execute /${cmd.name}:`, err);
@@ -174,13 +201,15 @@ export function useSlashCommands(sessionId?: string) {
       if (matched) {
         setShowSlashPalette(false);
         setSlashQuery('');
-        if (matched.executeImmediately) {
+        if (matched.interaction === 'immediate') {
           handleSlashSelect(matched);
           return { newInput: '', consumed: true };
-        } else {
+        } else if (matched.interaction === 'prompt') {
           setActiveCommand(matched);
           return { newInput: value.slice(value.indexOf(' ') + 1), consumed: true };
         }
+        // 'submenu' typed with space — ignore the space, treat as command selection
+        return { newInput: '', consumed: true };
       } else {
         setShowSlashPalette(false);
         setSlashQuery('');
@@ -198,6 +227,7 @@ export function useSlashCommands(sessionId?: string) {
     slashQuery,
     activeCommand,
     handleSlashSelect,
+    handleAgentSelect,
     handleSlashDismiss,
     clearActiveCommand,
     executeSlashCommand,
