@@ -607,18 +607,9 @@ class CopilotService:
                 logger.warning(f"[{session_id}] Failed to set agent mode '{agent_mode}': {e}")
 
         # Run deferred compact if requested (from new/resumed session)
-        if compact:
-            try:
-                result = await client.compact()
-                tokens = result.get("tokens_removed", 0)
-                msgs = result.get("messages_removed", 0)
-                if tokens or msgs:
-                    yield {"event": "step", "data": {"title": f"✓ Context compacted", "detail": f"freed {tokens} tokens, removed {msgs} messages"}}
-                else:
-                    yield {"event": "step", "data": {"title": f"✓ Context compacted", "detail": "nothing to compact"}}
-            except Exception as e:
-                logger.warning(f"[{session_id}] Deferred compact failed: {e}")
-                yield {"event": "step", "data": {"title": "✗ Compaction failed", "detail": str(e)}}
+        # NOTE: compact requires an active agent context, which only exists
+        # after session.send() completes. We defer it to post-turn below.
+        pending_compact = compact
 
         # Select agent if requested (from new/resumed session)
         if agent:
@@ -679,6 +670,20 @@ class CopilotService:
             item = event_queue.get_nowait()
             if item is not None:
                 yield item
+
+        # Run deferred compact AFTER the turn completes (agent context is now active)
+        if pending_compact:
+            try:
+                result = await client.compact()
+                tokens = result.get("tokens_removed", 0)
+                msgs = result.get("messages_removed", 0)
+                if tokens or msgs:
+                    yield {"event": "step", "data": {"title": "✓ Context compacted", "detail": f"freed {tokens} tokens, removed {msgs} messages"}}
+                else:
+                    yield {"event": "step", "data": {"title": "✓ Context compacted", "detail": "nothing to compact"}}
+            except Exception as e:
+                logger.warning(f"[{session_id}] Deferred compact failed: {e}")
+                yield {"event": "step", "data": {"title": "✗ Compaction failed", "detail": str(e)}}
 
         logger.debug(f"[{session_id}] Agent responded")
 
