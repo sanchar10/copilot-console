@@ -74,26 +74,31 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   const isSending = sendingSessionId === sessionId;
   const isDisabled = isSending;
 
-  // Agent mode — persisted in Zustand store
+  // Agent mode — session.json is source of truth, chatStore.sessionModes is UI cache
+  const sessionAgentMode = useSessionStore.getState().sessions.find(s => s.session_id === sessionId)?.agent_mode;
   const [sessionMode, setSessionMode_] = useState<AgentMode>(
-    () => (sessionId ? getSessionMode(sessionId) as AgentMode : undefined) ?? 'interactive'
+    () => (sessionId ? getSessionMode(sessionId) as AgentMode : undefined) ?? (sessionAgentMode as AgentMode) ?? 'interactive'
   );
   const currentMode: AgentMode = isNewSession
     ? (newSessionSettings?.agentMode as AgentMode) || 'interactive'
     : sessionMode;
 
   useEffect(() => {
-    setSessionMode_(sessionId ? (getSessionMode(sessionId) as AgentMode) ?? 'interactive' : 'interactive');
+    const storeMode = sessionId ? getSessionMode(sessionId) as AgentMode : undefined;
+    const persistedMode = useSessionStore.getState().sessions.find(s => s.session_id === sessionId)?.agent_mode as AgentMode | undefined;
+    setSessionMode_(storeMode ?? persistedMode ?? 'interactive');
   }, [sessionId, getSessionMode]);
 
   const handleModeChange = useCallback(async (newMode: AgentMode) => {
     if (isNewSession) {
       useSessionStore.getState().updateNewSessionSettings({ agentMode: newMode });
     } else if (sessionId) {
+      // Skip if unchanged
+      if (newMode === sessionMode) return;
       setSessionMode_(newMode);
       setSessionModeStore(sessionId, newMode);
       if (isSessionReadyFn(sessionId)) {
-        // Active session — fire RPC immediately
+        // Active session — fire RPC (server persists after success)
         try {
           const result = await updateRuntimeSettings(sessionId, { mode: newMode });
           const confirmed = (result.mode ?? newMode) as AgentMode;
@@ -104,8 +109,15 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           setSessionMode_(sessionMode);
           setSessionModeStore(sessionId, sessionMode);
         }
+      } else {
+        // Resumed (not active) — PATCH session.json so backend reads it on activation
+        try {
+          await updateSession(sessionId, { agent_mode: newMode });
+          useSessionStore.getState().updateSessionField(sessionId, 'agent_mode', newMode);
+        } catch (err) {
+          console.error('Failed to persist mode to session.json:', err);
+        }
       }
-      // Resumed (not active) — local update only, applied on first sendMessage
     }
   }, [isNewSession, sessionId, sessionMode, setSessionModeStore, isSessionReadyFn]);
 
