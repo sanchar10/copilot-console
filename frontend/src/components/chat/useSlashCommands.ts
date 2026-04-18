@@ -38,13 +38,15 @@ export function useSlashCommands(sessionId?: string) {
         if (sessionId && isSessionReady(sessionId)) {
           // Active session — fire immediately
           compactSession(sessionId).then(result => {
-            const detail = result.success
-              ? `tokens freed: ${result.tokens_removed ?? '?'}`
-              : 'compaction failed';
+            const tokens = result.tokens_removed ?? 0;
+            const msgs = result.messages_removed ?? 0;
+            const detail = result.success && (tokens || msgs)
+              ? `Freed ${tokens} tokens. Messages summarized: ${msgs}.`
+              : 'nothing to compact';
             addMessage(sessionId, {
               id: `system-compact-${Date.now()}`,
               role: 'system',
-              content: `📦 Compact: ${detail}`,
+              content: `✓ Context compacted — ${detail}`,
               timestamp: new Date().toISOString(),
             });
           }).catch(err => {
@@ -92,13 +94,15 @@ export function useSlashCommands(sessionId?: string) {
     try {
       if (cmd.name === 'compact') {
         const result = await compactSession(sessionId);
-        const detail = result.success
-          ? `tokens freed: ${result.tokens_removed ?? '?'}`
-          : 'compaction failed';
+        const tokens = result.tokens_removed ?? 0;
+        const msgs = result.messages_removed ?? 0;
+        const detail = result.success && (tokens || msgs)
+          ? `Freed ${tokens} tokens. Messages summarized: ${msgs}.`
+          : 'nothing to compact';
         addMessage(sessionId, {
           id: `system-compact-${Date.now()}`,
           role: 'system',
-          content: `📦 Compact: ${detail}`,
+          content: `✓ Context compacted — ${detail}`,
           timestamp: new Date().toISOString(),
         });
       } else if (cmd.name === 'agent') {
