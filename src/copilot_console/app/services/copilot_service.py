@@ -671,19 +671,24 @@ class CopilotService:
             if item is not None:
                 yield item
 
-        # Run deferred compact AFTER the turn completes (agent context is now active)
+        # Run deferred compact AFTER the turn completes (agent context is now active).
+        # The SDK emits its own ⟳/✓ step events through the event listener, which
+        # land on event_queue. We drain them after compact completes.
         if pending_compact:
             try:
                 result = await client.compact()
-                tokens = result.get("tokens_removed", 0)
-                msgs = result.get("messages_removed", 0)
-                if tokens or msgs:
-                    yield {"event": "step", "data": {"title": "✓ Context compacted", "detail": f"freed {tokens} tokens, removed {msgs} messages"}}
-                else:
-                    yield {"event": "step", "data": {"title": "✓ Context compacted", "detail": "nothing to compact"}}
+                logger.info(
+                    f"[{session_id}] Deferred compact: tokens_removed={result.get('tokens_removed', 0)}, "
+                    f"messages_removed={result.get('messages_removed', 0)}"
+                )
             except Exception as e:
                 logger.warning(f"[{session_id}] Deferred compact failed: {e}")
-                yield {"event": "step", "data": {"title": "✗ Compaction failed", "detail": str(e)}}
+            # Drain compact events from the queue
+            await asyncio.sleep(0.1)  # let SDK events propagate
+            while not event_queue.empty():
+                item = event_queue.get_nowait()
+                if item is not None:
+                    yield item
 
         logger.debug(f"[{session_id}] Agent responded")
 
