@@ -606,6 +606,16 @@ class CopilotService:
             except Exception as e:
                 logger.warning(f"[{session_id}] Failed to set agent mode '{agent_mode}': {e}")
 
+        # Switch model if the session.json model differs from SDK's remembered model.
+        # This handles the case where user changes model on a resumed session before
+        # sending the first message — the SDK resumes with the original model, so we
+        # need to explicitly switch.
+        if model and not is_new_session:
+            try:
+                await client.set_model(model, reasoning_effort)
+            except Exception as e:
+                logger.warning(f"[{session_id}] Failed to switch model to '{model}': {e}")
+
         # Run deferred compact if requested (from new/resumed session)
         # NOTE: compact requires an active agent context, which only exists
         # after session.send() completes. We defer it to post-turn below.
