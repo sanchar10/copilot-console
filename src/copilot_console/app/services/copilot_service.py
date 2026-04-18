@@ -569,6 +569,8 @@ class CopilotService:
         reasoning_effort: str | None = None,
         agent_mode: str | None = None,
         fleet: bool = False,
+        compact: bool = False,
+        agent: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Send a message and stream the response.
 
@@ -603,6 +605,21 @@ class CopilotService:
                 await client.set_mode(agent_mode)
             except Exception as e:
                 logger.warning(f"[{session_id}] Failed to set agent mode '{agent_mode}': {e}")
+
+        # Run deferred compact if requested (from new/resumed session)
+        if compact:
+            try:
+                result = await client.compact()
+                logger.debug(f"[{session_id}] Deferred compact: {result}")
+            except Exception as e:
+                logger.warning(f"[{session_id}] Deferred compact failed: {e}")
+
+        # Select agent if requested (from new/resumed session)
+        if agent:
+            try:
+                await client.set_agent(agent)
+            except Exception as e:
+                logger.warning(f"[{session_id}] Failed to select agent '{agent}': {e}")
 
         done = asyncio.Event()
 
@@ -676,6 +693,8 @@ class CopilotService:
         reasoning_effort: str | None = None,
         agent_mode: str | None = None,
         fleet: bool = False,
+        compact: bool = False,
+        agent: str | None = None,
     ) -> None:
         """Send a message in a background task that won't be cancelled.
 
@@ -704,6 +723,8 @@ class CopilotService:
                 reasoning_effort=reasoning_effort,
                 agent_mode=agent_mode,
                 fleet=fleet,
+                compact=compact,
+                agent=agent,
             ):
                 event_type = evt.get("event")
 

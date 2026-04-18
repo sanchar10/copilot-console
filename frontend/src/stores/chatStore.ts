@@ -51,12 +51,16 @@ interface ChatState {
   // Session readiness & mode tracking (moved from module-level singletons)
   readySessions: Set<string>;
   sessionModes: Record<string, string>;
+  pendingCompact: Record<string, boolean>;
+  pendingAgent: Record<string, string>;
 
   // Getters
   getStreamingState: (sessionId: string | null) => StreamingState;
   getTokenUsage: (sessionId: string | null) => TokenUsage | null;
   isSessionReady: (sessionId: string) => boolean;
   getSessionMode: (sessionId: string) => string | undefined;
+  hasPendingCompact: (sessionId: string) => boolean;
+  getPendingAgent: (sessionId: string) => string | undefined;
 
   // Setters
   setMessages: (sessionId: string, messages: Message[]) => void;
@@ -75,6 +79,10 @@ interface ChatState {
   // Session readiness & mode
   markSessionReady: (sessionId: string) => void;
   setSessionMode: (sessionId: string, mode: string) => void;
+  setPendingCompact: (sessionId: string, pending: boolean) => void;
+  consumePendingCompact: (sessionId: string) => boolean;
+  setPendingAgent: (sessionId: string, agent: string) => void;
+  consumePendingAgent: (sessionId: string) => string | undefined;
   clearSessionState: (sessionId: string) => void;
 
   // SSE delta batching
@@ -136,6 +144,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pendingAskUser: {},
   readySessions: new Set<string>(),
   sessionModes: {},
+  pendingCompact: {},
+  pendingAgent: {},
 
   getStreamingState: (sessionId) => {
     if (!sessionId) return emptyStreamingState;
@@ -156,6 +166,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isSessionReady: (sessionId) => get().readySessions.has(sessionId),
 
   getSessionMode: (sessionId) => get().sessionModes[sessionId],
+  hasPendingCompact: (sessionId) => !!get().pendingCompact[sessionId],
+  getPendingAgent: (sessionId) => get().pendingAgent[sessionId],
 
   setMessages: (sessionId, messages) =>
     set((state) => ({
@@ -353,6 +365,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
       sessionModes: { ...state.sessionModes, [sessionId]: mode },
     })),
 
+  setPendingCompact: (sessionId, pending) =>
+    set((state) => ({
+      pendingCompact: { ...state.pendingCompact, [sessionId]: pending },
+    })),
+
+  consumePendingCompact: (sessionId) => {
+    const had = !!get().pendingCompact[sessionId];
+    if (had) {
+      set((state) => {
+        const updated = { ...state.pendingCompact };
+        delete updated[sessionId];
+        return { pendingCompact: updated };
+      });
+    }
+    return had;
+  },
+
+  setPendingAgent: (sessionId, agent) =>
+    set((state) => ({
+      pendingAgent: { ...state.pendingAgent, [sessionId]: agent },
+    })),
+
+  consumePendingAgent: (sessionId) => {
+    const agent = get().pendingAgent[sessionId];
+    if (agent) {
+      set((state) => {
+        const updated = { ...state.pendingAgent };
+        delete updated[sessionId];
+        return { pendingAgent: updated };
+      });
+    }
+    return agent;
+  },
+
   clearSessionState: (sessionId) => {
     clearDeltaBuffer(sessionId);
     set((state) => {
@@ -360,7 +406,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       newReadySessions.delete(sessionId);
       const newSessionModes = { ...state.sessionModes };
       delete newSessionModes[sessionId];
-      return { readySessions: newReadySessions, sessionModes: newSessionModes };
+      const newPendingCompact = { ...state.pendingCompact };
+      delete newPendingCompact[sessionId];
+      const newPendingAgent = { ...state.pendingAgent };
+      delete newPendingAgent[sessionId];
+      return { readySessions: newReadySessions, sessionModes: newSessionModes, pendingCompact: newPendingCompact, pendingAgent: newPendingAgent };
     });
   },
 

@@ -14,6 +14,7 @@ from copilot.generated.rpc import (
     SessionModeSetParams,
     SessionModelSwitchToParams,
     SessionFleetStartParams,
+    SessionAgentSelectParams,
 )
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
@@ -305,3 +306,31 @@ class SessionClient:
         except Exception as e:
             logger.debug(f"[{self.session_id}] Compact no-op: {e}")
             return noop
+
+    async def set_agent(self, agent_name: str) -> dict:
+        """Select a custom agent on the active session."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to select agent on")
+        result = await self.session.rpc.agent.select(
+            SessionAgentSelectParams(name=agent_name)
+        )
+        self.touch()
+        agent = result.agent
+        logger.debug(f"[{self.session_id}] Agent selected: {agent.name}")
+        return {"name": agent.name}
+
+    async def list_agents(self) -> list[dict]:
+        """List available custom agents on the active session."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to list agents on")
+        result = await self.session.rpc.agent.list()
+        self.touch()
+        return [{"name": a.name} for a in result.agents]
+
+    async def deselect_agent(self) -> dict:
+        """Deselect the current custom agent."""
+        if not self.session:
+            raise RuntimeError(f"[{self.session_id}] No active session to deselect agent on")
+        await self.session.rpc.agent.deselect()
+        self.touch()
+        return {"deselected": True}

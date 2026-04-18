@@ -341,6 +341,57 @@ async def compact_session(session_id: str) -> dict:
         raise HTTPException(status_code=500, detail=f"Failed to compact session: {e}")
 
 
+from pydantic import BaseModel as _BaseModel
+
+class AgentSelectRequest(_BaseModel):
+    """Request to select a custom agent."""
+    name: str
+
+
+@router.post("/{session_id}/agent")
+async def select_agent(session_id: str, request: AgentSelectRequest) -> dict:
+    """Select a custom agent on an active session.
+
+    For active sessions only — new/resumed sessions defer agent selection
+    to the first sendMessage via the `agent` field on the message payload.
+    """
+    set_session_context(session_id)
+    if not copilot_service.is_session_active(session_id):
+        raise HTTPException(status_code=404, detail="Session not active — agent selection deferred to first message")
+
+    try:
+        client = copilot_service._session_clients.get(session_id)
+        if not client:
+            raise HTTPException(status_code=404, detail="No active session client")
+        result = await client.set_agent(request.name)
+        return {"agent": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{session_id}] Failed to select agent: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to select agent: {e}")
+
+
+@router.get("/{session_id}/agents")
+async def list_agents(session_id: str) -> dict:
+    """List available custom agents on an active session."""
+    set_session_context(session_id)
+    if not copilot_service.is_session_active(session_id):
+        raise HTTPException(status_code=404, detail="Session not active")
+
+    try:
+        client = copilot_service._session_clients.get(session_id)
+        if not client:
+            raise HTTPException(status_code=404, detail="No active session client")
+        agents = await client.list_agents()
+        return {"agents": agents}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[{session_id}] Failed to list agents: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list agents: {e}")
+
+
 @router.post("/{session_id}/enqueue")
 async def enqueue_message(session_id: str, request: MessageCreate) -> dict:
     """Enqueue a follow-up message while the agent is already running.
@@ -654,6 +705,8 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 reasoning_effort=reasoning_effort,
                 agent_mode=request.agent_mode,
                 fleet=request.fleet,
+                compact=request.compact,
+                agent=request.agent,
             )
             logger.info(f"[Background] Agent completed for session {session_id}")
             

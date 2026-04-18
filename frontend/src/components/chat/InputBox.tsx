@@ -195,6 +195,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     let activeSessionId = sessionId;
     let isCreatingNewSession = isNewSession || !sessionId;
     let initialAgentMode: string | undefined;
+    let initialCompact = false;
+    let initialAgent: string | undefined;
 
     setInput('');
     const pendingAttachments = fileUpload.consumeAttachments();
@@ -215,6 +217,12 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         if (pendingAgentMode && pendingAgentMode !== 'interactive') {
           initialAgentMode = pendingAgentMode;
           setSessionModeStore(session.session_id, pendingAgentMode);
+        }
+        if (newSessionSettings?.pendingCompact) {
+          initialCompact = true;
+        }
+        if (newSessionSettings?.pendingAgent) {
+          initialAgent = newSessionSettings.pendingAgent;
         }
         addSession(session);
         openGenericTab({ id: tabId.session(session.session_id), type: 'session', label: session.session_name, sessionId: session.session_id });
@@ -254,6 +262,15 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
       const currentMode = getSessionMode(activeSessionId);
       if (currentMode && currentMode !== 'interactive') {
         initialAgentMode = currentMode;
+      }
+      // Consume pending compact/agent flags for resumed sessions
+      const chatState = useChatStore.getState();
+      if (chatState.consumePendingCompact(activeSessionId)) {
+        initialCompact = true;
+      }
+      const pendingAgentName = chatState.consumePendingAgent(activeSessionId);
+      if (pendingAgentName) {
+        initialAgent = pendingAgentName;
       }
     }
 
@@ -328,6 +345,8 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         onModeChanged: (mode) => { setSessionMode_(mode as AgentMode); if (activeSessionId) setSessionModeStore(activeSessionId, mode); },
         agentMode: initialAgentMode,
         fleet: isFleet,
+        compact: initialCompact || undefined,
+        agent: initialAgent,
         onElicitation: (data) => {
           if (activeSessionId) {
             setElicitation(activeSessionId, data);

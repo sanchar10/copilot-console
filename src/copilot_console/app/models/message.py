@@ -51,6 +51,8 @@ class MessageCreate(BaseModel):
     attachments: list[AttachmentRef] | None = None  # File/directory attachments
     agent_mode: str | None = None  # Agent mode to set before sending (interactive/plan/autopilot)
     fleet: bool = False  # True to use fleet mode (parallel sub-agents)
+    compact: bool = False  # True to compact context before sending (deferred from new/resumed session)
+    agent: str | None = None  # Agent name to select before sending (deferred from new/resumed session)
 
 
 class MessageDelta(BaseModel):

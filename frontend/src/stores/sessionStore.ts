@@ -18,6 +18,8 @@ interface NewSessionSettings {
   agentId?: string;
   subAgents?: string[];
   agentMode: string;
+  pendingCompact?: boolean;
+  pendingAgent?: string;
 }
 
 interface SessionState {

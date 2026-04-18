@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useChatStore } from '../../stores/chatStore';
+import { useSessionStore } from '../../stores/sessionStore';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
-import { compactSession } from '../../api/sessions';
+import { compactSession, selectAgent } from '../../api/sessions';
 import { isSessionReady } from './InputBox';
 
 /**
@@ -55,11 +56,17 @@ export function useSlashCommands(sessionId?: string) {
             });
           });
         } else if (sessionId) {
-          // New/Resumed session — nothing to compact yet
+          // New or resumed session — store pending, defer to sendMessage
+          const { isNewSession } = useSessionStore.getState();
+          if (isNewSession) {
+            useSessionStore.getState().updateNewSessionSettings({ pendingCompact: true });
+          } else {
+            useChatStore.getState().setPendingCompact(sessionId, true);
+          }
           addMessage(sessionId, {
             id: `system-compact-${Date.now()}`,
             role: 'system',
-            content: '📦 Compact: session not active yet — nothing to compact',
+            content: '📦 Compact: queued — will run when session activates',
             timestamp: new Date().toISOString(),
           });
         }
@@ -78,7 +85,7 @@ export function useSlashCommands(sessionId?: string) {
     setActiveCommand(null);
   }, []);
 
-  const executeSlashCommand = useCallback(async (cmd: SlashCommand, _prompt: string) => {
+  const executeSlashCommand = useCallback(async (cmd: SlashCommand, prompt: string) => {
     if (!sessionId) return;
     try {
       if (cmd.name === 'compact') {
@@ -92,6 +99,41 @@ export function useSlashCommands(sessionId?: string) {
           content: `📦 Compact: ${detail}`,
           timestamp: new Date().toISOString(),
         });
+      } else if (cmd.name === 'agent') {
+        const agentName = prompt.trim();
+        if (!agentName) {
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: '🤖 Agent: please provide an agent name',
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+        if (isSessionReady(sessionId)) {
+          // Active session — fire immediately
+          const result = await selectAgent(sessionId, agentName);
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: `🤖 Agent: selected "${result.agent?.name || agentName}"`,
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          // New or resumed session — store pending, defer to sendMessage
+          const { isNewSession } = useSessionStore.getState();
+          if (isNewSession) {
+            useSessionStore.getState().updateNewSessionSettings({ pendingAgent: agentName });
+          } else {
+            useChatStore.getState().setPendingAgent(sessionId, agentName);
+          }
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: `🤖 Agent: "${agentName}" queued — will activate when session starts`,
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
     } catch (err) {
       console.error(`Failed to execute /${cmd.name}:`, err);

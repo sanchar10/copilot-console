@@ -172,6 +172,18 @@ export async function compactSession(sessionId: string): Promise<{ success: bool
   return response.json();
 }
 
+export async function selectAgent(sessionId: string, agentName: string): Promise<{ agent?: { name: string } }> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/agent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: agentName }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to select agent: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // --- Repo Agent APIs ---
 
 
@@ -215,6 +227,8 @@ export interface SendMessageOptions {
   fleet?: boolean;
   onElicitation?: (data: ElicitationRequest) => void;
   onAskUser?: (data: AskUserRequest) => void;
+  compact?: boolean;
+  agent?: string;
 }
 
 export async function sendMessage(
@@ -226,6 +240,7 @@ export async function sendMessage(
     onDelta, onStep, onUsageInfo, onDone, onError,
     isNewSession = false, onTurnDone, attachments,
     onModeChanged, agentMode, fleet, onElicitation, onAskUser,
+    compact, agent,
   } = options;
   const body: Record<string, unknown> = { content, is_new_session: isNewSession };
   if (attachments && attachments.length > 0) {
@@ -236,6 +251,12 @@ export async function sendMessage(
   }
   if (fleet) {
     body.fleet = true;
+  }
+  if (compact) {
+    body.compact = true;
+  }
+  if (agent) {
+    body.agent = agent;
   }
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/messages`, {
     method: 'POST',

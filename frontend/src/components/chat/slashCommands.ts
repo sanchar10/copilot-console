@@ -60,6 +60,17 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     actionType: 'client',
     usage: '',
   },
+  {
+    name: 'agent',
+    description: 'Select a custom agent',
+    icon: '🤖',
+    requiresPrompt: true,
+    executeImmediately: false,
+    placeholder: 'Enter agent name...',
+    actionType: 'api',
+    endpoint: 'agent',
+    usage: '[agent-name]',
+  },
 ];
 
 /** Filter commands by partial name match (case-insensitive). */
