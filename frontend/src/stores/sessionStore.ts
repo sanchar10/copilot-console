@@ -19,7 +19,8 @@ interface NewSessionSettings {
   subAgents?: string[];
   agentMode: string;
   pendingCompact?: boolean;
-  pendingAgent?: string;
+  selectedAgent?: string;      // Agent to select on first message
+  pendingAgent?: string;       // DEPRECATED: kept for backward compat, prefer selectedAgent
 }
 
 interface SessionState {
@@ -47,6 +48,7 @@ interface SessionState {
   updateSessionTools: (sessionId: string, tools: AgentTools) => void;
   updateSessionName: (sessionId: string, name: string) => void;
   updateSessionModel: (sessionId: string, model: string, reasoningEffort: string | null) => void;
+  updateSessionField: (sessionId: string, field: keyof Session, value: unknown) => void;
   refreshMcpServers: () => Promise<MCPServer[]>;
   refreshTools: () => Promise<ToolInfo[]>;
   clearError: () => void;
@@ -160,6 +162,14 @@ export const useSessionStore = create<SessionState>((set) => ({
       sessions: state.sessions.map((s) =>
         s.session_id === sessionId
           ? { ...s, model, reasoning_effort: reasoningEffort }
+          : s
+      ),
+    })),
+  updateSessionField: (sessionId: string, field: keyof Session, value: unknown) =>
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.session_id === sessionId
+          ? { ...s, [field]: value }
           : s
       ),
     })),

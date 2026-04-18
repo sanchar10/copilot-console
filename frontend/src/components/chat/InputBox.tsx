@@ -198,7 +198,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     let isCreatingNewSession = isNewSession || !sessionId;
     let initialAgentMode: string | undefined;
     let initialCompact = false;
-    let initialAgent: string | undefined;
 
     setInput('');
     const pendingAttachments = fileUpload.consumeAttachments();
@@ -215,6 +214,9 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           name: sessionName, cwd: sessionCwd, mcp_servers: newSessionSettings?.mcpServers,
           tools: newSessionSettings?.tools, system_message: newSessionSettings?.systemMessage,
           agent_id: newSessionSettings?.agentId, sub_agents: newSessionSettings?.subAgents,
+          // Persist agent/mode in session.json from the start
+          selected_agent: newSessionSettings?.selectedAgent || newSessionSettings?.pendingAgent || undefined,
+          agent_mode: (pendingAgentMode && pendingAgentMode !== 'interactive') ? pendingAgentMode : undefined,
         });
         if (pendingAgentMode && pendingAgentMode !== 'interactive') {
           initialAgentMode = pendingAgentMode;
@@ -222,9 +224,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         }
         if (newSessionSettings?.pendingCompact) {
           initialCompact = true;
-        }
-        if (newSessionSettings?.pendingAgent) {
-          initialAgent = newSessionSettings.pendingAgent;
         }
         addSession(session);
         openGenericTab({ id: tabId.session(session.session_id), type: 'session', label: session.session_name, sessionId: session.session_id });
@@ -259,21 +258,20 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     const needsLock = !isSessionReadyFn(activeSessionId);
     if (needsLock) setSending(activeSessionId);
 
-    // For resumed sessions (not new), gather pending settings to send with activation
+    // For resumed sessions (not new), gather pending compact flag
+    // Agent/mode now come from session.json — no need to read from chatStore
     if (needsLock && !isCreatingNewSession && activeSessionId) {
       const currentMode = getSessionMode(activeSessionId);
       if (currentMode && currentMode !== 'interactive') {
         initialAgentMode = currentMode;
       }
-      // Consume pending compact/agent flags for resumed sessions
+      // Consume pending compact flag (one-shot action, not a persistent setting)
       const chatState = useChatStore.getState();
       if (chatState.consumePendingCompact(activeSessionId)) {
         initialCompact = true;
       }
-      const pendingAgentName = chatState.consumePendingAgent(activeSessionId);
-      if (pendingAgentName) {
-        initialAgent = pendingAgentName;
-      }
+      // Note: agent selection now comes from session.json (backend reads it on resume)
+      // No need to consume pendingAgent from chatStore
     }
 
     const resolvedPrompt = trimmedInput || (pendingAttachments.length > 0 ? 'See attached file(s).' : '');
@@ -349,7 +347,6 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
         agentMode: initialAgentMode,
         fleet: isFleet,
         compact: initialCompact || undefined,
-        agent: initialAgent,
         onElicitation: (data) => {
           if (activeSessionId) {
             setElicitation(activeSessionId, data);

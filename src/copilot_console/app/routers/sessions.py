@@ -297,13 +297,15 @@ async def update_runtime_settings(session_id: str, request: RuntimeSettingsReque
             custom_agents=cfg["custom_agents"],
         )
         
-        # Persist model/reasoning_effort changes to session.json
+        # Persist model/reasoning_effort/mode changes to session.json
+        update_fields: dict = {}
         if request.model is not None:
-            update_fields = SessionUpdate(
-                model=result.get("model", request.model),
-                reasoning_effort=request.reasoning_effort,
-            )
-            await session_service.update_session(session_id, update_fields)
+            update_fields["model"] = result.get("model", request.model)
+            update_fields["reasoning_effort"] = request.reasoning_effort
+        if request.mode is not None:
+            update_fields["agent_mode"] = result.get("mode", request.mode)
+        if update_fields:
+            await session_service.update_session(session_id, SessionUpdate(**update_fields))
         
         return result
     except Exception as e:
@@ -364,6 +366,9 @@ async def select_agent(session_id: str, request: AgentSelectRequest) -> dict:
         if not client:
             raise HTTPException(status_code=404, detail="No active session client")
         result = await client.set_agent(request.name)
+        # Persist to session.json so agent survives reactivation
+        confirmed_name = result.get("name", request.name)
+        await session_service.update_session(session_id, SessionUpdate(selected_agent=confirmed_name))
         return {"agent": result}
     except HTTPException:
         raise
@@ -384,6 +389,8 @@ async def deselect_agent(session_id: str) -> dict:
         if not client:
             raise HTTPException(status_code=404, detail="No active session client")
         result = await client.deselect_agent()
+        # Persist deselection to session.json (explicit None via model_fields_set)
+        await session_service.update_session(session_id, SessionUpdate(selected_agent=None))
         return {"status": "deselected", **result}
     except HTTPException:
         raise
@@ -723,10 +730,12 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 attachments=[{"type": a.type, "path": a.path, **({"displayName": a.displayName} if a.displayName else {})} for a in request.attachments] if request.attachments else None,
                 custom_agents=custom_agents_sdk,
                 reasoning_effort=reasoning_effort,
-                agent_mode=request.agent_mode,
+                # For new/resumed sessions, read agent settings from session.json.
+                # For active sessions, these are None (already applied via RPC).
+                agent_mode=session.agent_mode if session else request.agent_mode,
                 fleet=request.fleet,
                 compact=request.compact,
-                agent=request.agent,
+                agent=session.selected_agent if session else request.agent,
             )
             logger.info(f"[Background] Agent completed for session {session_id}")
             

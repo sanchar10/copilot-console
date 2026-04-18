@@ -79,6 +79,8 @@ class StorageService:
             "agent_id": session.agent_id,
             "trigger": session.trigger,
             "sub_agents": session.sub_agents,
+            "selected_agent": session.selected_agent,
+            "agent_mode": session.agent_mode,
         }
         atomic_write(
             self._session_file(session.session_id),

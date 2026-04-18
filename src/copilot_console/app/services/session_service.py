@@ -141,6 +141,8 @@ class SessionService:
             sub_agents=request.sub_agents or [],
             agent_id=request.agent_id,
             trigger=request.trigger,
+            selected_agent=request.selected_agent,
+            agent_mode=request.agent_mode,
             # name_set = True only if user provided a custom name (not default)
             name_set=bool(request.name and request.name != "New Session"),
             created_at=now,
@@ -244,6 +246,8 @@ class SessionService:
                     name_set=name_set,
                     agent_id=stored_meta.get("agent_id"),
                     trigger=stored_meta.get("trigger"),
+                    selected_agent=stored_meta.get("selected_agent"),
+                    agent_mode=stored_meta.get("agent_mode"),
                     created_at=created_at,
                     updated_at=updated_at,
                 )
@@ -327,6 +331,8 @@ class SessionService:
                 sub_agents=stored_meta.get("sub_agents", []),
                 agent_id=stored_meta.get("agent_id"),
                 trigger=stored_meta.get("trigger"),
+                selected_agent=stored_meta.get("selected_agent"),
+                agent_mode=stored_meta.get("agent_mode"),
                 created_at=created_at,
                 updated_at=updated_at,
             )
@@ -421,6 +427,8 @@ class SessionService:
             sub_agents=stored_meta.get("sub_agents", []),
             agent_id=stored_meta.get("agent_id"),
             trigger=stored_meta.get("trigger"),
+            selected_agent=stored_meta.get("selected_agent"),
+            agent_mode=stored_meta.get("agent_mode"),
             created_at=mtime,
             updated_at=updated_at,
         )
@@ -811,6 +819,13 @@ class SessionService:
             session.model = request.model
         if request.reasoning_effort is not None:
             session.reasoning_effort = request.reasoning_effort
+        
+        # Agent/mode: persist only (runtime change handled via RPC on active sessions)
+        # Use model_fields_set to distinguish "explicitly set to None" from "omitted"
+        if "selected_agent" in request.model_fields_set:
+            session.selected_agent = request.selected_agent
+        if "agent_mode" in request.model_fields_set:
+            session.agent_mode = request.agent_mode
         
         # Destroy client so next message resumes with new config
         if need_recreate:

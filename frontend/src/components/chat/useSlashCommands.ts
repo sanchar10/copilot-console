@@ -3,15 +3,16 @@ import { useChatStore } from '../../stores/chatStore';
 import { useSessionStore } from '../../stores/sessionStore';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
-import { compactSession, selectAgent, deselectAgent } from '../../api/sessions';
+import { compactSession, selectAgent, deselectAgent, updateSession } from '../../api/sessions';
 import { isSessionReady } from './InputBox';
 
 /**
  * Encapsulates slash command detection, palette state, and execution.
  *
  * RPC commands (compact, agent) follow the unified session settings pattern:
- * - Active session (isSessionReady): fire API immediately
- * - New/Resumed session: store pending, defer to first sendMessage
+ * - Active session (isSessionReady): fire server endpoint (RPC + persist)
+ * - New session: store in newSessionSettings, flows to createSession body
+ * - Resumed session: PATCH session.json, defer RPC to first sendMessage
  */
 export function useSlashCommands(sessionId?: string) {
   const [showSlashPalette, setShowSlashPalette] = useState(false);
@@ -96,10 +97,15 @@ export function useSlashCommands(sessionId?: string) {
    * agentName = null means "deselect / revert to Copilot default"
    */
   const handleAgentSelect = useCallback(async (agentName: string | null) => {
-    const { isNewSession } = useSessionStore.getState();
+    const { isNewSession, sessions } = useSessionStore.getState();
 
     if (sessionId && isSessionReady(sessionId)) {
-      // Active session — fire RPC immediately, use server-confirmed response
+      // Active session — fire RPC (server persists after success)
+      // Skip if value unchanged
+      const currentAgent = sessions.find(s => s.session_id === sessionId)?.selected_agent;
+      if (agentName === currentAgent || (agentName === null && (currentAgent === null || currentAgent === undefined))) {
+        return; // No change — skip redundant RPC
+      }
       try {
         if (agentName) {
           const result = await selectAgent(sessionId, agentName);
@@ -110,6 +116,8 @@ export function useSlashCommands(sessionId?: string) {
             content: `🤖 Agent: switched to "${confirmed}"`,
             timestamp: new Date().toISOString(),
           });
+          // Update local state to match server (server already persisted)
+          useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', confirmed);
         } else {
           await deselectAgent(sessionId);
           addMessage(sessionId, {
@@ -118,6 +126,7 @@ export function useSlashCommands(sessionId?: string) {
             content: '✨ Agent: switched to Copilot (default)',
             timestamp: new Date().toISOString(),
           });
+          useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', null);
         }
       } catch (err) {
         addMessage(sessionId, {
@@ -128,12 +137,16 @@ export function useSlashCommands(sessionId?: string) {
         });
       }
     } else if (isNewSession) {
-      // New session — silently store in newSessionSettings, defer to create_session
-      useSessionStore.getState().updateNewSessionSettings({ pendingAgent: agentName || undefined });
+      // New session — store in newSessionSettings, flows to createSession body
+      useSessionStore.getState().updateNewSessionSettings({ selectedAgent: agentName || undefined });
     } else if (sessionId) {
-      // Resumed session — store in chatStore, defer to send_message pipeline
-      // Use '__deselect__' sentinel so backend calls deselect_agent() instead of set_agent()
-      useChatStore.getState().setPendingAgent(sessionId, agentName || '__deselect__');
+      // Resumed (not active) — PATCH session.json so backend reads it on resume
+      try {
+        await updateSession(sessionId, { selected_agent: agentName });
+        useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', agentName);
+      } catch (err) {
+        console.error('Failed to persist agent to session.json:', err);
+      }
     }
   }, [sessionId, addMessage]);
 

@@ -35,6 +35,15 @@ class SessionBase(BaseModel):
         default_factory=list,
         description="List of sub-agent IDs enabled for this session (Agent Teams)"
     )
+    # Runtime settings (persisted so they survive session reactivation)
+    selected_agent: str | None = Field(
+        default=None,
+        description="Currently selected agent name. None = no agent selected / deselected."
+    )
+    agent_mode: str | None = Field(
+        default=None,
+        description="Agent mode: 'interactive', 'plan', or 'autopilot'. None = default (interactive)."
+    )
     # Reference fields (informational only, no behavioral impact)
     agent_id: str | None = Field(default=None, description="Agent ID this session was created from (reference only)")
     trigger: str | None = Field(default=None, description="How this session was triggered: 'manual', 'automation', or null for regular chat")
@@ -53,6 +62,8 @@ class SessionCreate(BaseModel):
     sub_agents: list[str] | None = None
     agent_id: str | None = None
     trigger: str | None = None
+    selected_agent: str | None = None
+    agent_mode: str | None = None
 
 
 class SessionUpdate(BaseModel):
@@ -66,6 +77,8 @@ class SessionUpdate(BaseModel):
     sub_agents: list[str] | None = None
     model: str | None = None
     reasoning_effort: str | None = None
+    selected_agent: str | None = None
+    agent_mode: str | None = None
 
 
 class ModeSetRequest(BaseModel):

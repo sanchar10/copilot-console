@@ -13,6 +13,9 @@ export interface Session {
   sub_agents?: string[];
   created_at: string;
   updated_at: string;
+  // Runtime settings (persisted, survive reactivation)
+  selected_agent?: string | null;
+  agent_mode?: string | null;
   // Reference fields (informational only)
   agent_id?: string | null;
   trigger?: string | null;
@@ -35,6 +38,8 @@ export interface CreateSessionRequest {
   system_message?: SystemMessage | null;
   agent_id?: string;
   sub_agents?: string[];
+  selected_agent?: string | null;
+  agent_mode?: string | null;
 }
 
 export interface UpdateSessionRequest {
@@ -46,4 +51,6 @@ export interface UpdateSessionRequest {
   sub_agents?: string[];
   model?: string;
   reasoning_effort?: string;
+  selected_agent?: string | null;
+  agent_mode?: string | null;
 }

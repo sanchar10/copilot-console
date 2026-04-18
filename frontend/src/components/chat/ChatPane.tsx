@@ -199,10 +199,14 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
 
   const { updateSessionModel } = useSessionStore();
   const handleModelChange = useCallback(async (model: string, reasoningEffort?: string | null) => {
+    // Skip if unchanged
+    if (session && model === session.model && (reasoningEffort ?? null) === (session.reasoning_effort ?? null)) {
+      return;
+    }
     // Always update local state (optimistic for active, local-only for resumed)
     updateSessionModel(sessionId, model, reasoningEffort ?? null);
     if (useChatStore.getState().isSessionReady(sessionId)) {
-      // Active session — fire RPC immediately
+      // Active session — fire RPC immediately (server persists after success)
       try {
         await updateRuntimeSettings(sessionId, {
           model,
