@@ -198,20 +198,24 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
 
   const { updateSessionModel } = useSessionStore();
   const handleModelChange = useCallback(async (model: string, reasoningEffort?: string | null) => {
-    // Optimistic update
+    // Always update local state (optimistic for active, local-only for resumed)
     updateSessionModel(sessionId, model, reasoningEffort ?? null);
-    try {
-      await updateRuntimeSettings(sessionId, {
-        model,
-        reasoning_effort: reasoningEffort ?? undefined,
-      });
-    } catch (error) {
-      console.error('Failed to update model:', error);
-      // Revert on failure
-      if (session) {
-        updateSessionModel(sessionId, session.model, session.reasoning_effort ?? null);
+    if (useChatStore.getState().isSessionReady(sessionId)) {
+      // Active session — fire RPC immediately
+      try {
+        await updateRuntimeSettings(sessionId, {
+          model,
+          reasoning_effort: reasoningEffort ?? undefined,
+        });
+      } catch (error) {
+        console.error('Failed to update model:', error);
+        // Revert on failure
+        if (session) {
+          updateSessionModel(sessionId, session.model, session.reasoning_effort ?? null);
+        }
       }
     }
+    // Resumed (not active) — local update only, model read from session metadata on activation
   }, [sessionId, session, updateSessionModel]);
 
   // Fetch discoverable sub-agents (all sources, grouped by section)

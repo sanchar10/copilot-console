@@ -3,9 +3,14 @@ import { useChatStore } from '../../stores/chatStore';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
 import { compactSession } from '../../api/sessions';
+import { isSessionReady } from './InputBox';
 
 /**
  * Encapsulates slash command detection, palette state, and execution.
+ *
+ * RPC commands (compact, agent) follow the unified session settings pattern:
+ * - Active session (isSessionReady): fire API immediately
+ * - New/Resumed session: store pending, defer to first sendMessage
  */
 export function useSlashCommands(sessionId?: string) {
   const [showSlashPalette, setShowSlashPalette] = useState(false);
@@ -29,7 +34,8 @@ export function useSlashCommands(sessionId?: string) {
           });
         }
       } else if (cmd.name === 'compact') {
-        if (sessionId) {
+        if (sessionId && isSessionReady(sessionId)) {
+          // Active session — fire immediately
           compactSession(sessionId).then(result => {
             const detail = result.success
               ? `tokens freed: ${result.tokens_removed ?? '?'}`
@@ -47,6 +53,14 @@ export function useSlashCommands(sessionId?: string) {
               content: `❌ Failed to compact: ${err instanceof Error ? err.message : 'Unknown error'}`,
               timestamp: new Date().toISOString(),
             });
+          });
+        } else if (sessionId) {
+          // New/Resumed session — nothing to compact yet
+          addMessage(sessionId, {
+            id: `system-compact-${Date.now()}`,
+            role: 'system',
+            content: '📦 Compact: session not active yet — nothing to compact',
+            timestamp: new Date().toISOString(),
           });
         }
       }

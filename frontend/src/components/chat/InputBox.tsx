@@ -90,19 +90,22 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     } else if (sessionId) {
       setSessionMode_(newMode);
       setSessionModeStore(sessionId, newMode);
-      try {
-        const result = await updateRuntimeSettings(sessionId, { mode: newMode });
-        const confirmed = (result.mode ?? newMode) as AgentMode;
-        setSessionMode_(confirmed);
-        setSessionModeStore(sessionId, confirmed);
-        markSessionReadyFn(sessionId);
-      } catch (err) {
-        console.error('Failed to set mode:', err);
-        setSessionMode_(sessionMode);
-        setSessionModeStore(sessionId, sessionMode);
+      if (isSessionReadyFn(sessionId)) {
+        // Active session — fire RPC immediately
+        try {
+          const result = await updateRuntimeSettings(sessionId, { mode: newMode });
+          const confirmed = (result.mode ?? newMode) as AgentMode;
+          setSessionMode_(confirmed);
+          setSessionModeStore(sessionId, confirmed);
+        } catch (err) {
+          console.error('Failed to set mode:', err);
+          setSessionMode_(sessionMode);
+          setSessionModeStore(sessionId, sessionMode);
+        }
       }
+      // Resumed (not active) — local update only, applied on first sendMessage
     }
-  }, [isNewSession, sessionId, sessionMode, setSessionModeStore, markSessionReadyFn]);
+  }, [isNewSession, sessionId, sessionMode, setSessionModeStore, isSessionReadyFn]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -245,6 +248,14 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
     // Activation lock
     const needsLock = !isSessionReadyFn(activeSessionId);
     if (needsLock) setSending(activeSessionId);
+
+    // For resumed sessions (not new), gather pending settings to send with activation
+    if (needsLock && !isCreatingNewSession && activeSessionId) {
+      const currentMode = getSessionMode(activeSessionId);
+      if (currentMode && currentMode !== 'interactive') {
+        initialAgentMode = currentMode;
+      }
+    }
 
     const resolvedPrompt = trimmedInput || (pendingAttachments.length > 0 ? 'See attached file(s).' : '');
     addMessage(activeSessionId, {

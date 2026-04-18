@@ -282,17 +282,26 @@ class SessionClient:
         return {"started": result.started}
 
     async def compact(self) -> dict:
-        """Compact the session context (remove old messages to free tokens)."""
+        """Compact the session context (remove old messages to free tokens).
+
+        Returns a graceful no-op if the session is not active or if the SDK
+        reports nothing to compact.  Never raises on expected conditions.
+        """
+        noop = {"success": True, "tokens_removed": 0, "messages_removed": 0}
         if not self.session:
-            raise RuntimeError(f"[{self.session_id}] No active session to compact")
-        result = await self.session.rpc.history.compact()
-        self.touch()
-        logger.debug(
-            f"[{self.session_id}] Compact: success={result.success}, "
-            f"tokens_removed={result.tokens_removed}, messages_removed={result.messages_removed}"
-        )
-        return {
-            "success": result.success,
-            "tokens_removed": result.tokens_removed,
-            "messages_removed": result.messages_removed,
-        }
+            return noop
+        try:
+            result = await self.session.rpc.history.compact()
+            self.touch()
+            logger.debug(
+                f"[{self.session_id}] Compact: success={result.success}, "
+                f"tokens_removed={result.tokens_removed}, messages_removed={result.messages_removed}"
+            )
+            return {
+                "success": result.success,
+                "tokens_removed": result.tokens_removed,
+                "messages_removed": result.messages_removed,
+            }
+        except Exception as e:
+            logger.debug(f"[{self.session_id}] Compact no-op: {e}")
+            return noop
