@@ -111,7 +111,7 @@ export function SlashCommandPalette({ query, onSelect, onDismiss, agentItems, on
   return (
     <div
       ref={ref}
-      className="absolute bottom-full left-0 mb-1 w-64 bg-gray-50 dark:bg-[#232336] border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl z-50 py-1 max-h-[40vh] overflow-y-auto"
+      className="absolute bottom-full left-0 mb-1 w-64 bg-white dark:bg-[#2f2f45] border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl z-50 py-1 max-h-[40vh] overflow-y-auto"
     >
       {submenuCommand ? (
         <>
