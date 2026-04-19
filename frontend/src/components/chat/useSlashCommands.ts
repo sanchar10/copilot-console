@@ -164,22 +164,9 @@ export function useSlashCommands(sessionId?: string) {
       try {
         await updateSession(sessionId, { selected_agent: patchValue });
         useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', patchValue);
-        // Add system message for immediate feedback
-        if (agentName) {
-          addMessage(sessionId, {
-            id: `system-agent-${Date.now()}`,
-            role: 'system',
-            content: `🤖 Agent: switched to "${agentName}"`,
-            timestamp: new Date().toISOString(),
-          });
-        } else {
-          addMessage(sessionId, {
-            id: `system-agent-${Date.now()}`,
-            role: 'system',
-            content: '✨ Agent: switched to Copilot (default)',
-            timestamp: new Date().toISOString(),
-          });
-        }
+        // No system message here — the server emits a step event ("switched to X")
+        // when the session activates on the next send_message. Adding one here
+        // would cause a duplicate.
       } catch (err) {
         console.error('Failed to persist agent to session.json:', err);
       }
