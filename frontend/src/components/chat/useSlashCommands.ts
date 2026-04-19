@@ -115,7 +115,10 @@ export function useSlashCommands(sessionId?: string) {
       try {
         if (agentName) {
           const result = await selectAgent(sessionId, agentName);
-          const confirmed = result.agent?.display_name || result.agent?.name || agentName;
+          const confirmed = result.agent?.display_name || result.agent?.name;
+          if (!confirmed) {
+            throw new Error('Server returned no agent name after selection');
+          }
           addMessage(sessionId, {
             id: `system-agent-${Date.now()}`,
             role: 'system',

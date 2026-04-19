@@ -622,8 +622,12 @@ class CopilotService:
         elif agent:
             try:
                 result = await client.set_agent(agent)
-                confirmed = result.get("display_name") or result.get("name", agent)
-                yield {"event": "step", "data": {"title": f"🤖 Agent: switched to \"{confirmed}\""}}
+                confirmed = result.get("display_name") or result.get("name")
+                if not confirmed:
+                    logger.error(f"[{session_id}] Agent select returned no name: {result}")
+                    yield {"event": "step", "data": {"title": "✗ Agent selection returned no name"}}
+                else:
+                    yield {"event": "step", "data": {"title": f"🤖 Agent: switched to \"{confirmed}\""}}
             except Exception as e:
                 logger.warning(f"[{session_id}] Failed to select agent '{agent}': {e}")
                 yield {"event": "step", "data": {"title": "✗ Agent selection failed", "detail": str(e)}}
