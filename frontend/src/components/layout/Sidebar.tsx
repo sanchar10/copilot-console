@@ -144,11 +144,20 @@ export function Sidebar() {
         s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === selectedProject
       );
       if (match?.cwd) {
-        cwd = match.cwd;
-        useToastStore.getState().addToast(
-          `Session started in project: ${selectedProject}`,
-          'info',
-        );
+        // Verify the folder still exists via browse endpoint
+        try {
+          await apiClient.get(`/filesystem/browse?path=${encodeURIComponent(match.cwd)}`);
+          cwd = match.cwd;
+          useToastStore.getState().addToast(
+            `Session started in project: ${selectedProject}`,
+            'info',
+          );
+        } catch {
+          useToastStore.getState().addToast(
+            'Project folder not found, creating session in default folder',
+            'warning',
+          );
+        }
       }
     }
 
