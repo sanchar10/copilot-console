@@ -27,6 +27,8 @@ class Message(BaseModel):
     id: str
     # Durable SDK anchor when available (e.g., for pins/reasoning joins).
     sdk_message_id: str | None = None
+    # SDK event UUID for truncate/fork operations.
+    event_id: str | None = None
     role: Literal["user", "assistant"]
     content: str
     timestamp: datetime

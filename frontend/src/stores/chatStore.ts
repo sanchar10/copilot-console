@@ -69,8 +69,8 @@ interface ChatState {
   addStreamingStep: (sessionId: string, step: ChatStep) => void;
   setTokenUsage: (sessionId: string, usage: TokenUsage) => void;
   clearTokenUsage: (sessionId: string) => void;
-  finalizeStreaming: (sessionId: string, messageId: string) => void;
-  finalizeTurn: (sessionId: string, messageId?: string) => void;
+  finalizeStreaming: (sessionId: string, messageId: string, eventId?: string, sdkTimestamp?: string) => void;
+  finalizeTurn: (sessionId: string, messageId?: string, eventId?: string, sdkTimestamp?: string) => void;
   setStreaming: (sessionId: string, isStreaming: boolean) => void;
   setSending: (sessionId: string | null) => void;
   clearSessionMessages: (sessionId: string) => void;
@@ -226,7 +226,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { tokenUsagePerSession: newTokenUsage };
     }),
 
-  finalizeStreaming: (sessionId, messageId) => {
+  finalizeStreaming: (sessionId, messageId, eventId, sdkTimestamp) => {
     flushStreamingBuffer(sessionId);
     set((state) => {
       const streaming = state.streamingPerSession[sessionId] || emptyStreamingState;
@@ -243,10 +243,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             {
               id: resolvedId,
               sdk_message_id: messageId || undefined,
+              event_id: eventId || undefined,
               role: 'assistant' as const,
               content: streaming.content,
               steps: streaming.steps,
-              timestamp: new Date().toISOString(),
+              timestamp: sdkTimestamp || new Date().toISOString(),
             },
           ],
         },
@@ -255,7 +256,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
-  finalizeTurn: (sessionId, messageId) => {
+  finalizeTurn: (sessionId, messageId, eventId, sdkTimestamp) => {
     flushStreamingBuffer(sessionId);
     set((state) => {
       const streaming = state.streamingPerSession[sessionId] || emptyStreamingState;
@@ -266,10 +267,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const assistantMsg = {
         id: resolvedId,
         sdk_message_id: messageId || undefined,
+        event_id: eventId || undefined,
         role: 'assistant' as const,
         content: streaming.content,
         steps: streaming.steps,
-        timestamp: new Date().toISOString(),
+        timestamp: sdkTimestamp || new Date().toISOString(),
       };
 
       // Insert assistant response BEFORE the first queued user message

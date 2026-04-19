@@ -11,6 +11,7 @@ import { MermaidDiagram, isMermaidCode } from './MermaidDiagram';
 import { processFileLinks, isFilePath, resolveFileHref, handleFilePathClick } from '../../utils/processFileLinks';
 import { UnpinnedIcon, PinnedIcon } from './PinIcons';
 import { fileIcon } from '../../utils/fileIcon';
+import { formatTimestamp } from '../../utils/formatTimestamp';
 
 interface MessageBubbleProps {
   message: Message;
@@ -316,6 +317,11 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className={`text-sm font-medium ${isUser ? 'text-blue-600' : 'text-emerald-600'}`}>
             {isUser ? 'You' : 'Copilot'}
+            {message.timestamp && (
+              <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
+                {formatTimestamp(message.timestamp)}
+              </span>
+            )}
             {isEnqueued && (
               <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-600">
                 <svg className="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -230,7 +230,7 @@ export interface SendMessageOptions {
   onDone: (messageId: string, sessionName?: string) => void;
   onError: (error: string) => void;
   isNewSession?: boolean;
-  onTurnDone?: (messageId?: string) => void;
+  onTurnDone?: (messageId?: string, eventId?: string, timestamp?: string) => void;
   attachments?: AttachmentRef[];
   onModeChanged?: (mode: string) => void;
   agentMode?: string;
@@ -294,7 +294,7 @@ export async function sendMessage(
     } else if (eventName === 'usage_info' && data.tokenLimit !== undefined) {
       onUsageInfo(data);
     } else if (eventName === 'turn_done') {
-      onTurnDone?.(data.messageId);
+      onTurnDone?.(data.messageId, data.eventId, data.timestamp);
     } else if (eventName === 'done') {
       onDone(data.message_id || '', data.session_name);
     } else if (eventName === 'error' && data.error !== undefined) {

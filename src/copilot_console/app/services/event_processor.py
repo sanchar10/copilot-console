@@ -48,6 +48,8 @@ class EventProcessor:
         self.full_response: list[str] = []
         self.reasoning_buffer: list[str] = []
         self.pending_turn_msg_id: str | None = None
+        self.pending_turn_event_id: str | None = None
+        self.pending_turn_timestamp: str | None = None
         self.compacting = False
         self.idle_received = False
         self.last_token_limit: int | None = None
@@ -158,7 +160,12 @@ class EventProcessor:
                 if not msg_id and isinstance(data, dict):
                     msg_id = data.get("message_id") or data.get("id")
                 self.pending_turn_msg_id = msg_id
-                logger.debug(f"[{self.session_id}] assistant.message — captured msg_id={msg_id}, deferring turn_done to turn_end")
+                # Capture event-level ID and timestamp for truncate/fork support
+                evt_id = getattr(event, "id", None)
+                self.pending_turn_event_id = str(evt_id) if evt_id else None
+                evt_ts = getattr(event, "timestamp", None)
+                self.pending_turn_timestamp = evt_ts.isoformat() if evt_ts else None
+                logger.debug(f"[{self.session_id}] assistant.message — captured msg_id={msg_id}, event_id={self.pending_turn_event_id}, deferring turn_done to turn_end")
 
         elif event_type == "assistant.reasoning_delta":
             text = self.get_text(data)
@@ -182,11 +189,20 @@ class EventProcessor:
         elif event_type == "assistant.turn_end":
             if self.full_response or self.pending_turn_msg_id:
                 msg_id = self.pending_turn_msg_id
-                logger.debug(f"[{self.session_id}] turn_done msg_id={msg_id} (from turn_end)")
-                _safe_enqueue(self.event_queue, {"event": "turn_done", "data": {"messageId": msg_id}})
+                evt_id = getattr(self, "pending_turn_event_id", None)
+                evt_ts = getattr(self, "pending_turn_timestamp", None)
+                logger.debug(f"[{self.session_id}] turn_done msg_id={msg_id}, event_id={evt_id} (from turn_end)")
+                turn_data: dict = {"messageId": msg_id}
+                if evt_id:
+                    turn_data["eventId"] = evt_id
+                if evt_ts:
+                    turn_data["timestamp"] = evt_ts
+                _safe_enqueue(self.event_queue, {"event": "turn_done", "data": turn_data})
             self.full_response.clear()
             self.reasoning_buffer.clear()
             self.pending_turn_msg_id = None
+            self.pending_turn_event_id = None
+            self.pending_turn_timestamp = None
 
         elif event_type == "tool.execution_start":
             tool = getattr(data, "tool_name", None) or getattr(data, "name", None)

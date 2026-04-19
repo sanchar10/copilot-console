@@ -13,6 +13,8 @@ export interface Message {
   id: string;
   /** Durable SDK anchor when available (used for pins/permalinks). */
   sdk_message_id?: string;
+  /** SDK event UUID for truncate/fork operations. */
+  event_id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;

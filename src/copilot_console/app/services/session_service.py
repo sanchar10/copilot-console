@@ -598,13 +598,15 @@ class SessionService:
 
                     if isinstance(content, str) and (content.strip() or msg_attachments):
                         evt_id = getattr(evt, 'id', None)
+                        evt_ts = getattr(evt, 'timestamp', None)
                         sdk_message_id = _extract_sdk_message_id(data) or (str(evt_id) if evt_id else None)
                         messages.append(Message(
                             id=sdk_message_id or str(uuid.uuid4()),
                             sdk_message_id=sdk_message_id,
+                            event_id=str(evt_id) if evt_id else None,
                             role="user",
                             content=content or "",
-                            timestamp=datetime.now(timezone.utc),
+                            timestamp=evt_ts if evt_ts else datetime.now(timezone.utc),
                             attachments=msg_attachments,
                         ))
 
@@ -665,12 +667,15 @@ class SessionService:
                         # Attach pending steps to this message
                         steps = [MessageStep(title=s["title"], detail=s.get("detail")) for s in pending_steps] if pending_steps else None
                         sdk_message_id = _extract_sdk_message_id(data)
+                        evt_id = getattr(evt, 'id', None)
+                        evt_ts = getattr(evt, 'timestamp', None)
                         messages.append(Message(
                             id=sdk_message_id or str(uuid.uuid4()),
                             sdk_message_id=sdk_message_id,
+                            event_id=str(evt_id) if evt_id else None,
                             role="assistant",
                             content=content,
-                            timestamp=datetime.now(timezone.utc),
+                            timestamp=evt_ts if evt_ts else datetime.now(timezone.utc),
                             steps=steps,
                         ))
                         pending_steps.clear()
