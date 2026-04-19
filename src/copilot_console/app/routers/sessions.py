@@ -389,8 +389,9 @@ async def deselect_agent(session_id: str) -> dict:
         if not client:
             raise HTTPException(status_code=404, detail="No active session client")
         result = await client.deselect_agent()
-        # Persist deselection to session.json (explicit None via model_fields_set)
-        await session_service.update_session(session_id, SessionUpdate(selected_agent=None))
+        # Persist explicit deselection as 'default' sentinel so resume knows
+        # to call deselect RPC (vs null = never touched = skip RPC)
+        await session_service.update_session(session_id, SessionUpdate(selected_agent="default"))
         return {"status": "deselected", **result}
     except HTTPException:
         raise
@@ -735,7 +736,9 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 agent_mode=session.agent_mode if session else request.agent_mode,
                 fleet=request.fleet,
                 compact=request.compact,
-                agent=session.selected_agent if session else request.agent,
+                # Map 'default' sentinel → '__deselect__' for explicit Copilot revert
+                agent=('__deselect__' if (session.selected_agent if session else request.agent) == 'default'
+                       else (session.selected_agent if session else request.agent)),
             )
             logger.info(f"[Background] Agent completed for session {session_id}")
             

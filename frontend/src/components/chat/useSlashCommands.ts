@@ -101,9 +101,15 @@ export function useSlashCommands(sessionId?: string) {
 
     if (sessionId && isSessionReady(sessionId)) {
       // Active session — fire RPC (server persists after success)
-      // Skip if value unchanged
+      // Skip if value unchanged (case-insensitive compare — selector sends
+      // lowercase name but server may persist display_name with different casing)
       const currentAgent = sessions.find(s => s.session_id === sessionId)?.selected_agent;
-      if (agentName === currentAgent || (agentName === null && (currentAgent === null || currentAgent === undefined))) {
+      const isSameAgent = agentName && currentAgent
+        ? agentName.toLowerCase() === currentAgent.toLowerCase()
+        : false;
+      const isBothDefault = agentName === null &&
+        (currentAgent === null || currentAgent === undefined || currentAgent === 'default');
+      if (isSameAgent || isBothDefault) {
         return; // No change — skip redundant RPC
       }
       try {
@@ -126,7 +132,8 @@ export function useSlashCommands(sessionId?: string) {
             content: '✨ Agent: switched to Copilot (default)',
             timestamp: new Date().toISOString(),
           });
-          useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', null);
+          // Store 'default' sentinel — explicit deselection (server already persists 'default')
+          useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', 'default');
         }
       } catch (err) {
         addMessage(sessionId, {
@@ -138,12 +145,41 @@ export function useSlashCommands(sessionId?: string) {
       }
     } else if (isNewSession) {
       // New session — store in newSessionSettings, flows to createSession body
+      // null = Copilot (default), no sentinel needed for new sessions
       useSessionStore.getState().updateNewSessionSettings({ selectedAgent: agentName || undefined });
     } else if (sessionId) {
       // Resumed (not active) — PATCH session.json so backend reads it on resume
+      // Use 'default' sentinel for explicit Copilot selection (vs null = never touched)
+      const patchValue = agentName === null ? 'default' : agentName;
+      // Skip if value unchanged
+      const currentAgent = sessions.find(s => s.session_id === sessionId)?.selected_agent;
+      const isSameAgent = agentName && currentAgent
+        ? agentName.toLowerCase() === currentAgent.toLowerCase()
+        : false;
+      const isBothDefault = agentName === null &&
+        (currentAgent === 'default');
+      if (isSameAgent || isBothDefault) {
+        return;
+      }
       try {
-        await updateSession(sessionId, { selected_agent: agentName });
-        useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', agentName);
+        await updateSession(sessionId, { selected_agent: patchValue });
+        useSessionStore.getState().updateSessionField(sessionId, 'selected_agent', patchValue);
+        // Add system message for immediate feedback
+        if (agentName) {
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: `🤖 Agent: switched to "${agentName}"`,
+            timestamp: new Date().toISOString(),
+          });
+        } else {
+          addMessage(sessionId, {
+            id: `system-agent-${Date.now()}`,
+            role: 'system',
+            content: '✨ Agent: switched to Copilot (default)',
+            timestamp: new Date().toISOString(),
+          });
+        }
       } catch (err) {
         console.error('Failed to persist agent to session.json:', err);
       }
