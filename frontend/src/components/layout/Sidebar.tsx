@@ -19,6 +19,7 @@ import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
 import { SearchModal } from '../search/SearchModal';
 import { useAuthStore, type AuthStatus } from '../../stores/authStore';
+import { useToastStore } from '../../stores/toastStore';
 
 export function Sidebar() {
   const { sessions, setSessions, startNewSession, setLoading, setError } = useSessionStore();
@@ -135,8 +136,23 @@ export function Sidebar() {
   }, [setSessions, setAvailableModels, setDefaultModel, setDefaultReasoningEffort, setDefaultCwd, setLoading, setError, fetchAgents, fetchWorkflows, fetchAutomations, loadProjects]);
 
   const handleNewSession = async () => {
-    // startNewSession now refreshes MCP servers automatically and enables all by default
-    await startNewSession(defaultModel, defaultCwd, defaultReasoningEffort);
+    let cwd = defaultCwd;
+
+    // When a project filter is active, use that project's folder as CWD
+    if (selectedProject) {
+      const match = sessions.find(
+        s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === selectedProject
+      );
+      if (match?.cwd) {
+        cwd = match.cwd;
+        useToastStore.getState().addToast(
+          `Session started in project: ${selectedProject}`,
+          'info',
+        );
+      }
+    }
+
+    await startNewSession(defaultModel, cwd, defaultReasoningEffort);
   };
 
   return (
