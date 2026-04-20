@@ -237,6 +237,32 @@ Add the following to `~/.copilot-console/mcp-config.json` (create it if it doesn
 
 Once configured, enable the Playwright MCP server in any session's settings to use web browsing.
 
+## Using the Installed Copilot CLI (instead of Bundled)
+
+Copilot Console ships with a bundled Copilot CLI binary inside the SDK package. This bundled version may lag behind the latest installed CLI — for example, newer models may only be available in the latest CLI.
+
+To use your system-installed Copilot CLI instead of the bundled one, set the `COPILOT_CLI_PATH` environment variable:
+
+**PowerShell (current session):**
+```powershell
+$env:COPILOT_CLI_PATH = "copilot"
+```
+
+**PowerShell (persistent):**
+```powershell
+[System.Environment]::SetEnvironmentVariable("COPILOT_CLI_PATH", "copilot", "User")
+```
+
+**macOS / Linux:**
+```bash
+export COPILOT_CLI_PATH=copilot
+# To persist, add to ~/.bashrc or ~/.zshrc
+```
+
+Then restart Copilot Console. You can verify which CLI is in use from **Settings → General** — the version info at the bottom shows the Copilot SDK version, CLI version, and whether the CLI source is **Bundled** or **Installed**.
+
+> ⚠️ **Compatibility Warning:** The bundled CLI is tested with the SDK version shipped in Copilot Console. When using an installed CLI, there is a risk of compatibility issues if the installed CLI version is significantly ahead of the bundled one — the SDK protocol or RPC methods may have changed, which can cause unexpected errors or features to stop working. If you experience issues, remove the `COPILOT_CLI_PATH` environment variable to revert to the bundled CLI.
+
 ## Updating
 
 When a new version is available, the app shows a banner with the install command. To update manually:

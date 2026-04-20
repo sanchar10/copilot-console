@@ -197,6 +197,53 @@ async def get_mobile_companion_info(request: Request) -> dict:
     }
 
 
+@router.get("/version-info")
+async def get_version_info() -> dict:
+    """Get SDK and CLI version information."""
+    import importlib.metadata
+    import re
+
+    sdk_version = None
+    try:
+        sdk_version = importlib.metadata.version("github-copilot-sdk")
+    except importlib.metadata.PackageNotFoundError:
+        pass
+
+    cli_version = None
+    cli_source = "Bundled"
+    cli_path = os.environ.get("COPILOT_CLI_PATH")
+    if cli_path:
+        cli_source = "Installed"
+        resolved = shutil.which(cli_path) if not os.path.isfile(cli_path) else cli_path
+        if resolved:
+            try:
+                result = await asyncio.to_thread(
+                    subprocess.run,
+                    [resolved, "--version"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                match = re.search(r"(\d+\.\d+\.\d+)", result.stdout)
+                if match:
+                    cli_version = match.group(1)
+            except Exception:
+                pass
+    else:
+        # Bundled: read the VERSION file shipped with the SDK package
+        from pathlib import Path
+        import copilot as _copilot_pkg
+        version_file = Path(_copilot_pkg.__file__).parent / "bin" / "VERSION"
+        try:
+            cli_version = version_file.read_text().strip()
+        except Exception:
+            pass
+
+    return {
+        "sdk_version": sdk_version,
+        "cli_version": cli_version,
+        "cli_source": cli_source,
+    }
+
+
 @router.post("/mobile-companion/tunnel-url")
 async def set_tunnel_url(request: Request) -> dict:
     """Set the tunnel URL (called by dev script when devtunnel starts).

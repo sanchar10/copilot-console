@@ -14,8 +14,8 @@ import { requestNotificationPermission, setDesktopNotificationSetting } from '..
 type SettingsTab = 'general' | 'mobile' | 'notifications' | 'auth';
 
 const TABS: { id: SettingsTab; label: string }[] = [
-  { id: 'auth', label: 'Authentication' },
   { id: 'general', label: 'General' },
+  { id: 'auth', label: 'Authentication' },
   { id: 'mobile', label: 'Mobile' },
   { id: 'notifications', label: 'Notifications' },
 ];
@@ -34,7 +34,7 @@ export function SettingsModal() {
     setDefaultCwd 
   } = useUIStore();
   
-  const [activeTab, setActiveTab] = useState<SettingsTab>('auth');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [selectedModel, setSelectedModel] = useState(defaultModel);
   const [selectedEffort, setSelectedEffort] = useState<string | null>(defaultReasoningEffort);
   const [selectedCwd, setSelectedCwd] = useState(defaultCwd);
@@ -42,12 +42,12 @@ export function SettingsModal() {
   const [error, setError] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
 
-  // Auto-select tab when opened; default to auth (first tab)
+  // Auto-select tab when opened; default to general (first tab)
   useEffect(() => {
     if (isSettingsModalOpen && settingsSection === 'auth') {
       setActiveTab('auth');
     } else if (isSettingsModalOpen) {
-      setActiveTab('auth');
+      setActiveTab('general');
     }
   }, [isSettingsModalOpen, settingsSection]);
 
@@ -184,11 +184,49 @@ function GeneralTab({
   onBrowseFolders,
 }: GeneralTabProps) {
   const { theme, setTheme } = useTheme();
+  const [versionInfo, setVersionInfo] = useState<{ sdk_version: string | null; cli_version: string | null; cli_source: string | null } | null>(null);
+
+  useEffect(() => {
+    apiClient.get<{ sdk_version: string | null; cli_version: string | null; cli_source: string | null }>('/settings/version-info')
+      .then(setVersionInfo)
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-4">
-      {/* Default Model */}
+      {/* Theme */}
       <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Theme
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+              theme === 'light'
+                ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
+                : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
+            }`}
+          >
+            ☀️ Light
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+              theme === 'dark'
+                ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
+                : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
+            }`}
+          >
+            🌙 Dark
+          </button>
+        </div>
+      </div>
+
+      {/* Default Model */}
+      <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Default Model
         </label>
@@ -233,34 +271,21 @@ function GeneralTab({
         </p>
       </div>
 
-      {/* Theme */}
+      {/* Version Info */}
       <div className="border-t border-gray-200 dark:border-[#3a3a4e] pt-4">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Theme
-        </label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setTheme('light')}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-              theme === 'light'
-                ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
-                : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
-            }`}
-          >
-            ☀️ Light
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme('dark')}
-            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
-              theme === 'dark'
-                ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
-                : 'bg-white/50 border-white/40 text-gray-600 hover:bg-gray-50 dark:bg-[#1e1e2e] dark:border-gray-600 dark:text-gray-400 dark:hover:bg-[#32324a]'
-            }`}
-          >
-            🌙 Dark
-          </button>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <span className="text-gray-500 dark:text-gray-400">Copilot SDK Version</span>
+          <span className="text-gray-700 dark:text-gray-300 font-mono text-xs">
+            {versionInfo ? (versionInfo.sdk_version ?? '—') : '…'}
+          </span>
+          <span className="text-gray-500 dark:text-gray-400">CLI (in use) Version</span>
+          <span className="text-gray-700 dark:text-gray-300 font-mono text-xs">
+            {versionInfo ? (versionInfo.cli_version ?? '—') : '…'}
+          </span>
+          <span className="text-gray-500 dark:text-gray-400">CLI Source</span>
+          <span className="text-gray-700 dark:text-gray-300 font-mono text-xs">
+            {versionInfo ? (versionInfo.cli_source ?? '—') : '…'}
+          </span>
         </div>
       </div>
 
