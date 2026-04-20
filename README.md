@@ -27,7 +27,7 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 |---|---|---|
 | 🖥️ | **Visual Session Management** | Multiple sessions in a tabbed interface with per-session context management: system prompt, model, tools, MCP servers, agents, and working directory |
 | 🔀 | **Workflows** | Multi-agent YAML pipelines (experimental) using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — chain agents deterministically and watch events stream in real-time |
-| ⚡ | **Slash Commands & Fleet** | Type `/` for command palette — `/fleet` fires parallel sub-agents, `/compact` compresses context, `/help` for quick reference. Inline chips with auto-complete |
+| ⚡ | **Slash Commands** | Type `/` for command palette — `/fleet` fires parallel sub-agents, `/compact` compresses context, `/agent` picks the primary agent persona for the session. Inline chips with auto-complete |
 | ⏰ | **Automations** | Cron-scheduled agent runs with a Runs dashboard and live session access |
 | 📂 | **Project Facilitation** | Folder-based session filtering, cross-session search with keyword highlighting, pin responses with notes |
 | 🤖 | **Agent Library** | Reusable agent personalities with custom prompts, models, tools, and MCP servers |

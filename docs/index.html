@@ -349,8 +349,13 @@
       <div class="max-w-6xl mx-auto">
         <div class="grid lg:grid-cols-2 gap-16 items-center">
           <div class="order-2 lg:order-1 fade-in stagger-2 flex flex-col items-center gap-6">
-            <div class="screenshot-glow rounded-xl overflow-hidden inline-block">
-              <img src="screenshots/fleet.jpg" alt="Slash command palette with /fleet, /compact, /help" class="rounded-xl" style="max-width: 200px;">
+            <div class="flex gap-4 items-start">
+              <div class="screenshot-glow rounded-xl overflow-hidden inline-block">
+                <img src="screenshots/fleet.jpg" alt="Slash command palette with /fleet, /compact, /agent" class="rounded-xl" style="max-width: 200px;">
+              </div>
+              <div class="screenshot-glow rounded-xl overflow-hidden inline-block">
+                <img src="screenshots/SlashAgentPicker.jpg" alt="Agent picker via /agent slash command" class="rounded-xl" style="max-width: 200px;">
+              </div>
             </div>
             <div class="screenshot-glow rounded-xl overflow-hidden inline-block">
               <img src="screenshots/fleet-chip.jpg" alt="Inline /fleet chip in input box" class="rounded-xl w-full">
@@ -361,7 +366,7 @@
               <span>⚡</span> Type / to Explore
             </div>
             <h2 class="font-display font-700 text-3xl sm:text-4xl text-white mb-5 tracking-tight">
-              Slash commands &amp; fleet
+              Slash commands
             </h2>
             <p class="text-gray-400 text-lg leading-relaxed mb-6">
               Type <code class="px-1.5 py-0.5 bg-white/5 rounded text-accent-light font-mono text-base">/</code> to open the command palette. Pick a command, get an inline chip with contextual hints. No flags to memorize, no syntax to look up.
@@ -377,7 +382,7 @@
               </li>
               <li class="flex items-start gap-3">
                 <span class="text-accent mt-0.5">▸</span>
-                <span><code class="text-accent-light font-mono">/help</code> — quick reference for available commands and features</span>
+                <span><code class="text-accent-light font-mono">/agent</code> — pick the primary agent persona to drive the session</span>
               </li>
             </ul>
           </div>
