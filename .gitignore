@@ -71,3 +71,5 @@ htmlcov/
 .squad/sessions/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+CODE_REVIEW_REPORT.md

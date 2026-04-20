@@ -7,7 +7,7 @@ import { useViewedStore } from '../../stores/viewedStore';
 import { useTabStore, tabId } from '../../stores/tabStore';
 import { useToastStore } from '../../stores/toastStore';
 import { useAuthStore } from '../../stores/authStore';
-import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings } from '../../api/sessions';
+import { sendMessage, createSession, connectSession, enqueueMessage, abortSession, uploadFile, updateRuntimeSettings, updateSession } from '../../api/sessions';
 import { scheduleDesktopNotification, playUnreadTone } from '../../utils/desktopNotifications';
 import { openSessionTab } from '../../utils/openSession';
 import { Button } from '../common/Button';

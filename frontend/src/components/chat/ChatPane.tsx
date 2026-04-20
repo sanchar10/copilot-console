@@ -306,7 +306,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
       .map((id) => {
         const meta = agentLookup.get(id);
         if (!meta) return null;
-        return { name: meta.name, displayName: meta.displayName, description: meta.description };
+        return { name: meta.name, displayName: meta.displayName, ...(meta.description != null && { description: meta.description }) } as AgentPickerItem;
       })
       .filter((item): item is AgentPickerItem => item !== null);
   }, [session?.sub_agents, discoverableAgents]);
@@ -541,7 +541,7 @@ export function ChatPane() {
       .map((id) => {
         const meta = agentLookup.get(id);
         if (!meta) return null;
-        return { name: meta.name, displayName: meta.displayName, description: meta.description };
+        return { name: meta.name, displayName: meta.displayName, ...(meta.description != null && { description: meta.description }) } as AgentPickerItem;
       })
       .filter((item): item is AgentPickerItem => item !== null);
   }, [newSessionSettings?.subAgents, newSessionDiscoverableAgents]);

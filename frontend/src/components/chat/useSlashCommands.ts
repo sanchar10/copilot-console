@@ -185,7 +185,7 @@ export function useSlashCommands(sessionId?: string) {
     setActiveCommand(null);
   }, []);
 
-  const executeSlashCommand = useCallback(async (cmd: SlashCommand, prompt: string) => {
+  const executeSlashCommand = useCallback(async (cmd: SlashCommand, _prompt: string) => {
     if (!sessionId) return;
     try {
       if (cmd.name === 'compact') {
