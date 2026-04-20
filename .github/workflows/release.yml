@@ -46,34 +46,24 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
           echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
+      - name: Extract release notes from CHANGELOG
+        id: changelog
+        shell: bash
+        run: |
+          # Extract the section for this version (between first ## and second ##)
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          # Get content between the version header and the next version header
+          NOTES=$(awk "/^## v${VERSION//./\\.}/{found=1; next} /^## v[0-9]/{if(found) exit} found{print}" CHANGELOG.md)
+          # Write to file for multiline support
+          echo "$NOTES" > release_notes.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.TAG }}
           name: Copilot Console ${{ steps.version.outputs.TAG }}
-          body: |
-            ### 🔧 Improvements
-            - **Session card hover actions** — info and delete buttons appear as a full-height overlay on hover with solid background matching card state
-            - **Scrollbar alignment** — session list scrollbar sits flush at sidebar right edge, matching chat scrollbar style
-            - **Info card improvements** — fixed width (320px), added session name field, viewport-aware positioning, fixed working directory font color
-            - **Dropdown truncation** — long project names left-trimmed with `…` prefix (max 40 chars), full path in tooltip
-            - **Status indicators** — blue dot and spinner absolute-positioned, cleanly hidden when hover actions appear
-            - **Input stays editable** — textarea and attach button remain enabled while a session is activating
-            - **Console log timestamps** — server logs now include HH:MM:SS timestamps
-
-            ---
-
-            ## Installation
-
-            ```powershell
-            # One-line installer (recommended)
-            irm https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/install.ps1 | iex
-
-            # Or manual install with pipx
-            pipx install --force https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.TAG }}/copilot_console-${{ steps.version.outputs.VERSION_NUMBER }}-py3-none-any.whl
-            ```
-
-            See [README](https://github.com/${{ github.repository }}#readme) for full setup instructions.
+          body_path: release_notes.txt
           files: dist/*.whl
           draft: false
           prerelease: false

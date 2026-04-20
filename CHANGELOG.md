@@ -49,6 +49,20 @@ v0.8.0 brings **slash commands, unified session settings, and project-aware sess
 
 ---
 
+### 📦 Installation
+
+```powershell
+# One-line installer (recommended)
+irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
+
+# Or manual install with pipx
+pipx install --force https://github.com/sanchar10/copilot-console/releases/download/v0.8.0/copilot_console-0.8.0-py3-none-any.whl
+```
+
+See [README](https://github.com/sanchar10/copilot-console#readme) for full setup instructions.
+
+---
+
 ## v0.7.0 (2026-04-15)
 
 ### Release Summary
