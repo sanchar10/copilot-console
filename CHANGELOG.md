@@ -1,5 +1,54 @@
 # Changelog
 
+## v0.8.0 (2026-04-20)
+
+### Release Summary
+
+v0.8.0 brings **slash commands, unified session settings, and project-aware sessions**. The `/agent` slash command lets you pick an agent persona before or during a session. `/compact` now works seamlessly across new, resumed, and active sessions. When you filter the sidebar by project, new sessions automatically start in that project's folder — with a toast confirming the working directory.
+
+---
+
+### ✨ Features
+
+#### Slash Commands & Session Settings
+- **Two-level `/agent` picker** — browse agents by source, select and change the agent persona for the session; works on new and active sessions
+- **Unified session settings matrix** — `/compact` and `/agent` persist to `session.json` and work correctly across new, resumed, and active session lifecycles
+- **Deferred compact with SSE events** — compact runs post-first-turn with step events streamed to the UI
+
+#### Chat & Messages
+- **Timestamps on chat messages** — each message header shows a right-aligned timestamp; `event_id` propagated through the event pipeline
+- **Server-confirmed agent names** — agent switch messages use the name returned by the server, with error handling if missing
+
+#### Project-Aware New Sessions
+- **New sessions use project folder** — when the sidebar project filter is set to a specific project, "New Session" uses that project's folder as CWD instead of the default
+- **Folder existence validation** — checks the project folder via browse endpoint before use; falls back to default with a warning toast if the folder is missing
+- **Multi-line info toast** — shows session working directory, project name, and full folder path
+
+---
+
+### 🐛 Bug Fixes
+
+- Fix slash command palette height and dark background contrast (`#2f2f45`)
+- Fix duplicate agent switch messages on resumed sessions
+- Fix agent selection with `'default'` sentinel and case-insensitive guard
+- Fix mode indicator reading from `session.json` on tab reopen
+- Fix model switching on resumed sessions via `rpc.model.switch_to()`
+- Fix model persistence to `session.json` for resumed sessions
+- Remove duplicate compact UI messages; drain SDK events post-compact
+- Fix compact error logging at warning level for server visibility
+- Remove toast notification for `/agent` on new session (avoids premature toast)
+- Right-align timestamps in chat message headers
+
+---
+
+### 📖 Documentation
+
+- Update marketing page: slash commands section with `/agent` picker screenshot, side-by-side layout
+- Update README feature table for slash commands
+- Add slash command & session settings architecture spec
+
+---
+
 ## v0.7.0 (2026-04-15)
 
 ### Release Summary
