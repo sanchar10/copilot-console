@@ -149,7 +149,7 @@ export function Sidebar() {
           await apiClient.get(`/filesystem/browse?path=${encodeURIComponent(match.cwd)}`);
           cwd = match.cwd;
           useToastStore.getState().addToast(
-            `Project: ${selectedProject} · Folder: ${match.cwd}`,
+            `Session working directory\nProject: ${selectedProject}\nFolder: ${match.cwd}`,
             'info',
           );
         } catch {

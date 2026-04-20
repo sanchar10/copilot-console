@@ -49,7 +49,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
       role="alert"
     >
       <span className="text-base leading-none flex-shrink-0">{TYPE_ICONS[toast.type]}</span>
-      <span className="flex-1 min-w-0">{toast.message}</span>
+      <span className="flex-1 min-w-0 whitespace-pre-line">{toast.message}</span>
     </div>
   );
 }
