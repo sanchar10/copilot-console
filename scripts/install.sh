@@ -169,21 +169,33 @@ if [ "$USED_PIPX" = true ] && [ "$AF_INSTALLED" = true ]; then
 fi
 
 # --- Verify ---
-# Ensure ~/.local/bin is in PATH (pip --user installs go here on Linux)
+# Ensure pip --user bin dir is in PATH
 PATH_MODIFIED=false
+SHELL_RC=""
+if [ -f "$HOME/.zshrc" ]; then
+    SHELL_RC="$HOME/.zshrc"
+elif [ -f "$HOME/.bashrc" ]; then
+    SHELL_RC="$HOME/.bashrc"
+fi
+
+# Linux: ~/.local/bin
 if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$PATH:$HOME/.local/bin"
-    # Persist to shell config (only if not already there)
-    SHELL_RC=""
-    if [ -f "$HOME/.zshrc" ]; then
-        SHELL_RC="$HOME/.zshrc"
-    elif [ -f "$HOME/.bashrc" ]; then
-        SHELL_RC="$HOME/.bashrc"
+    if [ -n "$SHELL_RC" ] && ! grep -q '\.local/bin' "$SHELL_RC" 2>/dev/null; then
+        echo 'export PATH="$PATH:$HOME/.local/bin"' >> "$SHELL_RC"
+        echo -e "${GREEN}  [OK] Added ~/.local/bin to PATH in $(basename $SHELL_RC)${NC}"
+        PATH_MODIFIED=true
     fi
-    if [ -n "$SHELL_RC" ]; then
-        if ! grep -q '\.local/bin' "$SHELL_RC" 2>/dev/null; then
-            echo 'export PATH="$PATH:$HOME/.local/bin"' >> "$SHELL_RC"
-            echo -e "${GREEN}  [OK] Added ~/.local/bin to PATH in $(basename $SHELL_RC)${NC}"
+fi
+
+# macOS: ~/Library/Python/X.Y/bin
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    MAC_PY_BIN="$HOME/Library/Python/$PY_MAJOR.$PY_MINOR/bin"
+    if [ -d "$MAC_PY_BIN" ] && [[ ":$PATH:" != *":$MAC_PY_BIN:"* ]]; then
+        export PATH="$PATH:$MAC_PY_BIN"
+        if [ -n "$SHELL_RC" ] && ! grep -q 'Library/Python' "$SHELL_RC" 2>/dev/null; then
+            echo "export PATH=\"\$PATH:$MAC_PY_BIN\"" >> "$SHELL_RC"
+            echo -e "${GREEN}  [OK] Added $MAC_PY_BIN to PATH in $(basename $SHELL_RC)${NC}"
             PATH_MODIFIED=true
         fi
     fi
