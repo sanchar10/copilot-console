@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.8.1 (2026-04-21)
+
+### 🐛 Bug Fixes
+
+- **Model listing resilience** — raw RPC fallback when SDK `list_models()` fails due to server-side API changes (ModelBilling schema)
+- **Updated default models** — fallback list now includes gpt-4.1, gpt-5.2, gpt-5-mini, claude-sonnet-4.5, claude-opus-4.5, claude-haiku-4.5
+- **UTF-8 encoding** — all JSON file operations now specify `encoding="utf-8"` to prevent Windows cp1252 crashes
+- **Resume stream callbacks** — `onElicitation` and `onAskUser` now wired in `resumeResponseStream` for tab-close/refresh recovery
+- **Release build** — workflow uses root `npm run build` to include `sync-seed-docs` step
+
+---
+
+### 📦 Installation
+
+```powershell
+# One-line installer (recommended)
+irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
+
+# Or manual install with pipx
+pipx install --force https://github.com/sanchar10/copilot-console/releases/download/v0.8.1/copilot_console-0.8.1-py3-none-any.whl
+```
+
+---
+
 ## v0.8.0 (2026-04-20)
 
 ### Release Summary
