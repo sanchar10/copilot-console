@@ -96,6 +96,8 @@ export async function openSessionTab(session: Session): Promise<void> {
             setStreaming(sessionId, false);
             setAgentActive(sessionId, false);
           },
+          (data) => useChatStore.getState().setElicitation(sessionId, data),
+          (data) => useChatStore.getState().setAskUser(sessionId, data),
         );
         return true; // Active response found and resumed
       }
