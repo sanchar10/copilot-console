@@ -222,7 +222,27 @@ class CopilotService:
             logger.debug(f"Listed {len(result)} models from SDK")
             return result
         except Exception as e:
-            logger.warning(f"Failed to list models from SDK: {e}, using defaults")
+            logger.warning(f"Failed to list models from SDK: {e}, trying raw RPC")
+            try:
+                response = await self._main_client._client.request("models.list", {})
+                raw_models = response.get("models", [])
+                result = []
+                for m in raw_models:
+                    if not m.get("id"):
+                        continue
+                    entry: dict = {"id": m["id"], "name": m.get("name", m["id"])}
+                    if m.get("supportedReasoningEfforts"):
+                        entry["supported_reasoning_efforts"] = m["supportedReasoningEfforts"]
+                    if m.get("defaultReasoningEffort"):
+                        entry["default_reasoning_effort"] = m["defaultReasoningEffort"]
+                    result.append(entry)
+                if result:
+                    self._models_cache = result
+                    self._models_cache_time = now
+                    logger.info(f"Listed {len(result)} models via raw RPC fallback")
+                    return result
+            except Exception as e2:
+                logger.warning(f"Raw RPC fallback also failed: {e2}")
             return [{"id": m, "name": m} for m in DEFAULT_MODELS]
 
     async def list_sessions(self) -> list[dict]:

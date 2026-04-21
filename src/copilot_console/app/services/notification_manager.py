@@ -37,7 +37,7 @@ class NotificationManager:
         """Load notified timestamps from disk."""
         if NOTIFIED_FILE.exists():
             try:
-                with open(NOTIFIED_FILE, "r") as f:
+                with open(NOTIFIED_FILE, "r", encoding="utf-8") as f:
                     self._notified = {
                         k: float(v) for k, v in json.load(f).items()
                         if isinstance(v, (int, float))
@@ -50,7 +50,7 @@ class NotificationManager:
         """Save notified timestamps to disk."""
         try:
             APP_HOME.mkdir(parents=True, exist_ok=True)
-            with open(NOTIFIED_FILE, "w") as f:
+            with open(NOTIFIED_FILE, "w", encoding="utf-8") as f:
                 json.dump(self._notified, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save notified.json: {e}")

@@ -34,7 +34,7 @@ class CompletionTimesService:
         """Load timestamps from disk."""
         if COMPLETION_TIMES_FILE.exists():
             try:
-                with open(COMPLETION_TIMES_FILE, "r") as f:
+                with open(COMPLETION_TIMES_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self._timestamps = {
                         k: float(v) for k, v in data.items()

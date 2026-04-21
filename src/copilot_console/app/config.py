@@ -25,9 +25,11 @@ PROJECTS_FILE = APP_HOME / "projects.json"
 # Supported models (from Copilot SDK documentation)
 DEFAULT_MODELS = [
     "gpt-4.1",
-    "gpt-4o",
-    "gpt-4",
-    "claude-sonnet-4",
+    "gpt-5.2",
+    "gpt-5-mini",
+    "claude-sonnet-4.5",
+    "claude-opus-4.5",
+    "claude-haiku-4.5",
 ]
 
 # Default model for new sessions

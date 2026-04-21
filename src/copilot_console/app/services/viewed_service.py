@@ -33,7 +33,7 @@ class ViewedService:
         """Load timestamps from disk."""
         if VIEWED_FILE.exists():
             try:
-                with open(VIEWED_FILE, "r") as f:
+                with open(VIEWED_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     # Ensure all values are floats (timestamps)
                     self._timestamps = {

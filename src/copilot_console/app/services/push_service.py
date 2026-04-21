@@ -83,7 +83,7 @@ class PushSubscriptionService:
         """Load subscriptions from disk."""
         if PUSH_SUBSCRIPTIONS_FILE.exists():
             try:
-                with open(PUSH_SUBSCRIPTIONS_FILE, "r") as f:
+                with open(PUSH_SUBSCRIPTIONS_FILE, "r", encoding="utf-8") as f:
                     self._subscriptions = json.load(f)
                 logger.info(f"Loaded {len(self._subscriptions)} push subscriptions")
             except Exception as e:
@@ -96,7 +96,7 @@ class PushSubscriptionService:
         """Save subscriptions to disk."""
         try:
             APP_HOME.mkdir(parents=True, exist_ok=True)
-            with open(PUSH_SUBSCRIPTIONS_FILE, "w") as f:
+            with open(PUSH_SUBSCRIPTIONS_FILE, "w", encoding="utf-8") as f:
                 json.dump(self._subscriptions, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save push_subscriptions.json: {e}")
