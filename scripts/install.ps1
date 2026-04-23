@@ -3,6 +3,9 @@
 
 $REPO = "sanchar10/copilot-console"
 
+# Allow .ps1 wrappers (npm.ps1, pip.ps1, etc.) to run in this process only
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
 Write-Host ""
 Write-Host "  Copilot Console Installer" -ForegroundColor Cyan
 Write-Host "  ====================================" -ForegroundColor DarkGray
