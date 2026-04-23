@@ -237,23 +237,6 @@ export function Sidebar() {
         </button>
         <button
           onClick={() => {
-            fetchWorkflows();
-            openTab({ id: tabId.workflowLibrary(), type: 'workflow-library', label: 'Workflow Library' });
-          }}
-          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
-            activeTabId === tabId.workflowLibrary()
-              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#32324a]'
-          }`}
-        >
-          <span>🔀</span>
-          Workflows
-          {workflows.length > 0 && (
-            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{workflows.length}</span>
-          )}
-        </button>
-        <button
-          onClick={() => {
             fetchAutomations();
             openTab({ id: tabId.automationManager(), type: 'automation-manager', label: 'Automations' });
           }}
@@ -281,6 +264,23 @@ export function Sidebar() {
         >
           <span>📋</span>
           Runs
+        </button>
+        <button
+          onClick={() => {
+            fetchWorkflows();
+            openTab({ id: tabId.workflowLibrary(), type: 'workflow-library', label: 'Workflow Library' });
+          }}
+          className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+            activeTabId === tabId.workflowLibrary()
+              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#32324a]'
+          }`}
+        >
+          <span>🔀</span>
+          Workflows
+          {workflows.length > 0 && (
+            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{workflows.length}</span>
+          )}
         </button>
       </div>
 

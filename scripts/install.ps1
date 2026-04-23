@@ -8,18 +8,60 @@ Write-Host "  Copilot Console Installer" -ForegroundColor Cyan
 Write-Host "  ====================================" -ForegroundColor DarkGray
 Write-Host ""
 
+# Refresh PATH from registry (picks up recent installs without terminal restart)
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+
 # --- Check Python ---
 $python = Get-Command python -ErrorAction SilentlyContinue
+if ($python) {
+    $pyVerOutput = (python --version 2>&1) | Out-String
+    if ($pyVerOutput -notmatch 'Python \d+\.\d+') {
+        # Windows Store stub or broken install — treat as not found
+        $python = $null
+    }
+}
+if (-not $python) {
+    # Auto-detect Python from known install locations
+    $pyExe = $null
+    $searchPaths = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe",
+        "C:\Python3*\python.exe"
+    )
+    foreach ($pattern in $searchPaths) {
+        $found = Get-Item $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { $pyExe = $found.FullName; break }
+    }
+    if ($pyExe) {
+        $pyDir = Split-Path $pyExe
+        $env:Path = "$pyDir;$env:Path"
+        $currentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($currentUserPath -notlike "*$pyDir*") {
+            [Environment]::SetEnvironmentVariable("Path", "$currentUserPath;$pyDir", "User")
+            Write-Host "  [OK] Added Python to PATH: $pyDir" -ForegroundColor Green
+        }
+        $python = Get-Command python -ErrorAction SilentlyContinue
+    }
+}
 if (-not $python) {
     Write-Host "  [ERROR] Python not found." -ForegroundColor Red
-    Write-Host "     Install from https://www.python.org/downloads/" -ForegroundColor Yellow
-    Write-Host "     Make sure to check 'Add Python to PATH' during install." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  ┌─ What to do: ─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "  │  1. Install Python 3.11+ from https://www.python.org/downloads/           │" -ForegroundColor Yellow
+    Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
+    Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
+    Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
     exit 1
 }
 $pyVer = (python --version 2>&1) -replace 'Python\s*', ''
 $pyMajor, $pyMinor = $pyVer.Split('.')[0..1] | ForEach-Object { [int]$_ }
 if ($pyMajor -lt 3 -or ($pyMajor -eq 3 -and $pyMinor -lt 11)) {
     Write-Host "  [ERROR] Python 3.11+ required (found $pyVer)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  ┌─ What to do: ─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "  │  1. Install Python 3.11+ from https://www.python.org/downloads/           │" -ForegroundColor Yellow
+    Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
+    Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
+    Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
     exit 1
 }
 Write-Host "  [OK] Python $pyVer" -ForegroundColor Green
@@ -27,14 +69,39 @@ Write-Host "  [OK] Python $pyVer" -ForegroundColor Green
 # --- Check Node.js ---
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
+    # Auto-detect Node.js from known install location
+    $nodeExe = "$env:ProgramFiles\nodejs\node.exe"
+    if (Test-Path $nodeExe) {
+        $nodeDir = Split-Path $nodeExe
+        $env:Path = "$nodeDir;$env:Path"
+        $currentUserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($currentUserPath -notlike "*$nodeDir*") {
+            [Environment]::SetEnvironmentVariable("Path", "$currentUserPath;$nodeDir", "User")
+            Write-Host "  [OK] Added Node.js to PATH: $nodeDir" -ForegroundColor Green
+        }
+        $node = Get-Command node -ErrorAction SilentlyContinue
+    }
+}
+if (-not $node) {
     Write-Host "  [ERROR] Node.js not found." -ForegroundColor Red
-    Write-Host "     Install from https://nodejs.org/ (LTS recommended)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  ┌─ What to do: ─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "  │  1. Install Node.js 18+ from https://nodejs.org/ (LTS recommended)        │" -ForegroundColor Yellow
+    Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
+    Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
+    Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
     exit 1
 }
 $nodeVer = (node --version 2>&1) -replace 'v', ''
 $nodeMajor = [int]($nodeVer.Split('.')[0])
 if ($nodeMajor -lt 18) {
     Write-Host "  [ERROR] Node.js 18+ required (found $nodeVer)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  ┌─ What to do: ─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+    Write-Host "  │  1. Install Node.js 18+ from https://nodejs.org/ (LTS recommended)        │" -ForegroundColor Yellow
+    Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
+    Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
+    Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
     exit 1
 }
 Write-Host "  [OK] Node.js $nodeVer" -ForegroundColor Green
@@ -42,6 +109,16 @@ Write-Host "  [OK] Node.js $nodeVer" -ForegroundColor Green
 # --- Check/Install Copilot CLI ---
 $copilot = Get-Command copilot -ErrorAction SilentlyContinue
 if (-not $copilot) {
+    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+        Write-Host "  [ERROR] npm not found (should be installed with Node.js)." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  ┌─ What to do: ─────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+        Write-Host "  │  1. Re-install Node.js 18+ from https://nodejs.org/ (LTS recommended)     │" -ForegroundColor Yellow
+        Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
+        Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
+        Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+        exit 1
+    }
     Write-Host "  Installing GitHub Copilot CLI..." -ForegroundColor Yellow
     npm install -g @github/copilot 2>&1 | Out-Null
     $copilot = Get-Command copilot -ErrorAction SilentlyContinue
@@ -86,7 +163,7 @@ Write-Host ""
 # For pipx installs, it gets injected into the venv after console install.
 Write-Host "  Installing Microsoft Agent Framework (pre-release)..." -ForegroundColor DarkGray
 $afInstalled = $false
-pip install --user --quiet agent-framework --pre 2>&1 | ForEach-Object {
+python -m pip install --user --quiet agent-framework --pre 2>&1 | ForEach-Object {
     $line = $_.ToString()
     if ($line -match 'ERROR|error') { Write-Host "  $line" -ForegroundColor Red }
 }
@@ -95,14 +172,15 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  [OK] Agent Framework installed" -ForegroundColor Green
 } else {
     Write-Host "  [WARN] Agent Framework install failed. Workflows may not work." -ForegroundColor Yellow
-    Write-Host "     Try manually: pip install agent-framework --pre" -ForegroundColor Yellow
+    Write-Host "     Try manually: python -m pip install agent-framework --pre" -ForegroundColor Yellow
 }
 
 $installed = $false
 $usedPipx = $false
-$pipx = Get-Command pipx -ErrorAction SilentlyContinue
-if ($pipx) {
-    pipx install --force $WHL_URL 2>&1 | ForEach-Object {
+$pipxAvailable = $false
+try { $pipxCheck = python -m pipx --version 2>&1 | Out-String; if ($LASTEXITCODE -eq 0) { $pipxAvailable = $true } } catch { }
+if ($pipxAvailable) {
+    python -m pipx install --force $WHL_URL 2>&1 | ForEach-Object {
         $line = $_.ToString().Trim()
         if ($line -ne '' -and $line -notmatch 'symlink|These apps') {
             Write-Host "  $line" -ForegroundColor DarkGray
@@ -112,13 +190,13 @@ if ($pipx) {
         $installed = $true
         $usedPipx = $true
     } else {
-        Write-Host "  [WARN] pipx install failed, using pip instead..." -ForegroundColor Yellow
+        Write-Host "  [WARN] pipx install failed, using python -m pip instead..." -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  [WARN] pipx not found, using pip instead." -ForegroundColor Yellow
+    Write-Host "  [WARN] pipx not found, using python -m pip instead." -ForegroundColor Yellow
 }
 if (-not $installed) {
-    pip install --user --no-cache-dir --ignore-installed $WHL_URL 2>&1 | ForEach-Object {
+    python -m pip install --user --no-cache-dir --ignore-installed $WHL_URL 2>&1 | ForEach-Object {
         $line = $_.ToString()
         if ($line -match 'Downloading.*copilot.agent.console|Installing collected') {
             Write-Host "  $line" -ForegroundColor DarkGray
@@ -129,7 +207,7 @@ if (-not $installed) {
     } else {
         Write-Host "  [ERROR] pip install failed (exit code $LASTEXITCODE)." -ForegroundColor Red
         Write-Host "     Try running as Administrator:" -ForegroundColor Yellow
-        Write-Host "     pip install $WHL_URL" -ForegroundColor Yellow
+        Write-Host "     python -m pip install $WHL_URL" -ForegroundColor Yellow
     }
 }
 if (-not $installed) {
@@ -139,11 +217,11 @@ if (-not $installed) {
 # Inject Agent Framework into pipx venv (pipx uses isolated environments)
 if ($usedPipx -and $afInstalled) {
     Write-Host "  Injecting Agent Framework into pipx environment..." -ForegroundColor DarkGray
-    pipx inject copilot-console agent-framework --pip-args="--pre" 2>&1 | Out-Null
+    python -m pipx inject copilot-console agent-framework --pip-args="--pre" 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  [OK] Agent Framework injected into pipx venv" -ForegroundColor Green
     } else {
-        Write-Host "  [WARN] pipx inject failed. Run manually: pipx inject copilot-console agent-framework --pip-args='--pre'" -ForegroundColor Yellow
+        Write-Host "  [WARN] pipx inject failed. Run manually: python -m pipx inject copilot-console agent-framework --pip-args='--pre'" -ForegroundColor Yellow
     }
 }
 

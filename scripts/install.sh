@@ -22,7 +22,17 @@ echo ""
 # --- Check Python ---
 if ! command -v python3 &> /dev/null; then
     echo -e "${RED}  [ERROR] Python 3 not found.${NC}"
-    echo -e "${YELLOW}     Install from https://www.python.org/downloads/${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo -e "${YELLOW}     Install:  brew install python${NC}"
+        if ! command -v brew &> /dev/null; then
+            echo -e "${GRAY}     (Homebrew: https://brew.sh)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}     Install:  sudo apt install python3   # Debian/Ubuntu${NC}"
+        echo -e "${YELLOW}               sudo dnf install python3   # Fedora/RHEL${NC}"
+    fi
+    echo -e "${YELLOW}     Then re-run:${NC}"
+    echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
 fi
 PY_VERSION=$(python3 --version 2>&1 | sed 's/Python //')
@@ -30,6 +40,17 @@ PY_MAJOR=$(echo "$PY_VERSION" | cut -d. -f1)
 PY_MINOR=$(echo "$PY_VERSION" | cut -d. -f2)
 if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 11 ]; }; then
     echo -e "${RED}  [ERROR] Python 3.11+ required (found $PY_VERSION)${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo -e "${YELLOW}     Install:  brew install python${NC}"
+        if ! command -v brew &> /dev/null; then
+            echo -e "${GRAY}     (Homebrew: https://brew.sh)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}     Install:  sudo apt install python3   # Debian/Ubuntu${NC}"
+        echo -e "${YELLOW}               sudo dnf install python3   # Fedora/RHEL${NC}"
+    fi
+    echo -e "${YELLOW}     Then re-run:${NC}"
+    echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
 fi
 echo -e "${GREEN}  [OK] Python $PY_VERSION${NC}"
@@ -37,13 +58,25 @@ echo -e "${GREEN}  [OK] Python $PY_VERSION${NC}"
 # --- Check Node.js ---
 if ! command -v node &> /dev/null; then
     echo -e "${RED}  [ERROR] Node.js not found.${NC}"
-    echo -e "${YELLOW}     Install from https://nodejs.org/ (LTS recommended)${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo -e "${YELLOW}     Install:  brew install node${NC}"
+        if ! command -v brew &> /dev/null; then
+            echo -e "${GRAY}     (Homebrew: https://brew.sh)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}     Install:  sudo apt install nodejs npm   # Debian/Ubuntu${NC}"
+        echo -e "${YELLOW}               sudo dnf install nodejs npm   # Fedora/RHEL${NC}"
+    fi
+    echo -e "${YELLOW}     Then re-run:${NC}"
+    echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
 fi
 NODE_VERSION=$(node --version 2>&1 | sed 's/v//')
 NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 if [ "$NODE_MAJOR" -lt 18 ]; then
     echo -e "${RED}  [ERROR] Node.js 18+ required (found $NODE_VERSION)${NC}"
+    echo -e "${YELLOW}     Then re-run:${NC}"
+    echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
 fi
 echo -e "${GREEN}  [OK] Node.js $NODE_VERSION${NC}"
@@ -61,6 +94,8 @@ if ! command -v copilot &> /dev/null; then
     if ! command -v copilot &> /dev/null; then
         echo -e "${RED}  [ERROR] Failed to install Copilot CLI${NC}"
         echo -e "${YELLOW}     Try manually: sudo npm install -g @github/copilot${NC}"
+        echo -e "${YELLOW}     Then re-run:${NC}"
+        echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
         exit 1
     fi
 fi
@@ -80,6 +115,8 @@ WHL_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url":\s*"[^"]*\.whl"
 if [ -z "$WHL_URL" ]; then
     echo -e "${RED}  [ERROR] No .whl found in latest release.${NC}"
     echo -e "${YELLOW}     Check https://github.com/$REPO/releases${NC}"
+    echo -e "${YELLOW}     Then re-run:${NC}"
+    echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
 fi
 TAG_NAME=$(echo "$RELEASE_INFO" | grep -o '"tag_name":\s*"[^"]*"' | head -n1 | cut -d'"' -f4)
@@ -95,14 +132,28 @@ echo ""
 if ! python3 -m pip --version &> /dev/null; then
     echo -e "${YELLOW}  pip not found — installing python3-pip...${NC}"
     if command -v apt-get &> /dev/null; then
-        sudo apt-get update -qq && sudo apt-get install -y -qq python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+        if command -v sudo &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+        else
+            echo -e "${YELLOW}  [WARN] sudo not available. Install manually: apt install python3-pip${NC}"
+        fi
     elif command -v dnf &> /dev/null; then
-        sudo dnf install -y python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+        if command -v sudo &> /dev/null; then
+            sudo dnf install -y python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+        else
+            echo -e "${YELLOW}  [WARN] sudo not available. Install manually: dnf install python3-pip${NC}"
+        fi
     elif command -v yum &> /dev/null; then
-        sudo yum install -y python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+        if command -v sudo &> /dev/null; then
+            sudo yum install -y python3-pip 2>&1 | tail -n1 | sed 's/^/  /'
+        else
+            echo -e "${YELLOW}  [WARN] sudo not available. Install manually: yum install python3-pip${NC}"
+        fi
     fi
     if ! python3 -m pip --version &> /dev/null; then
         echo -e "${RED}  [ERROR] Could not install pip. Install manually: sudo apt install python3-pip${NC}"
+        echo -e "${YELLOW}     Then re-run:${NC}"
+        echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
         exit 1
     fi
     echo -e "${GREEN}  [OK] pip installed${NC}"
@@ -127,14 +178,16 @@ if python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --quiet agent-framework
     echo -e "${GREEN}  [OK] Agent Framework installed${NC}"
 else
     echo -e "${YELLOW}  [WARN] Agent Framework install failed. Workflows may not work.${NC}"
-    echo -e "${YELLOW}     Try manually: pip install agent-framework --pre${NC}"
+    echo -e "${YELLOW}     Try manually: python3 -m pip install agent-framework --pre${NC}"
 fi
 
 INSTALLED=false
 USED_PIPX=false
 if command -v pipx &> /dev/null; then
-    pipx install --force "$WHL_URL" 2>&1 | grep -vE 'symlink|These apps' | grep -v '^$' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
-    if [ $? -eq 0 ]; then
+    PIPX_OUTPUT=$(pipx install --force "$WHL_URL" 2>&1)
+    PIPX_EXIT=$?
+    if [ $PIPX_EXIT -eq 0 ]; then
+        echo "$PIPX_OUTPUT" | grep -vE 'symlink|These apps' | grep -v '^$' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
         INSTALLED=true
         USED_PIPX=true
     else
@@ -144,16 +197,19 @@ else
     echo -e "${YELLOW}  [WARN] pipx not found, using pip instead.${NC}"
 fi
 if [ "$INSTALLED" = false ]; then
-    python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --no-cache-dir --ignore-installed "$WHL_URL" 2>&1 | \
-        grep -E 'Downloading.*copilot.agent.console|Installing collected' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
-    if [ $? -eq 0 ]; then
+    PIP_OUTPUT=$(python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --no-cache-dir --ignore-installed "$WHL_URL" 2>&1)
+    PIP_EXIT=$?
+    if [ $PIP_EXIT -eq 0 ]; then
+        echo "$PIP_OUTPUT" | grep -E 'Downloading.*copilot|Installing collected' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
         INSTALLED=true
     else
         echo -e "${RED}  [ERROR] pip install failed.${NC}"
-        echo -e "${YELLOW}     Try running: pip install $WHL_URL${NC}"
+        echo -e "${YELLOW}     Try running: python3 -m pip install \"$WHL_URL\"${NC}"
     fi
 fi
 if [ "$INSTALLED" = false ]; then
+    echo -e "${YELLOW}     Then re-run:${NC}"
+    echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
 fi
 
@@ -178,6 +234,15 @@ elif [ -f "$HOME/.bashrc" ]; then
     SHELL_RC="$HOME/.bashrc"
 fi
 
+# If no SHELL_RC found, check .bash_profile (macOS default for bash) and .profile
+if [ -z "$SHELL_RC" ]; then
+    if [ -f "$HOME/.bash_profile" ]; then
+        SHELL_RC="$HOME/.bash_profile"
+    elif [ -f "$HOME/.profile" ]; then
+        SHELL_RC="$HOME/.profile"
+    fi
+fi
+
 # Linux: ~/.local/bin
 if [ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
     export PATH="$PATH:$HOME/.local/bin"
@@ -198,6 +263,23 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
             echo -e "${GREEN}  [OK] Added $MAC_PY_BIN to PATH in $(basename $SHELL_RC)${NC}"
             PATH_MODIFIED=true
         fi
+    fi
+fi
+
+# Fish shell support
+FISH_CONFIG="$HOME/.config/fish/config.fish"
+if [ -f "$FISH_CONFIG" ]; then
+    # For ~/.local/bin
+    if [ -d "$HOME/.local/bin" ] && ! grep -q '.local/bin' "$FISH_CONFIG" 2>/dev/null; then
+        echo 'set -gx PATH $PATH $HOME/.local/bin' >> "$FISH_CONFIG"
+        echo -e "${GREEN}  [OK] Added ~/.local/bin to PATH in config.fish${NC}"
+        PATH_MODIFIED=true
+    fi
+    # For macOS pip bin
+    if [[ "$OSTYPE" == "darwin"* ]] && [ -d "$MAC_PY_BIN" ] && ! grep -q 'Library/Python' "$FISH_CONFIG" 2>/dev/null; then
+        echo "set -gx PATH \$PATH $MAC_PY_BIN" >> "$FISH_CONFIG"
+        echo -e "${GREEN}  [OK] Added $MAC_PY_BIN to PATH in config.fish${NC}"
+        PATH_MODIFIED=true
     fi
 fi
 
@@ -230,15 +312,45 @@ if ! command -v rg &> /dev/null; then
         # Linux
         if command -v apt-get &> /dev/null; then
             echo -e "${GRAY}  (may require sudo password)${NC}"
-            sudo apt-get update &> /dev/null && sudo apt-get install -y ripgrep &> /dev/null
+            if command -v sudo &> /dev/null; then
+                sudo apt-get update &> /dev/null && sudo apt-get install -y ripgrep &> /dev/null
+            else
+                echo -e "${YELLOW}  [WARN] sudo not available. Install manually: apt install ripgrep${NC}"
+            fi
             if command -v rg &> /dev/null; then
                 echo -e "${GREEN}  [OK] ripgrep installed${NC}"
             else
                 echo -e "${YELLOW}  [WARN] ripgrep install failed. Cross-session content search will not work.${NC}"
                 echo -e "${YELLOW}     Install manually: sudo apt-get install ripgrep${NC}"
             fi
+        elif command -v dnf &> /dev/null; then
+            echo -e "${GRAY}  (may require sudo password)${NC}"
+            if command -v sudo &> /dev/null; then
+                sudo dnf install -y ripgrep &> /dev/null
+            else
+                echo -e "${YELLOW}  [WARN] sudo not available. Install manually: dnf install ripgrep${NC}"
+            fi
+            if command -v rg &> /dev/null; then
+                echo -e "${GREEN}  [OK] ripgrep installed${NC}"
+            else
+                echo -e "${YELLOW}  [WARN] ripgrep install failed. Cross-session content search will not work.${NC}"
+                echo -e "${YELLOW}     Install manually: sudo dnf install ripgrep${NC}"
+            fi
+        elif command -v yum &> /dev/null; then
+            echo -e "${GRAY}  (may require sudo password)${NC}"
+            if command -v sudo &> /dev/null; then
+                sudo yum install -y ripgrep &> /dev/null
+            else
+                echo -e "${YELLOW}  [WARN] sudo not available. Install manually: yum install ripgrep${NC}"
+            fi
+            if command -v rg &> /dev/null; then
+                echo -e "${GREEN}  [OK] ripgrep installed${NC}"
+            else
+                echo -e "${YELLOW}  [WARN] ripgrep install failed. Cross-session content search will not work.${NC}"
+                echo -e "${YELLOW}     Install manually: sudo yum install ripgrep${NC}"
+            fi
         else
-            echo -e "${YELLOW}  [WARN] apt-get not found. Install ripgrep manually for your distribution.${NC}"
+            echo -e "${YELLOW}  [WARN] No supported package manager found. Install ripgrep manually for your distribution.${NC}"
         fi
     fi
 else
@@ -252,7 +364,11 @@ echo -e "${CYAN}  Optional: Agentic Web Browsing${NC}"
 echo -e "${GRAY}  Adds autonomous web navigation via Playwright MCP server.${NC}"
 echo -e "${GRAY}  Uses your system browser (Edge or Chrome).${NC}"
 echo ""
-read -p "  Enable agentic web browsing? (y/N) " SETUP_PLAYWRIGHT < /dev/tty
+if [ -t 0 ] || [ -e /dev/tty ]; then
+    read -p "  Enable agentic web browsing? (y/N) " SETUP_PLAYWRIGHT < /dev/tty
+else
+    SETUP_PLAYWRIGHT="N"
+fi
 if [[ "$SETUP_PLAYWRIGHT" =~ ^[Yy]$ ]]; then
     MCP_CONFIG_PATH="$HOME/.copilot-console/mcp-config.json"
     ADD_PLAYWRIGHT=true
@@ -310,7 +426,11 @@ echo -e "${CYAN}  Optional: Mobile Access & CLI Notifications${NC}"
 echo -e "${GRAY}  Access sessions from your phone, get push notifications when${NC}"
 echo -e "${GRAY}  any Copilot CLI session finishes. Requires devtunnel.${NC}"
 echo ""
-read -p "  Enable mobile access & notifications? (y/N) " SETUP_MOBILE < /dev/tty
+if [ -t 0 ] || [ -e /dev/tty ]; then
+    read -p "  Enable mobile access & notifications? (y/N) " SETUP_MOBILE < /dev/tty
+else
+    SETUP_MOBILE="N"
+fi
 if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
     # Enable CLI notifications
     if command -v cli-notify &> /dev/null; then
@@ -353,6 +473,8 @@ if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
         if ! command -v devtunnel &> /dev/null; then
             echo -e "${RED}  [ERROR] Failed to install devtunnel.${NC}"
             echo -e "${YELLOW}     Install manually: https://learn.microsoft.com/en-us/azure/developer/dev-tunnels/get-started${NC}"
+            echo -e "${YELLOW}     Then re-run:${NC}"
+            echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
         fi
     fi
     if command -v devtunnel &> /dev/null; then

@@ -16,19 +16,19 @@ Before installing Copilot Console, ensure the following are available. All comma
 
 ### Step 1: Install Python
 
-Download from [python.org](https://www.python.org/downloads/). During installation on Windows, **check "Add Python to PATH"**.
+Download from [python.org](https://www.python.org/downloads/). The one-line installer automatically detects Python even if it's not on PATH. For manual installation on Windows, check "Add Python to PATH" during the Python installer.
 
 > **macOS/Linux Note:** Use `python3` and `pip3` on macOS/Linux.
 
 Verify:
 ```bash
 # Windows
-python --version    # Should show 3.11+
-pip --version       # Should work
+python --version       # Should show 3.11+
+python -m pip --version  # Should work
 
 # macOS/Linux
-python3 --version   # Should show 3.11+
-pip3 --version      # Should work
+python3 --version      # Should show 3.11+
+python3 -m pip --version  # Should work
 ```
 
 ### Step 2: Install Node.js
@@ -106,6 +106,8 @@ curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scri
 
 The installer checks dependencies, installs Copilot Console, ripgrep, and optionally configures mobile access and web browsing.
 
+The installer automatically detects Python and Node.js even if they're not on PATH, and fixes PATH issues for you.
+
 ---
 
 ## Manual Install
@@ -120,8 +122,8 @@ If the quick installer doesn't work or you prefer manual installation:
 
 ```shell
 # Install pipx if not already installed
-pip install --user pipx      # Use pip3 on macOS/Linux
-python -m pipx ensurepath    # Use python3 on macOS/Linux
+python -m pip install --user pipx      # Use python3 on macOS/Linux
+python -m pipx ensurepath              # Use python3 on macOS/Linux
 # Close and reopen the terminal after this
 
 # Install Copilot Console (replace URL with latest .whl from Releases page)
@@ -133,7 +135,7 @@ pipx install https://github.com/sanchar10/copilot-console/releases/download/<VER
 ### Option B: pip
 
 ```shell
-pip install https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
+python -m pip install https://github.com/sanchar10/copilot-console/releases/download/<VERSION>/copilot_console-<VERSION>-py3-none-any.whl
 ```
 
 > **Note:** If `copilot-console` is not found after install, your Python scripts directory may not be on PATH. Option A (pipx) handles this automatically.
@@ -143,7 +145,7 @@ pip install https://github.com/sanchar10/copilot-console/releases/download/<VERS
 Required for workflow orchestration. Agent Framework is pre-release and needs the `--pre` flag:
 
 ```shell
-pip install agent-framework --pre
+python -m pip install agent-framework --pre
 ```
 
 If you used pipx, also inject it into the pipx venv:
@@ -278,11 +280,11 @@ pipx install --force https://github.com/sanchar10/copilot-console/releases/downl
 cli-notify off
 
 # Remove Copilot Console
-pip uninstall copilot-console       # Windows
-pip3 uninstall copilot-console      # macOS/Linux
+python -m pip uninstall copilot-console       # Windows
+python3 -m pip uninstall copilot-console      # macOS/Linux
 ```
 
-> **Note:** If you installed with `pipx`, use `pipx uninstall copilot-console` instead to also clean up the isolated environment.
+> **Note:** If you installed with `pipx`, use `python -m pipx uninstall copilot-console` instead to also clean up the isolated environment.
 
 This removes the application but keeps session data and settings in `~/.copilot-console/`. To remove everything:
 
