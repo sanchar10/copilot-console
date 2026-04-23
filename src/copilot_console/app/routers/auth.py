@@ -135,6 +135,11 @@ async def get_auth_status():
         # 1. SDK get_auth_status (fastest, most detailed)
         result = await _check_sdk_auth()
         if result:
+            # SDK sometimes returns authenticated=True but no login — enrich from gh CLI
+            if not result.get("login"):
+                gh_result = await _check_gh_cli_auth()
+                if gh_result and gh_result.get("login"):
+                    result["login"] = gh_result["login"]
             return result
 
         # 2. GitHub CLI fallback
