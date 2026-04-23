@@ -268,7 +268,7 @@ export function Sidebar() {
         <button
           onClick={async () => {
             try {
-              const res = await apiClient('/api/features');
+              const res = await apiClient.get<{ agent_framework: boolean; install_command: string }>('/features');
               if (!res.agent_framework) {
                 useToastStore.getState().addToast(
                   `Workflows require Agent Framework.\nInstall it by running:\n${res.install_command}\nThen restart Copilot Console.`,
