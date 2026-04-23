@@ -407,11 +407,12 @@ if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
         Write-Host "  TIP: Use a work or school (Entra ID) account for best iOS/Safari support." -ForegroundColor Yellow
         Write-Host "  If you only have a personal account, use --allow-anonymous mode instead." -ForegroundColor DarkGray
         devtunnel user login
-        if ($LASTEXITCODE -eq 0) {
+        $loginStatus = devtunnel user show 2>&1
+        if ($loginStatus -notmatch "Not logged in") {
             Write-Host "  [OK] devtunnel authenticated" -ForegroundColor Green
             $mobileEnabled = $true
         } else {
-            Write-Host "  [WARN] devtunnel login failed. Run 'devtunnel user login' manually." -ForegroundColor Yellow
+            Write-Host "  [WARN] devtunnel login was not completed. Run 'devtunnel user login' later." -ForegroundColor Yellow
         }
     }
 } else {
