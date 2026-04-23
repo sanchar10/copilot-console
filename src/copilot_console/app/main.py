@@ -14,7 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from copilot_console.app.config import API_PREFIX, ensure_directories
-from copilot_console.app.routers import agents, auth, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, workflows, pins, cli_hooks, search
+from copilot_console.app.routers import agents, auth, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, pins, cli_hooks, search
+try:
+    from copilot_console.app.routers import workflows
+    _has_workflows = True
+except ImportError:
+    _has_workflows = False
 from copilot_console.app.services.copilot_service import copilot_service
 from copilot_console.app.services.response_buffer import response_buffer_manager
 from copilot_console.app.services.task_runner_service import TaskRunnerService
@@ -156,7 +161,8 @@ app.include_router(tools.router, prefix=API_PREFIX)
 app.include_router(task_runs.router, prefix=API_PREFIX)
 app.include_router(viewed.router, prefix=API_PREFIX)
 app.include_router(push.router, prefix=API_PREFIX)
-app.include_router(workflows.router, prefix=API_PREFIX)
+if _has_workflows:
+    app.include_router(workflows.router, prefix=API_PREFIX)
 app.include_router(pins.router, prefix=API_PREFIX)
 app.include_router(cli_hooks.router, prefix=API_PREFIX)
 app.include_router(search.router, prefix=API_PREFIX)
@@ -166,6 +172,18 @@ app.include_router(search.router, prefix=API_PREFIX)
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.get(f"{API_PREFIX}/features")
+async def get_features():
+    """Check which optional features are available."""
+    install_cmd = "python -m pip install agent-framework --pre"
+    if sys.platform != "win32":
+        install_cmd = "python3 -m pip install agent-framework --pre"
+    return {
+        "agent_framework": _has_workflows,
+        "install_command": install_cmd,
+    }
 
 
 # Serve static files (built frontend) if available

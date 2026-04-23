@@ -266,7 +266,20 @@ export function Sidebar() {
           Runs
         </button>
         <button
-          onClick={() => {
+          onClick={async () => {
+            try {
+              const res = await apiClient('/api/features');
+              if (!res.agent_framework) {
+                useToastStore.getState().addToast(
+                  `Workflows require Agent Framework.\nInstall it by running:\n${res.install_command}\nThen restart Copilot Console.`,
+                  'warning',
+                  10000
+                );
+                return;
+              }
+            } catch {
+              // endpoint unavailable — proceed anyway
+            }
             fetchWorkflows();
             openTab({ id: tabId.workflowLibrary(), type: 'workflow-library', label: 'Workflow Library' });
           }}

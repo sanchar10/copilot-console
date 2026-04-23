@@ -157,25 +157,32 @@ try {
 
 Write-Host ""
 Write-Host "  ┌─────────────────────────────────────────────────────┐" -ForegroundColor Yellow
-Write-Host "  │  ⏳ This may take 3-5 minutes — please wait...     │" -ForegroundColor Yellow
+Write-Host "  │  ⏳ This may take 5-8 minutes — please wait...     │" -ForegroundColor Yellow
 Write-Host "  └─────────────────────────────────────────────────────┘" -ForegroundColor Yellow
 Write-Host ""
 
-# Install Agent Framework (pre-release) — required for workflow orchestration
-# Installed separately because AF is pre-release and needs --pre flag.
-# For pipx installs, it gets injected into the venv after console install.
-Write-Host "  Installing Microsoft Agent Framework (pre-release)..." -ForegroundColor DarkGray
+# Optional: Agent Framework for workflow orchestration
+Write-Host ""
+Write-Host "  Optional: Workflow Automation (Agent Framework)" -ForegroundColor Cyan
+Write-Host "  Enables multi-step workflow orchestration. Adds 3-5 min to install." -ForegroundColor DarkGray
+Write-Host ""
 $afInstalled = $false
-python -m pip install --user --quiet agent-framework --pre 2>&1 | ForEach-Object {
-    $line = $_.ToString()
-    if ($line -match 'ERROR|error') { Write-Host "  $line" -ForegroundColor Red }
-}
-if ($LASTEXITCODE -eq 0) {
-    $afInstalled = $true
-    Write-Host "  [OK] Agent Framework installed" -ForegroundColor Green
+$installAF = Read-Host "  Install workflow support? (y/N)"
+if ($installAF -eq 'y' -or $installAF -eq 'Y') {
+    Write-Host "  Installing Microsoft Agent Framework (pre-release)..." -ForegroundColor Yellow
+    python -m pip install --user --quiet agent-framework --pre 2>&1 | ForEach-Object {
+        $line = $_.ToString()
+        if ($line -match 'ERROR|error') { Write-Host "  $line" -ForegroundColor Red }
+    }
+    if ($LASTEXITCODE -eq 0) {
+        $afInstalled = $true
+        Write-Host "  [OK] Agent Framework installed" -ForegroundColor Green
+    } else {
+        Write-Host "  [WARN] Agent Framework install failed." -ForegroundColor Yellow
+        Write-Host "     Try manually: python -m pip install agent-framework --pre" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host "  [WARN] Agent Framework install failed. Workflows may not work." -ForegroundColor Yellow
-    Write-Host "     Try manually: python -m pip install agent-framework --pre" -ForegroundColor Yellow
+    Write-Host "  [SKIP] Workflow support skipped. You can install later from the Workflows menu." -ForegroundColor DarkGray
 }
 
 $installed = $false

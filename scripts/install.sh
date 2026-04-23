@@ -124,7 +124,7 @@ echo -e "${GREEN}  [OK] Found $TAG_NAME${NC}"
 
 echo ""
 echo -e "${YELLOW}  ┌─────────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}  │  ⏳ This may take 3-5 minutes — please wait...     │${NC}"
+echo -e "${YELLOW}  │  ⏳ This may take 5-8 minutes — please wait...     │${NC}"
 echo -e "${YELLOW}  └─────────────────────────────────────────────────────┘${NC}"
 echo ""
 
@@ -159,26 +159,39 @@ if ! python3 -m pip --version &> /dev/null; then
     echo -e "${GREEN}  [OK] pip installed${NC}"
 fi
 
-# Install Agent Framework (pre-release) — required for workflow orchestration
-echo -e "${GRAY}  Installing Microsoft Agent Framework (pre-release)...${NC}"
+# Optional: Agent Framework for workflow orchestration
+echo ""
+echo -e "${CYAN}  Optional: Workflow Automation (Agent Framework)${NC}"
+echo -e "${GRAY}  Enables multi-step workflow orchestration. Adds 3-5 min to install.${NC}"
+echo ""
 AF_INSTALLED=false
-# Detect virtualenv — --user is incompatible with venvs
-PIP_USER_FLAG="--user"
-if [ -n "${VIRTUAL_ENV:-}" ] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
-    PIP_USER_FLAG=""
-fi
-# PEP 668: Ubuntu 24.04+ marks system Python as externally-managed
-PIP_BREAK_FLAG=""
-PY_STDLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null)
-if [ -f "${PY_STDLIB}/EXTERNALLY-MANAGED" ] 2>/dev/null || [ -f "${PY_STDLIB}/../EXTERNALLY-MANAGED" ] 2>/dev/null; then
-    PIP_BREAK_FLAG="--break-system-packages"
-fi
-if python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --quiet agent-framework --pre 2>&1; then
-    AF_INSTALLED=true
-    echo -e "${GREEN}  [OK] Agent Framework installed${NC}"
+if [ -t 0 ]; then
+    read -r -p "  Install workflow support? (y/N) " INSTALL_AF
 else
-    echo -e "${YELLOW}  [WARN] Agent Framework install failed. Workflows may not work.${NC}"
-    echo -e "${YELLOW}     Try manually: python3 -m pip install agent-framework --pre${NC}"
+    INSTALL_AF="n"
+fi
+if [[ "$INSTALL_AF" =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}  Installing Microsoft Agent Framework (pre-release)...${NC}"
+    # Detect virtualenv — --user is incompatible with venvs
+    PIP_USER_FLAG="--user"
+    if [ -n "${VIRTUAL_ENV:-}" ] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
+        PIP_USER_FLAG=""
+    fi
+    # PEP 668: Ubuntu 24.04+ marks system Python as externally-managed
+    PIP_BREAK_FLAG=""
+    PY_STDLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null)
+    if [ -f "${PY_STDLIB}/EXTERNALLY-MANAGED" ] 2>/dev/null || [ -f "${PY_STDLIB}/../EXTERNALLY-MANAGED" ] 2>/dev/null; then
+        PIP_BREAK_FLAG="--break-system-packages"
+    fi
+    if python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --quiet agent-framework --pre 2>&1; then
+        AF_INSTALLED=true
+        echo -e "${GREEN}  [OK] Agent Framework installed${NC}"
+    else
+        echo -e "${YELLOW}  [WARN] Agent Framework install failed.${NC}"
+        echo -e "${YELLOW}     Try manually: python3 -m pip install agent-framework --pre${NC}"
+    fi
+else
+    echo -e "${GRAY}  [SKIP] Workflow support skipped. You can install later from the Workflows menu.${NC}"
 fi
 
 INSTALLED=false

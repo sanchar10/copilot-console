@@ -46,10 +46,12 @@ dependencies = [
     "github-copilot-sdk>=0.2.2",
     "apscheduler>=3.10.0,<4.0.0",
     "pywebpush>=2.0.0",
-    "agent-framework>=1.0.0rc2",
 ]
 
 [project.optional-dependencies]
+workflows = [
+    "agent-framework>=1.0.0rc2",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",

@@ -140,12 +140,21 @@ python -m pip install https://github.com/sanchar10/copilot-console/releases/down
 
 > **Note:** If `copilot-console` is not found after install, your Python scripts directory may not be on PATH. Option A (pipx) handles this automatically.
 
-## Install Agent Framework
+## Install Agent Framework (Optional)
 
-Required for workflow orchestration. Agent Framework is pre-release and needs the `--pre` flag:
+**Optional** — only needed for workflow orchestration. Copilot Console works fully without it.
+If you skip this step, clicking "Workflows" in the UI will show install instructions.
 
+Agent Framework is pre-release and needs the `--pre` flag:
+
+**Windows:**
 ```shell
 python -m pip install agent-framework --pre
+```
+
+**macOS / Linux:**
+```shell
+python3 -m pip install agent-framework --pre
 ```
 
 If you used pipx, also inject it into the pipx venv:
