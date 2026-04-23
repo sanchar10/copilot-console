@@ -448,17 +448,24 @@ if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
     if ! command -v devtunnel &> /dev/null; then
         echo -e "${YELLOW}  Installing devtunnel...${NC}"
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            # macOS
+            # macOS — try brew first, then direct binary download
             if command -v brew &> /dev/null; then
                 brew install --cask devtunnel &> /dev/null
-                if command -v devtunnel &> /dev/null; then
-                    echo -e "${GREEN}  [OK] devtunnel installed${NC}"
-                else
-                    echo -e "${YELLOW}  Installing devtunnel via npm...${NC}"
-                    npm install -g @msdtunnel/devtunnel-cli &> /dev/null
+            fi
+            if ! command -v devtunnel &> /dev/null; then
+                # Download standalone binary
+                local dt_dir="$HOME/.local/bin"
+                mkdir -p "$dt_dir"
+                local arch=$(uname -m)
+                local dt_url="https://aka.ms/TunnelsCliDownload/osx-x64"
+                if [[ "$arch" == "arm64" ]]; then
+                    dt_url="https://aka.ms/TunnelsCliDownload/osx-arm64"
                 fi
-            else
-                npm install -g @msdtunnel/devtunnel-cli &> /dev/null
+                echo -e "${YELLOW}  Downloading devtunnel binary...${NC}"
+                curl -sL "$dt_url" -o "$dt_dir/devtunnel" && chmod +x "$dt_dir/devtunnel"
+                if [[ ":$PATH:" != *":$dt_dir:"* ]]; then
+                    export PATH="$PATH:$dt_dir"
+                fi
             fi
         else
             # Linux — use official Microsoft installer (downloads binary directly)

@@ -375,9 +375,25 @@ if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
             $devtunnel = Get-Command devtunnel -ErrorAction SilentlyContinue
         }
         if (-not $devtunnel) {
-            Write-Host "  Installing devtunnel via npm..." -ForegroundColor Yellow
-            npm install -g @msdtunnel/devtunnel-cli 2>&1 | Out-Null
-            $devtunnel = Get-Command devtunnel -ErrorAction SilentlyContinue
+            # Download standalone binary (no npm/admin needed)
+            $dtDir = "$env:LOCALAPPDATA\Programs\devtunnel"
+            $dtExe = "$dtDir\devtunnel.exe"
+            try {
+                if (-not (Test-Path $dtDir)) { New-Item -ItemType Directory -Path $dtDir -Force | Out-Null }
+                Write-Host "  Downloading devtunnel binary..." -ForegroundColor Yellow
+                Invoke-WebRequest -Uri "https://aka.ms/TunnelsCliDownload/win-x64" -OutFile $dtExe -UseBasicParsing
+                if (Test-Path $dtExe) {
+                    # Add to user PATH if not already there
+                    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+                    if ($userPath -notlike "*$dtDir*") {
+                        [System.Environment]::SetEnvironmentVariable("Path", "$userPath;$dtDir", "User")
+                    }
+                    $env:Path = "$env:Path;$dtDir"
+                    $devtunnel = Get-Command devtunnel -ErrorAction SilentlyContinue
+                }
+            } catch {
+                # download failed — fall through to error message
+            }
         }
         if (-not $devtunnel) {
             Write-Host "  [ERROR] Failed to install devtunnel." -ForegroundColor Red
