@@ -182,7 +182,7 @@ if ($pipxAvailable) {
     Write-Host "  [WARN] pipx not found, using python -m pip instead." -ForegroundColor Yellow
 }
 if (-not $installed) {
-    python -m pip install --user --no-cache-dir --ignore-installed $WHL_URL 2>&1 | ForEach-Object {
+    python -m pip install --user --no-cache-dir --force-reinstall $WHL_URL 2>&1 | ForEach-Object {
         $line = $_.ToString()
         if ($line -match 'Downloading.*copilot.agent.console|Installing collected') {
             Write-Host "  $line" -ForegroundColor DarkGray

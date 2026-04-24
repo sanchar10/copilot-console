@@ -175,7 +175,7 @@ else
     echo -e "${YELLOW}  [WARN] pipx not found, using pip instead.${NC}"
 fi
 if [ "$INSTALLED" = false ]; then
-    PIP_OUTPUT=$(python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --no-cache-dir --ignore-installed "$WHL_URL" 2>&1)
+    PIP_OUTPUT=$(python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --no-cache-dir --force-reinstall "$WHL_URL" 2>&1)
     PIP_EXIT=$?
     if [ $PIP_EXIT -eq 0 ]; then
         echo "$PIP_OUTPUT" | grep -E 'Downloading.*copilot|Installing collected' | sed 's/^/  /' | sed "s/.*/  ${GRAY}&${NC}/"
