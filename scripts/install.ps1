@@ -275,12 +275,42 @@ $rg = Get-Command rg -ErrorAction SilentlyContinue
 if (-not $rg) {
     Write-Host ""
     Write-Host "  Installing ripgrep (for cross-session search)..." -ForegroundColor Yellow
+    
+    # Try winget first
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
         winget install BurntSushi.ripgrep.MSVC --accept-source-agreements --accept-package-agreements --disable-interactivity 2>&1 | Out-Null
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         $rg = Get-Command rg -ErrorAction SilentlyContinue
     }
+    
+    # Fallback: download binary from GitHub releases
+    if (-not $rg) {
+        $rgVersion = "14.1.1"
+        $rgUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
+        $rgInstallDir = "$env:LOCALAPPDATA\Programs\ripgrep"
+        $rgZip = "$env:TEMP\ripgrep.zip"
+        try {
+            Write-Host "  Downloading ripgrep v$rgVersion binary..." -ForegroundColor Gray
+            Invoke-WebRequest -Uri $rgUrl -OutFile $rgZip -UseBasicParsing
+            New-Item -ItemType Directory -Path $rgInstallDir -Force | Out-Null
+            Expand-Archive -Path $rgZip -DestinationPath "$env:TEMP\ripgrep-extract" -Force
+            Copy-Item "$env:TEMP\ripgrep-extract\ripgrep-$rgVersion-x86_64-pc-windows-msvc\rg.exe" "$rgInstallDir\rg.exe" -Force
+            Remove-Item $rgZip -Force -ErrorAction SilentlyContinue
+            Remove-Item "$env:TEMP\ripgrep-extract" -Recurse -Force -ErrorAction SilentlyContinue
+            
+            # Add to user PATH if not already there
+            $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+            if ($userPath -notlike "*$rgInstallDir*") {
+                [System.Environment]::SetEnvironmentVariable("Path", "$userPath;$rgInstallDir", "User")
+            }
+            $env:Path = "$env:Path;$rgInstallDir"
+            $rg = Get-Command rg -ErrorAction SilentlyContinue
+        } catch {
+            Write-Host "  [WARN] Binary download failed: $_" -ForegroundColor Yellow
+        }
+    }
+    
     if (-not $rg) {
         Write-Host "  [WARN] ripgrep install failed. Cross-session content search will not work." -ForegroundColor Yellow
         Write-Host "     Install manually: winget install BurntSushi.ripgrep.MSVC" -ForegroundColor Yellow

@@ -7,6 +7,7 @@ import { FolderBrowserModal } from '../common/FolderBrowserModal';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { updateSettings, getSettings } from '../../api/settings';
+import { fetchModels } from '../../api/models';
 import { apiClient } from '../../api/client';
 import { useTheme } from '../../hooks/useTheme';
 import { requestNotificationPermission, setDesktopNotificationSetting } from '../../utils/desktopNotifications';
@@ -685,10 +686,22 @@ interface DeviceCode {
 function AuthenticationTab() {
   const authStatus = useAuthStore(s => s.status);
   const setAuthStatus = useAuthStore(s => s.setStatus);
+  const setAvailableModels = useUIStore(s => s.setAvailableModels);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [deviceCode, setDeviceCode] = useState<DeviceCode | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const refreshModels = useCallback(async () => {
+    try {
+      const models = await fetchModels();
+      setAvailableModels(models);
+      const settings = await getSettings();
+      if (settings.model) {
+        useUIStore.getState().setSelectedModel(settings.model);
+      }
+    } catch { /* ignore — models will refresh on next page load */ }
+  }, [setAvailableModels]);
 
   const refreshAuthStatus = useCallback(async () => {
     try {
@@ -762,6 +775,7 @@ function AuthenticationTab() {
                 });
                 setDeviceCode(null);
                 setConnecting(false);
+                await refreshModels();
                 return;
               } else if (eventType === 'error') {
                 setAuthError(data.message || 'Login failed');
@@ -775,12 +789,13 @@ function AuthenticationTab() {
 
       // Stream ended — refresh status
       await refreshAuthStatus();
+      await refreshModels();
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Connection failed');
     } finally {
       setConnecting(false);
     }
-  }, [setAuthStatus, refreshAuthStatus]);
+  }, [setAuthStatus, refreshAuthStatus, refreshModels]);
 
   const handleDisconnect = useCallback(async () => {
     setDisconnecting(true);
@@ -788,12 +803,13 @@ function AuthenticationTab() {
     try {
       await apiClient.post('/auth/logout');
       await refreshAuthStatus();
+      await refreshModels();
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Disconnect failed');
     } finally {
       setDisconnecting(false);
     }
-  }, [refreshAuthStatus]);
+  }, [refreshAuthStatus, refreshModels]);
 
   return (
     <div className="space-y-4">

@@ -309,17 +309,41 @@ if ! command -v rg &> /dev/null; then
     echo ""
     echo -e "${YELLOW}  Installing ripgrep (for cross-session search)...${NC}"
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
+        # macOS: try brew, fallback to binary download
         if command -v brew &> /dev/null; then
             brew install ripgrep &> /dev/null
-            if command -v rg &> /dev/null; then
-                echo -e "${GREEN}  [OK] ripgrep installed${NC}"
+        fi
+        if ! command -v rg &> /dev/null; then
+            # Fallback: download binary from GitHub releases
+            RG_VERSION="14.1.1"
+            ARCH=$(uname -m)
+            if [ "$ARCH" = "arm64" ]; then
+                RG_TARGET="aarch64-apple-darwin"
             else
-                echo -e "${YELLOW}  [WARN] ripgrep install failed. Cross-session content search will not work.${NC}"
-                echo -e "${YELLOW}     Install manually: brew install ripgrep${NC}"
+                RG_TARGET="x86_64-apple-darwin"
             fi
+            RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-${RG_TARGET}.tar.gz"
+            RG_TMP=$(mktemp -d)
+            echo -e "${GRAY}  Downloading ripgrep v${RG_VERSION} binary...${NC}"
+            if curl -fsSL "$RG_URL" | tar xz -C "$RG_TMP" 2>/dev/null; then
+                mkdir -p "$HOME/.local/bin"
+                cp "$RG_TMP/ripgrep-${RG_VERSION}-${RG_TARGET}/rg" "$HOME/.local/bin/rg"
+                chmod +x "$HOME/.local/bin/rg"
+                export PATH="$HOME/.local/bin:$PATH"
+                # Persist in shell profile if not already there
+                for profile in "$HOME/.zshrc" "$HOME/.bashrc"; do
+                    if [ -f "$profile" ] && ! grep -q '\.local/bin' "$profile" 2>/dev/null; then
+                        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$profile"
+                    fi
+                done
+            fi
+            rm -rf "$RG_TMP"
+        fi
+        if command -v rg &> /dev/null; then
+            echo -e "${GREEN}  [OK] ripgrep installed${NC}"
         else
-            echo -e "${YELLOW}  [WARN] Homebrew not found. Install ripgrep manually: brew install ripgrep${NC}"
+            echo -e "${YELLOW}  [WARN] ripgrep install failed. Cross-session content search will not work.${NC}"
+            echo -e "${YELLOW}     Install manually: brew install ripgrep${NC}"
         fi
     else
         # Linux

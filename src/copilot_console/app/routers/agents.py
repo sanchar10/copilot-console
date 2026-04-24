@@ -20,15 +20,27 @@ async def get_discoverable_agents(cwd: str = Query(""), exclude: str | None = No
     Returns agents suitable for the sub-agent dropdown with sections.
     Console agents are filtered for eligibility (no custom tools, no excluded_builtin, etc.).
     """
+    import os
+    from copilot_console.app.config import COPILOT_HOME, AGENTS_DIR
+    
     # Console agents: use eligible sub-agents (same rules as before)
     console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=exclude)
     
     all_agents = discover_all_agents(cwd, console_agents=console_agents)
     
+    # Source folder paths for UI display
+    source_paths = {
+        "copilot_global": str(COPILOT_HOME / "agents"),
+        "github_global": os.path.join(os.path.expanduser("~"), ".github", "agents"),
+        "github_cwd": os.path.join(cwd, ".github", "agents") if cwd else "",
+        "console_global": str(AGENTS_DIR),
+    }
+    
     result = {}
     for source_type, agents in all_agents.items():
         result[source_type] = {
             "label": SOURCE_LABELS[source_type],
+            "path": source_paths.get(source_type, ""),
             "agents": [a.to_api_dict() for a in agents],
         }
     return result

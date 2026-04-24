@@ -76,6 +76,7 @@ export interface DiscoverableAgent {
 
 export interface DiscoverableAgentsSection {
   label: string;
+  path?: string;
   agents: DiscoverableAgent[];
 }
 

@@ -7,9 +7,8 @@ const STORAGE_KEY = 'copilot-console-theme';
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === 'dark' || stored === 'light') return stored;
-  // Respect OS preference as default
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-  return 'light';
+  // Default to dark theme
+  return 'dark';
 }
 
 function applyTheme(theme: Theme) {

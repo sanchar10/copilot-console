@@ -13,7 +13,7 @@ interface SubAgentSelectorProps {
   readOnly?: boolean;
 }
 
-const SECTION_ORDER: AgentSourceType[] = ['github_cwd', 'console_global', 'copilot_global', 'github_global'];
+const SECTION_ORDER: AgentSourceType[] = ['github_cwd', 'github_global', 'copilot_global', 'console_global'];
 
 const SECTION_ICONS: Record<AgentSourceType, string> = {
   copilot_global: '🤖',
@@ -134,14 +134,21 @@ export function SubAgentSelector({
                   <div key={sourceType}>
                     {/* Section header */}
                     <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700/50 sticky top-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs">{SECTION_ICONS[sourceType]}</span>
-                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                          {section.label}
-                        </span>
-                        {agents.length > 0 && (
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                            ({sectionSelectedCount}/{agents.length})
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs">{SECTION_ICONS[sourceType]}</span>
+                          <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                            {section.label}
+                          </span>
+                          {agents.length > 0 && (
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                              ({sectionSelectedCount}/{agents.length})
+                            </span>
+                          )}
+                        </div>
+                        {section.path && (
+                          <span className="text-[9px] text-gray-400 dark:text-gray-500 truncate max-w-[220px] pl-5" title={section.path}>
+                            {section.path}
                           </span>
                         )}
                       </div>
