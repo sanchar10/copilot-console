@@ -192,6 +192,18 @@ if [ "$INSTALLED" = false ]; then
         echo -e "${YELLOW}     Try running: python3 -m pip install \"$WHL_URL\"${NC}"
     fi
 fi
+# Clean up stale dist-info directories that confuse importlib.metadata
+SITE_DIR=$(python3 -c "import site; print(site.getusersitepackages())" 2>/dev/null)
+if [ -n "$SITE_DIR" ] && [ -d "$SITE_DIR" ]; then
+    for old_dist in "$SITE_DIR"/copilot_console-*.dist-info; do
+        [ -d "$old_dist" ] || continue
+        case "$old_dist" in
+            *"copilot_console-${VERSION}.dist-info") ;; # keep current
+            *) rm -rf "$old_dist" 2>/dev/null ;;
+        esac
+    done
+fi
+
 if [ "$INSTALLED" = false ]; then
     echo -e "${YELLOW}     Then re-run:${NC}"
     echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
@@ -507,7 +519,7 @@ if [ "$MOBILE_ENABLED" = true ]; then
 else
     echo -e "${CYAN}  Ready! Run 'copilot-console' to start.${NC}"
     if [ "$PATH_MODIFIED" = true ]; then
-        echo -e "${YELLOW}  [NOTE] If 'copilot-console' is not found, open a new terminal first.${NC}"
+        echo -e "${YELLOW}  [NOTE] Run 'source ~/${SHELL_RC##*/}' or open a new terminal if command is not found.${NC}"
     fi
 fi
 echo ""

@@ -200,6 +200,16 @@ if (-not $installed) {
     exit 1
 }
 
+# Clean up stale dist-info directories that confuse importlib.metadata
+$siteDir = python -c "import site; print(site.getusersitepackages())" 2>$null
+if ($siteDir -and (Test-Path $siteDir)) {
+    Get-ChildItem -Path $siteDir -Directory -Filter "copilot_console-*.dist-info" | Where-Object {
+        $_.Name -ne "copilot_console-$VERSION.dist-info"
+    } | ForEach-Object {
+        Remove-Item -Recurse -Force $_.FullName 2>$null
+    }
+}
+
 # --- Verify ---
 # Refresh PATH to pick up newly installed commands (pipx or pip)
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
