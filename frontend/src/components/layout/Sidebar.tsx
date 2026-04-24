@@ -14,6 +14,7 @@ import { subscribeToActiveAgents } from '../../api/activeAgents';
 import { apiClient } from '../../api/client';
 import { useViewedStore } from '../../stores/viewedStore';
 import { Dropdown } from '../common/Dropdown';
+import { Modal } from '../common/Modal';
 import { withRetry } from '../../utils/retry';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
@@ -34,6 +35,7 @@ export function Sidebar() {
   const projects = useProjectStore(s => s.projects);
   const [searchOpen, setSearchOpen] = useState(false);
   const [appVersion, setAppVersion] = useState('');
+  const [workflowInstallModal, setWorkflowInstallModal] = useState<{ command: string } | null>(null);
   const authStatus = useAuthStore(s => s.status);
   const setAuthStatus = useAuthStore(s => s.setStatus);
 
@@ -270,11 +272,7 @@ export function Sidebar() {
             try {
               const res = await apiClient.get<{ agent_framework: boolean; install_command: string }>('/features');
               if (!res.agent_framework) {
-                useToastStore.getState().addToast(
-                  `Workflows require Agent Framework.\nInstall it by running:\n${res.install_command}\nThen restart Copilot Console.`,
-                  'warning',
-                  10000
-                );
+                setWorkflowInstallModal({ command: res.install_command });
                 return;
               }
             } catch {
@@ -370,6 +368,28 @@ export function Sidebar() {
       </div>
 
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* Workflow install instructions modal */}
+      <Modal
+        isOpen={!!workflowInstallModal}
+        onClose={() => setWorkflowInstallModal(null)}
+        title="Install Agent Framework"
+        footer={
+          <Button onClick={() => setWorkflowInstallModal(null)}>OK</Button>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Workflows require the <strong>Agent Framework</strong> package. Install it by running:
+          </p>
+          <pre className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3 text-sm font-mono text-gray-800 dark:text-gray-200 overflow-x-auto select-all">
+            {workflowInstallModal?.command}
+          </pre>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            After installing, restart Copilot Console for the changes to take effect.
+          </p>
+        </div>
+      </Modal>
     </aside>
   );
 }

@@ -161,30 +161,6 @@ Write-Host "  │  ⏳ This may take 5-8 minutes — please wait...     │" -Fo
 Write-Host "  └─────────────────────────────────────────────────────┘" -ForegroundColor Yellow
 Write-Host ""
 
-# Optional: Agent Framework for workflow orchestration
-Write-Host ""
-Write-Host "  Optional: Workflow Automation (Agent Framework)" -ForegroundColor Cyan
-Write-Host "  Enables multi-step workflow orchestration. Adds 3-5 min to install." -ForegroundColor DarkGray
-Write-Host ""
-$afInstalled = $false
-$installAF = Read-Host "  Install workflow support? (y/N)"
-if ($installAF -eq 'y' -or $installAF -eq 'Y') {
-    Write-Host "  Installing Microsoft Agent Framework (pre-release)..." -ForegroundColor Yellow
-    python -m pip install --user --quiet agent-framework --pre 2>&1 | ForEach-Object {
-        $line = $_.ToString()
-        if ($line -match 'ERROR|error') { Write-Host "  $line" -ForegroundColor Red }
-    }
-    if ($LASTEXITCODE -eq 0) {
-        $afInstalled = $true
-        Write-Host "  [OK] Agent Framework installed" -ForegroundColor Green
-    } else {
-        Write-Host "  [WARN] Agent Framework install failed." -ForegroundColor Yellow
-        Write-Host "     Try manually: python -m pip install agent-framework --pre" -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "  [SKIP] Workflow support skipped. You can install later from the Workflows menu." -ForegroundColor DarkGray
-}
-
 $installed = $false
 $usedPipx = $false
 $pipxAvailable = $false
@@ -222,17 +198,6 @@ if (-not $installed) {
 }
 if (-not $installed) {
     exit 1
-}
-
-# Inject Agent Framework into pipx venv (pipx uses isolated environments)
-if ($usedPipx -and $afInstalled) {
-    Write-Host "  Injecting Agent Framework into pipx environment..." -ForegroundColor DarkGray
-    python -m pipx inject copilot-console agent-framework --pip-args="--pre" 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  [OK] Agent Framework injected into pipx venv" -ForegroundColor Green
-    } else {
-        Write-Host "  [WARN] pipx inject failed. Run manually: python -m pipx inject copilot-console agent-framework --pip-args='--pre'" -ForegroundColor Yellow
-    }
 }
 
 # --- Verify ---

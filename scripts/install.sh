@@ -159,41 +159,6 @@ if ! python3 -m pip --version &> /dev/null; then
     echo -e "${GREEN}  [OK] pip installed${NC}"
 fi
 
-# Optional: Agent Framework for workflow orchestration
-echo ""
-echo -e "${CYAN}  Optional: Workflow Automation (Agent Framework)${NC}"
-echo -e "${GRAY}  Enables multi-step workflow orchestration. Adds 3-5 min to install.${NC}"
-echo ""
-AF_INSTALLED=false
-if [ -t 0 ]; then
-    read -r -p "  Install workflow support? (y/N) " INSTALL_AF
-else
-    INSTALL_AF="n"
-fi
-if [[ "$INSTALL_AF" =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}  Installing Microsoft Agent Framework (pre-release)...${NC}"
-    # Detect virtualenv — --user is incompatible with venvs
-    PIP_USER_FLAG="--user"
-    if [ -n "${VIRTUAL_ENV:-}" ] || python3 -c "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then
-        PIP_USER_FLAG=""
-    fi
-    # PEP 668: Ubuntu 24.04+ marks system Python as externally-managed
-    PIP_BREAK_FLAG=""
-    PY_STDLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('stdlib'))" 2>/dev/null)
-    if [ -f "${PY_STDLIB}/EXTERNALLY-MANAGED" ] 2>/dev/null || [ -f "${PY_STDLIB}/../EXTERNALLY-MANAGED" ] 2>/dev/null; then
-        PIP_BREAK_FLAG="--break-system-packages"
-    fi
-    if python3 -m pip install $PIP_USER_FLAG $PIP_BREAK_FLAG --quiet agent-framework --pre 2>&1; then
-        AF_INSTALLED=true
-        echo -e "${GREEN}  [OK] Agent Framework installed${NC}"
-    else
-        echo -e "${YELLOW}  [WARN] Agent Framework install failed.${NC}"
-        echo -e "${YELLOW}     Try manually: python3 -m pip install agent-framework --pre${NC}"
-    fi
-else
-    echo -e "${GRAY}  [SKIP] Workflow support skipped. You can install later from the Workflows menu.${NC}"
-fi
-
 INSTALLED=false
 USED_PIPX=false
 if command -v pipx &> /dev/null; then
@@ -224,17 +189,6 @@ if [ "$INSTALLED" = false ]; then
     echo -e "${YELLOW}     Then re-run:${NC}"
     echo -e "${CYAN}     curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash${NC}"
     exit 1
-fi
-
-# Inject Agent Framework into pipx venv
-if [ "$USED_PIPX" = true ] && [ "$AF_INSTALLED" = true ]; then
-    echo -e "${GRAY}  Injecting Agent Framework into pipx environment...${NC}"
-    pipx inject copilot-console agent-framework --pip-args="--pre" &> /dev/null
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}  [OK] Agent Framework injected into pipx venv${NC}"
-    else
-        echo -e "${YELLOW}  [WARN] pipx inject failed. Run manually: pipx inject copilot-console agent-framework --pip-args='--pre'${NC}"
-    fi
 fi
 
 # --- Verify ---
