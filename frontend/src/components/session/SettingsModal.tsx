@@ -697,8 +697,8 @@ function AuthenticationTab() {
       const models = await fetchModels();
       setAvailableModels(models);
       const settings = await getSettings();
-      if (settings.model) {
-        useUIStore.getState().setSelectedModel(settings.model);
+      if (settings.default_model) {
+        useUIStore.getState().setDefaultModel(settings.default_model);
       }
     } catch { /* ignore — models will refresh on next page load */ }
   }, [setAvailableModels]);
