@@ -159,6 +159,13 @@ if ! python3 -m pip --version &> /dev/null; then
     echo -e "${GREEN}  [OK] pip installed${NC}"
 fi
 
+PIP_USER_FLAG="--user"
+PIP_BREAK_FLAG=""
+# On systems with externally-managed Python, use --break-system-packages
+if python3 -m pip install --help 2>&1 | grep -q 'break-system-packages'; then
+    PIP_BREAK_FLAG="--break-system-packages"
+fi
+
 INSTALLED=false
 USED_PIPX=false
 if command -v pipx &> /dev/null; then
