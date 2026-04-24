@@ -356,11 +356,11 @@ echo -e "${GRAY}  Adds autonomous web navigation via Playwright MCP server.${NC}
 echo -e "${GRAY}  Uses your system browser (Edge or Chrome).${NC}"
 echo ""
 if [ -t 0 ] || [ -e /dev/tty ]; then
-    read -p "  Enable agentic web browsing? (y/N) " SETUP_PLAYWRIGHT < /dev/tty
+    read -p "  Enable agentic web browsing? (Y/n) " SETUP_PLAYWRIGHT < /dev/tty
 else
-    SETUP_PLAYWRIGHT="N"
+    SETUP_PLAYWRIGHT="Y"
 fi
-if [[ "$SETUP_PLAYWRIGHT" =~ ^[Yy]$ ]]; then
+if [[ ! "$SETUP_PLAYWRIGHT" =~ ^[Nn]$ ]]; then
     MCP_CONFIG_PATH="$HOME/.copilot-console/mcp-config.json"
     ADD_PLAYWRIGHT=true
     if [ -f "$MCP_CONFIG_PATH" ]; then
@@ -418,11 +418,11 @@ echo -e "${GRAY}  Access sessions from your phone, get push notifications when${
 echo -e "${GRAY}  any Copilot CLI session finishes. Requires devtunnel.${NC}"
 echo ""
 if [ -t 0 ] || [ -e /dev/tty ]; then
-    read -p "  Enable mobile access & notifications? (y/N) " SETUP_MOBILE < /dev/tty
+    read -p "  Enable mobile access & notifications? (Y/n) " SETUP_MOBILE < /dev/tty
 else
-    SETUP_MOBILE="N"
+    SETUP_MOBILE="Y"
 fi
-if [[ "$SETUP_MOBILE" =~ ^[Yy]$ ]]; then
+if [[ ! "$SETUP_MOBILE" =~ ^[Nn]$ ]]; then
     # Enable CLI notifications
     if command -v cli-notify &> /dev/null; then
         cli-notify on &> /dev/null

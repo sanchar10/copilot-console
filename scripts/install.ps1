@@ -292,8 +292,8 @@ Write-Host "  Optional: Agentic Web Browsing" -ForegroundColor Cyan
 Write-Host "  Adds autonomous web navigation via Playwright MCP server." -ForegroundColor DarkGray
 Write-Host "  Uses your system browser (Edge or Chrome)." -ForegroundColor DarkGray
 Write-Host ""
-$setupPlaywright = Read-Host "  Enable agentic web browsing? (y/N)"
-if ($setupPlaywright -eq 'y' -or $setupPlaywright -eq 'Y') {
+$setupPlaywright = Read-Host "  Enable agentic web browsing? (Y/n)"
+if ($setupPlaywright -ne 'n' -and $setupPlaywright -ne 'N') {
     # Add Playwright MCP server to mcp-config.json (uses system browser, no extra install needed)
     $mcpConfigPath = "$env:USERPROFILE\.copilot-console\mcp-config.json"
     $addPlaywright = $true
@@ -351,8 +351,8 @@ Write-Host "  Optional: Mobile Access & CLI Notifications" -ForegroundColor Cyan
 Write-Host "  Access sessions from your phone, get push notifications when" -ForegroundColor DarkGray
 Write-Host "  any Copilot CLI session finishes. Requires devtunnel." -ForegroundColor DarkGray
 Write-Host ""
-$setupMobile = Read-Host "  Enable mobile access & notifications? (y/N)"
-if ($setupMobile -eq 'y' -or $setupMobile -eq 'Y') {
+$setupMobile = Read-Host "  Enable mobile access & notifications? (Y/n)"
+if ($setupMobile -ne 'n' -and $setupMobile -ne 'N') {
     # Enable CLI notifications
     $cliNotify = Get-Command cli-notify -ErrorAction SilentlyContinue
     if ($cliNotify) {
