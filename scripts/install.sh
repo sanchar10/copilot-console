@@ -193,12 +193,13 @@ if [ "$INSTALLED" = false ]; then
     fi
 fi
 # Clean up stale dist-info directories that confuse importlib.metadata
+INSTALLED_VERSION="${TAG_NAME#v}"
 SITE_DIR=$(python3 -c "import site; print(site.getusersitepackages())" 2>/dev/null)
-if [ -n "$SITE_DIR" ] && [ -d "$SITE_DIR" ]; then
+if [ -n "$INSTALLED_VERSION" ] && [ -n "$SITE_DIR" ] && [ -d "$SITE_DIR" ]; then
     for old_dist in "$SITE_DIR"/copilot_console-*.dist-info; do
         [ -d "$old_dist" ] || continue
         case "$old_dist" in
-            *"copilot_console-${VERSION}.dist-info") ;; # keep current
+            *"copilot_console-${INSTALLED_VERSION}.dist-info") ;; # keep current
             *) rm -rf "$old_dist" 2>/dev/null ;;
         esac
     done

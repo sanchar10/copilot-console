@@ -201,10 +201,11 @@ if (-not $installed) {
 }
 
 # Clean up stale dist-info directories that confuse importlib.metadata
+$installedVersion = $releaseInfo.tag_name -replace '^v', ''
 $siteDir = python -c "import site; print(site.getusersitepackages())" 2>$null
-if ($siteDir -and (Test-Path $siteDir)) {
+if ($installedVersion -and $siteDir -and (Test-Path $siteDir)) {
     Get-ChildItem -Path $siteDir -Directory -Filter "copilot_console-*.dist-info" | Where-Object {
-        $_.Name -ne "copilot_console-$VERSION.dist-info"
+        $_.Name -ne "copilot_console-$installedVersion.dist-info"
     } | ForEach-Object {
         Remove-Item -Recurse -Force $_.FullName 2>$null
     }
