@@ -223,6 +223,30 @@ export interface AttachmentRef {
   displayName?: string;
 }
 
+export interface MCPServerStatusEvent {
+  sessionId: string;
+  statuses: Array<{ serverName: string | null; status: string | null; error?: string | null }>;
+}
+
+export interface MCPOAuthRequiredEvent {
+  sessionId: string;
+  serverName: string;
+  authorizationUrl: string;
+}
+
+export interface MCPOAuthCompletedEvent {
+  sessionId: string;
+  serverName: string;
+  status?: string;
+}
+
+export interface MCPOAuthFailedEvent {
+  sessionId: string;
+  serverName: string;
+  reason?: string;
+  error?: string | null;
+}
+
 export interface SendMessageOptions {
   onDelta: (content: string) => void;
   onStep: (step: ChatStep) => void;
@@ -239,6 +263,12 @@ export interface SendMessageOptions {
   onAskUser?: (data: AskUserRequest) => void;
   compact?: boolean;
   agent?: string;
+  // MCP OAuth events flow on the global ``/events`` SSE channel
+  // (see ``api/mcpOAuthBridge.ts``), NOT on the per-turn stream.
+  // Per-turn stream still emits ``mcp_server_status`` for snapshot
+  // purposes if the caller wants it; OAuth required/completed/failed
+  // are deliberately omitted here.
+  onMcpServerStatus?: (data: MCPServerStatusEvent) => void;
 }
 
 export async function sendMessage(
@@ -251,6 +281,7 @@ export async function sendMessage(
     isNewSession = false, onTurnDone, attachments,
     onModeChanged, agentMode, fleet, onElicitation, onAskUser,
     compact, agent,
+    onMcpServerStatus,
   } = options;
   const body: Record<string, unknown> = { content, is_new_session: isNewSession };
   if (attachments && attachments.length > 0) {
@@ -305,6 +336,8 @@ export async function sendMessage(
       onElicitation?.(data as ElicitationRequest);
     } else if (eventName === 'ask_user' && data.request_id) {
       onAskUser?.(data as AskUserRequest);
+    } else if (eventName === 'mcp_server_status') {
+      onMcpServerStatus?.(data as MCPServerStatusEvent);
     }
   });
 }
@@ -380,6 +413,7 @@ export async function resumeResponseStream(
   onError: (error: string) => void,
   onElicitation?: (data: ElicitationRequest) => void,
   onAskUser?: (data: AskUserRequest) => void,
+  onMcpServerStatus?: (data: MCPServerStatusEvent) => void,
 ): Promise<void> {
   const response = await fetch(
     `${API_BASE}/sessions/${sessionId}/response-stream?from_chunk=${fromChunk}&from_step=${fromStep}`
@@ -410,6 +444,8 @@ export async function resumeResponseStream(
       onElicitation?.(data as ElicitationRequest);
     } else if (eventName === 'ask_user' && data.request_id) {
       onAskUser?.(data as AskUserRequest);
+    } else if (eventName === 'mcp_server_status') {
+      onMcpServerStatus?.(data as MCPServerStatusEvent);
     }
   });
 }

@@ -9,10 +9,12 @@ export interface MCPServer {
   // Remote server fields
   url?: string;
   headers?: Record<string, string>;
+  // OAuth client metadata (SDK 0.3.0+)
+  oauthClientId?: string;
+  oauthPublicClient?: boolean;
   // Common fields
   tools: string[];
   timeout?: number;
-  enabled: boolean;
   source: string; // 'global', 'agent-only', or plugin name
 }
 

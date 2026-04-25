@@ -1,6 +1,5 @@
 {
   "name": "copilot-console",
-  "version": "0.7.0",
   "private": true,
   "scripts": {
     "dev": "node scripts/sync-seed-docs.js && node scripts/dev.js",

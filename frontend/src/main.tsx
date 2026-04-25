@@ -2,10 +2,16 @@ import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { initMcpOAuthBridge } from './api/mcpOAuthBridge'
 import './index.css'
 
 const App = lazy(() => import('./App.tsx'));
 const MobileApp = lazy(() => import('./mobile/MobileApp.tsx').then(m => ({ default: m.MobileApp })));
+
+// Open the long-lived /events SSE channel and route MCP OAuth events
+// to toasts. Module-level so it runs once per tab regardless of route
+// or StrictMode double-invoke.
+initMcpOAuthBridge();
 
 // Register service worker for PWA support (mobile only)
 if ('serviceWorker' in navigator && window.location.pathname.startsWith('/mobile')) {

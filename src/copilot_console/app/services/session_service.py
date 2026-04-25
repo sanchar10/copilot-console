@@ -69,12 +69,6 @@ def get_session_mtime(session_id: str) -> datetime:
     return datetime.now(timezone.utc)
 
 
-def get_default_mcp_servers() -> list[str]:
-    """Get default MCP server selections (all enabled)."""
-    config = mcp_service.get_available_servers()
-    return [server.name for server in config.servers]
-
-
 def _migrate_tools(value: Any) -> AgentTools:
     """Migrate old tools formats to new AgentTools model.
     

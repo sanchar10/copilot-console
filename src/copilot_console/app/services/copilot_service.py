@@ -89,7 +89,7 @@ class CopilotService:
         self._lock: asyncio.Lock | None = None  # Created lazily in async context
         self._session_msg_locks: dict[str, asyncio.Lock] = {}  # Per-session read locks
         self._cleanup_task: asyncio.Task | None = None
-        self._idle_timeout_seconds = 600  # 10 minutes
+        self._idle_timeout_seconds = 900  # 15 minutes
         self._models_cache: list[dict] | None = None
         self._models_cache_time: float = 0.0
 
@@ -612,6 +612,14 @@ class CopilotService:
         event_queue: asyncio.Queue[dict | None] = asyncio.Queue(maxsize=_EVENT_QUEUE_MAX)
         client.event_queue = event_queue
 
+        # Snapshot whether this is a cold path (no live SDK session yet) BEFORE
+        # get_or_create_session so we can gate MCP readiness only when the SDK
+        # is actually about to boot/resume the session. Warm Nth turns skip
+        # the gate entirely — the SDK silently refreshes tokens, and the
+        # post_turn_hook safety net surfaces any mid-session needs-auth on
+        # the next turn boundary.
+        was_cold = client.session is None
+
         session = await client.get_or_create_session(
             model, mcp_servers, tools, available_tools, excluded_tools,
             system_message, is_new_session, custom_agents, reasoning_effort,
@@ -654,12 +662,73 @@ class CopilotService:
 
         done = asyncio.Event()
 
+        # OAuth coordinator: lazy-only sign-in flow for HTTP MCP servers.
+        # ``notify`` publishes the coordinator's events to the global event
+        # bus. The bus is account-scoped and survives turn boundaries, so
+        # late-arriving events (auth URL minted ~1s after a fast turn ends,
+        # or background-poll completed/failed) reach the UI reliably without
+        # any per-turn race. Each event still carries ``sessionId`` so the
+        # frontend can attribute UI affordances when relevant.
+        from copilot_console.app.services.event_bus import event_bus
+
+        def _oauth_notify(event_name: str, data: dict) -> None:
+            try:
+                event_bus.publish(event_name, data, session_id=session_id)
+            except Exception as e:
+                logger.warning(
+                    f"[{session_id}] failed to publish oauth event {event_name}: {e}"
+                )
+
+        coordinator = client.ensure_oauth_coordinator(_oauth_notify)
+
+        # Gate the agent on MCP readiness — COLD PATHS ONLY. The SDK boots
+        # HTTP MCP servers lazily on the first session.send() of a fresh or
+        # resumed session, and they take a few seconds to reach ``connected``
+        # (or longer if OAuth is needed). Sending the user prompt before tools
+        # are ready makes the agent answer "I don't have access to <tool>".
+        # We block here until every server has reached a terminal state, with
+        # a 30s ceiling — cached-token paths exit in 1-3s, OAuth paths surface
+        # a toast on the global event bus and the user signs in while we wait.
+        # The wait yields nothing on the per-turn stream, so the InputBox
+        # "Activating session, please wait..." UX stays visible end-to-end.
+        #
+        # Warm turns skip this entirely: the SDK silently refreshes access
+        # tokens (~1hr lifetime) using cached refresh tokens, and the
+        # post_turn_hook safety net catches the rare refresh-token failure
+        # case on the next turn_end -> surfaces a toast for the next turn.
+        if was_cold:
+            try:
+                ready = await coordinator.wait_until_ready(timeout=30.0)
+            except Exception as e:
+                logger.warning(f"[{session_id}] wait_until_ready raised: {e}")
+                ready = {}
+
+            if ready:
+                _oauth_notify("mcp_server_status", {
+                    "sessionId": session_id,
+                    "statuses": [
+                        {"serverName": name, "status": status, "error": None}
+                        for name, status in ready.items()
+                    ],
+                })
+
+        def _post_turn() -> None:
+            # After each turn end / on session error, ask the coordinator to
+            # check for needs-auth servers and start the OAuth dance for them.
+            try:
+                asyncio.get_running_loop().create_task(
+                    coordinator.check_and_trigger_for_needs_auth()
+                )
+            except RuntimeError:
+                pass
+
         # Delegate event processing to EventProcessor
         processor = EventProcessor(
             session_id=session_id,
             event_queue=event_queue,
             done=done,
             touch_callback=client.touch,
+            post_turn_hook=_post_turn,
         )
         session.on(processor.on_event)
 
@@ -800,6 +869,10 @@ class CopilotService:
                     buffer.add_notification("elicitation", evt.get("data") or {})
                 elif event_type == "ask_user":
                     buffer.add_notification("ask_user", evt.get("data") or {})
+                # MCP OAuth / status events are published to the global event
+                # bus by ``_oauth_notify`` and consumed via the long-lived
+                # ``/events`` SSE channel. They no longer flow through the
+                # per-turn event queue, so nothing arrives here.
         except asyncio.CancelledError:
             logger.warning(f"[{session_id}] Background task was cancelled")
             buffer.fail("Task was cancelled")

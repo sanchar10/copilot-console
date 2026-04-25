@@ -10,11 +10,11 @@ import time
 from copilot import CopilotClient, SubprocessConfig
 from copilot.tools import Tool
 from copilot.generated.rpc import (
-    Mode,
-    SessionModeSetParams,
-    SessionModelSwitchToParams,
-    SessionFleetStartParams,
-    SessionAgentSelectParams,
+    SessionMode,
+    ModeSetRequest,
+    ModelSwitchToRequest,
+    FleetStartRequest,
+    AgentSelectRequest,
 )
 
 # SDK >=0.1.28 requires on_permission_request for create/resume session.
@@ -26,6 +26,7 @@ except (ImportError, AttributeError):
     approve_all_permissions = None
 
 from copilot_console.app.services.logging_service import get_logger
+from copilot_console.app.services.mcp_oauth_coordinator import MCPOAuthCoordinator
 
 logger = get_logger(__name__)
 
@@ -42,6 +43,10 @@ class SessionClient:
         self.last_activity = time.time()
         # Active event queue for elicitation handler to push events into
         self.event_queue: asyncio.Queue | None = None
+        # Per-session OAuth coordinator. Initialized on first access (so the
+        # caller can plug in the notification callback) — see
+        # ``ensure_oauth_coordinator``.
+        self.oauth_coordinator: "MCPOAuthCoordinator | None" = None
 
     async def start(self) -> None:
         """Start the client with CWD."""
@@ -59,6 +64,13 @@ class SessionClient:
         if not self.started or not self.client:
             return
 
+        if self.oauth_coordinator is not None:
+            try:
+                await self.oauth_coordinator.cancel_all()
+            except Exception as e:
+                logger.debug(f"[{self.session_id}] OAuth coordinator cancel failed: {e}")
+            self.oauth_coordinator = None
+
         try:
             if self.session:
                 await self.session.destroy()
@@ -74,6 +86,40 @@ class SessionClient:
         self.client = None
         self.started = False
         logger.debug(f"[{self.session_id}] Stopped per-session client")
+
+    def ensure_oauth_coordinator(self, notify) -> MCPOAuthCoordinator:
+        """Create (or return) the per-session OAuth coordinator.
+
+        ``notify(event_name, data)`` is the sync callback the coordinator uses
+        to publish ``mcp_server_status`` / ``mcp_oauth_required`` /
+        ``mcp_oauth_completed`` / ``mcp_oauth_failed`` events.
+        """
+        if self.oauth_coordinator is None:
+            self.oauth_coordinator = MCPOAuthCoordinator(
+                session_id=self.session_id,
+                get_session=lambda: self.session,
+                notify=notify,
+            )
+        return self.oauth_coordinator
+
+    async def list_mcp_servers(self) -> list:
+        """Wrapper around ``session.rpc.mcp.list()`` with safety checks.
+
+        Normalizes the SDK 0.3.0 ``MCPServerList`` wrapper into a plain list.
+        """
+        if self.session is None:
+            return []
+        try:
+            result = await self.session.rpc.mcp.list()
+        except Exception as e:
+            logger.debug(f"[{self.session_id}] mcp.list() failed: {e}")
+            return []
+        inner = getattr(result, "servers", None)
+        if inner is not None:
+            return list(inner)
+        if isinstance(result, list):
+            return result
+        return []
 
     def touch(self) -> None:
         """Update last activity timestamp."""
@@ -263,7 +309,7 @@ class SessionClient:
         """Set the agent mode (interactive/plan/autopilot) on the active session."""
         if not self.session:
             raise RuntimeError(f"[{self.session_id}] No active session to set mode on")
-        result = await self.session.rpc.mode.set(SessionModeSetParams(mode=Mode(mode)))
+        result = await self.session.rpc.mode.set(ModeSetRequest(mode=SessionMode(mode)))
         self.touch()
         logger.debug(f"[{self.session_id}] Mode set to {result.mode.value}")
         return result.mode.value
@@ -273,7 +319,7 @@ class SessionClient:
         if not self.session:
             raise RuntimeError(f"[{self.session_id}] No active session to set model on")
         result = await self.session.rpc.model.switch_to(
-            SessionModelSwitchToParams(model_id=model_id, reasoning_effort=reasoning_effort)
+            ModelSwitchToRequest(model_id=model_id, reasoning_effort=reasoning_effort)
         )
         self.touch()
         logger.debug(f"[{self.session_id}] Model set to {result.model_id}")
@@ -283,7 +329,7 @@ class SessionClient:
         """Start fleet mode (parallel sub-agents) on the active session."""
         if not self.session:
             raise RuntimeError(f"[{self.session_id}] No active session to start fleet on")
-        result = await self.session.rpc.fleet.start(SessionFleetStartParams(prompt=prompt))
+        result = await self.session.rpc.fleet.start(FleetStartRequest(prompt=prompt))
         self.touch()
         logger.debug(f"[{self.session_id}] Fleet started: {result.started}")
         return {"started": result.started}
@@ -318,7 +364,7 @@ class SessionClient:
         if not self.session:
             raise RuntimeError(f"[{self.session_id}] No active session to select agent on")
         result = await self.session.rpc.agent.select(
-            SessionAgentSelectParams(name=agent_name)
+            AgentSelectRequest(name=agent_name)
         )
         self.touch()
         agent = result.agent

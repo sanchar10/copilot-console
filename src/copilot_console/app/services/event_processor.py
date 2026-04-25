@@ -40,11 +40,17 @@ class EventProcessor:
         event_queue: asyncio.Queue,
         done: asyncio.Event,
         touch_callback: Callable[[], None],
+        post_turn_hook: Callable[[], None] | None = None,
     ):
         self.session_id = session_id
         self.event_queue = event_queue
         self.done = done
         self.touch_callback = touch_callback
+        # Optional sync hook called after each ``assistant.turn_end`` and on
+        # ``session.error``. Used by the OAuth coordinator to lazily discover
+        # MCP servers in ``needs-auth`` and trigger the sign-in flow without
+        # awaiting from inside this synchronous handler.
+        self.post_turn_hook = post_turn_hook
         self.full_response: list[str] = []
         self.reasoning_buffer: list[str] = []
         self.pending_turn_msg_id: str | None = None
@@ -124,9 +130,26 @@ class EventProcessor:
         _safe_enqueue(self.event_queue, {"event": "step", "data": payload})
 
     def terminate_stream(self) -> None:
-        """Push sentinel to end the generator loop."""
+        """Push sentinel to end the generator loop.
+
+        Also fires the post-turn hook so MCP needs-auth detection still runs
+        when a turn is aborted before ``assistant.turn_end`` (e.g. network
+        drop, client disconnect). Hook is idempotent — if turn_end already
+        fired the hook, this is a no-op-ish second call (coordinator's
+        _maybe_start is itself idempotent).
+        """
         _safe_enqueue(self.event_queue, None)
         self.done.set()
+        self._fire_post_turn_hook()
+
+    def _fire_post_turn_hook(self) -> None:
+        """Invoke the optional post-turn hook, swallowing errors."""
+        if self.post_turn_hook is None:
+            return
+        try:
+            self.post_turn_hook()
+        except Exception as e:
+            logger.debug(f"[{self.session_id}] post_turn_hook raised: {e}")
 
     # ------------------------------------------------------------------
     # Main event handler
@@ -203,6 +226,7 @@ class EventProcessor:
             self.pending_turn_msg_id = None
             self.pending_turn_event_id = None
             self.pending_turn_timestamp = None
+            self._fire_post_turn_hook()
 
         elif event_type == "tool.execution_start":
             tool = getattr(data, "tool_name", None) or getattr(data, "name", None)
@@ -307,6 +331,7 @@ class EventProcessor:
             msg = getattr(data, "message", None)
             if msg:
                 self._enqueue_step("Session error", str(msg))
+            self._fire_post_turn_hook()
 
         elif event_type == "session.usage_info":
             token_limit = getattr(data, "token_limit", None)

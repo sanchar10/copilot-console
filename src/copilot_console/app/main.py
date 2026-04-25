@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from copilot_console.app.config import API_PREFIX, ensure_directories
-from copilot_console.app.routers import agents, auth, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, pins, cli_hooks, search
+from copilot_console.app.routers import agents, auth, events, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, pins, cli_hooks, search
 try:
     from copilot_console.app.routers import workflows
     _has_workflows = True
@@ -149,6 +149,7 @@ app.add_middleware(TokenAuthMiddleware)
 # Include routers
 app.include_router(agents.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(events.router, prefix=API_PREFIX)
 app.include_router(filesystem.router, prefix=API_PREFIX)
 app.include_router(logs.router, prefix=API_PREFIX)
 app.include_router(mcp.router, prefix=API_PREFIX)

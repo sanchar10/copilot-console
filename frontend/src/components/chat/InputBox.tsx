@@ -321,7 +321,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           setAgentActive(activeSessionId!, false);
           addMessage(activeSessionId!, { id: `system-timeout-${Date.now()}`, role: 'system', content: '⚠️ Session activation timed out. An MCP server may be unresponsive. Try sending your message again.', timestamp: new Date().toISOString() });
         }
-      }, 45_000);
+      }, 60_000);
     }
 
     try {

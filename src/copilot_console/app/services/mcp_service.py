@@ -67,18 +67,26 @@ class MCPService:
         if not isinstance(mcp_servers, dict):
             return servers
         
+        # Map legacy/alias type names to canonical SDK 0.3.0 names
+        type_aliases = {"local": "stdio", "remote": "http"}
+
         for name, config in mcp_servers.items():
             if not isinstance(config, dict):
                 continue
             
             try:
-                server_type = config.get("type")
+                raw_type = config.get("type")
+                server_type = type_aliases.get(raw_type, raw_type) if isinstance(raw_type, str) else raw_type
                 tools = config.get("tools", ["*"])
                 timeout = config.get("timeout")
-                
+                oauth_client_id = config.get("oauthClientId") or config.get("oauth_client_id")
+                oauth_public_client = config.get("oauthPublicClient")
+                if oauth_public_client is None:
+                    oauth_public_client = config.get("oauth_public_client")
+
                 # Determine if this is a remote server (http/sse)
                 is_remote = server_type in ("http", "sse") or "url" in config
-                
+
                 if is_remote:
                     url = config.get("url", "")
                     if not url:
@@ -86,12 +94,13 @@ class MCPService:
                         continue
                     server = MCPServer(
                         name=name,
-                        type=server_type,
+                        type=server_type or "http",
                         url=url,
                         headers=config.get("headers"),
                         tools=tools if isinstance(tools, list) else [str(tools)],
                         timeout=timeout,
-                        enabled=True,
+                        oauth_client_id=oauth_client_id,
+                        oauth_public_client=oauth_public_client,
                         source=source,
                     )
                 else:
@@ -109,7 +118,6 @@ class MCPService:
                         cwd=config.get("cwd"),
                         tools=tools if isinstance(tools, list) else [str(tools)],
                         timeout=timeout,
-                        enabled=True,
                         source=source,
                     )
                 
@@ -225,35 +233,30 @@ class MCPService:
         return self._cached_config
 
     def get_servers_for_sdk(
-        self, selections: list[str] | None = None
+        self, selections: list[str]
     ) -> dict[str, dict]:
         """Get MCP servers formatted for the Copilot SDK.
-        
-        The SDK expects mcp_servers as: {"server-name": {"type": "local", "command": "...", ...}}
-        Supports both local and remote server types.
-        
+
+        The SDK expects mcp_servers as: {"server-name": {"type": "stdio", "command": "...", ...}}
+        Supports both local (stdio) and remote (http/sse) server types.
+
         Args:
-            selections: Optional list of enabled server names. If None, all enabled.
-            
+            selections: List of selected server names (only these are forwarded to the SDK).
+
         Returns:
-            Dict of server configs ready for SDK create_session/resume_session mcp_servers param
+            Dict of server configs ready for SDK create_session/resume_session mcp_servers param.
         """
+        selected = set(selections)
         config = self.get_available_servers()
         sdk_servers: dict[str, dict] = {}
-        
+
         for server in config.servers:
-            # Check if server is selected
-            if selections is not None:
-                enabled = server.name in selections
-            else:
-                enabled = server.enabled
-            
-            if not enabled:
+            if server.name not in selected:
                 continue
-            
+
             # Build server config dict for SDK
             is_remote = server.type in ("http", "sse")
-            
+
             if is_remote:
                 server_config: dict = {
                     "type": server.type,
@@ -262,6 +265,11 @@ class MCPService:
                 }
                 if server.headers:
                     server_config["headers"] = server.headers
+                # OAuth client metadata (SDK 0.3.0+) — emit camelCase keys to match SDK schema
+                if server.oauth_client_id is not None:
+                    server_config["oauthClientId"] = server.oauth_client_id
+                if server.oauth_public_client is not None:
+                    server_config["oauthPublicClient"] = server.oauth_public_client
             else:
                 server_config = {
                     "command": server.command,
@@ -274,12 +282,17 @@ class MCPService:
                     server_config["env"] = server.env
                 if server.cwd:
                     server_config["cwd"] = server.cwd
-            
+
             if server.timeout is not None:
                 server_config["timeout"] = server.timeout
-            
+
+            if server.name in sdk_servers:
+                logger.warning(
+                    f"Duplicate MCP server name '{server.name}' across sources — later definition overwrites earlier. "
+                    f"Source of overwriting entry: {server.source}"
+                )
             sdk_servers[server.name] = server_config
-        
+
         return sdk_servers
 
     def refresh(self) -> MCPServerConfig:
