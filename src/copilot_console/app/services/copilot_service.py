@@ -492,6 +492,19 @@ class CopilotService:
         client = self._session_clients.get(session_id)
         return client.cwd if client else None
 
+    def get_oauth_coordinator(self, session_id: str):
+        """Return the OAuth coordinator for an active session, or None.
+
+        Used by the MCP retrigger endpoint to start a fresh OAuth flow when
+        the user clicks the "Sign in" badge on a stale ``needs-auth`` server.
+        Returns None when the session has no active client (cold) or when
+        no OAuth coordinator has been initialized yet (no message sent).
+        """
+        client = self._session_clients.get(session_id)
+        if client is None:
+            return None
+        return client.oauth_coordinator
+
     async def set_session_mode(self, session_id: str, mode: str, cwd: str,
                                 mcp_servers: dict[str, dict] | None = None,
                                 tools: list[Tool] | None = None,

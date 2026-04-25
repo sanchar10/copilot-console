@@ -223,6 +223,7 @@ export function Header({
                 selections={listToSelections(mcpSelections, availableMcpServers)}
                 onSelectionsChange={(s: MCPServerSelections) => onMcpSelectionsChange(selectionsToList(s))}
                 readOnly={hasActiveResponse}
+                sessionId={currentSessionId}
               />
             )}
 

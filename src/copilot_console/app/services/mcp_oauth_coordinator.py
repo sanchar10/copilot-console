@@ -66,6 +66,32 @@ class MCPOAuthCoordinator:
         self._inflight: dict[str, asyncio.Task[None]] = {}
         self._lock = asyncio.Lock()
         self._closed = False
+        # Last-seen status per server. Used to publish ``mcp_server_status``
+        # on every transition so the frontend badge stays live without
+        # polling. None means "never observed".
+        self._last_status: dict[str, str | None] = {}
+
+    def _publish_status(
+        self,
+        server_name: str,
+        status: str | None,
+        error: str | None = None,
+        force: bool = False,
+    ) -> None:
+        """Publish ``mcp_server_status`` if status changed since last publish.
+
+        ``force=True`` re-publishes regardless (used after retrigger so the
+        UI sees a fresh snapshot even if the underlying state didn't change).
+        """
+        if not force and self._last_status.get(server_name) == status:
+            return
+        self._last_status[server_name] = status
+        self._notify("mcp_server_status", {
+            "sessionId": self.session_id,
+            "statuses": [
+                {"serverName": server_name, "status": status, "error": error},
+            ],
+        })
 
     def trigger(self, server_name: str) -> None:
         """Start an OAuth flow for ``server_name`` if one is not already in flight.
@@ -203,7 +229,12 @@ class MCPOAuthCoordinator:
         return final_status
 
     async def snapshot(self) -> list[dict[str, Any]]:
-        """Return current per-server status as a serializable list (no triggers)."""
+        """Return current per-server status as a serializable list (no triggers).
+
+        Also opportunistically publishes status transitions discovered during
+        the snapshot — keeps the badge live even when the only call path is
+        the per-turn ``wait_until_ready``.
+        """
         session = self._get_session()
         if session is None:
             return []
@@ -212,7 +243,7 @@ class MCPOAuthCoordinator:
         except Exception as e:
             logger.debug(f"[{self.session_id}] mcp.list() failed in snapshot: {e}")
             return []
-        return [
+        result = [
             {
                 "serverName": getattr(s, "name", None),
                 "status": _status_value(getattr(s, "status", None)),
@@ -220,6 +251,37 @@ class MCPOAuthCoordinator:
             }
             for s in servers
         ]
+        # Publish any transitions seen vs last_status. This is how the
+        # frontend badge keeps up with status flips that happen between
+        # explicit OAuth flow points (e.g., the SDK's silent boot from
+        # ``not_configured`` → ``connected``).
+        for entry in result:
+            name = entry.get("serverName")
+            if not name:
+                continue
+            self._publish_status(name, entry.get("status"), entry.get("error"))
+        return result
+
+    async def retrigger(self, server_name: str) -> None:
+        """Cancel any in-flight OAuth task for ``server_name`` and start fresh.
+
+        Used by the "Sign in" affordance on a stale badge: the original
+        ``_run_flow`` may still be in its 90s poll budget (so a plain
+        ``_maybe_start`` would dedup), but the user wants a NEW auth URL
+        right now (the original tab was closed, the URL expired, etc).
+        We force-cancel and restart so the SDK mints a fresh URL.
+        """
+        if self._closed:
+            return
+        async with self._lock:
+            existing = self._inflight.pop(server_name, None)
+        if existing is not None and not existing.done():
+            existing.cancel()
+            try:
+                await existing
+            except (asyncio.CancelledError, Exception):
+                pass
+        await self._maybe_start(server_name)
 
     async def cancel_all(self) -> None:
         """Cancel all in-flight tasks. Called from SessionClient.stop()."""
@@ -315,6 +377,9 @@ class MCPOAuthCoordinator:
             if srv is None:
                 continue
             status = _status_value(getattr(srv, "status", None))
+            err = getattr(srv, "error", None)
+            # Publish badge updates on every poll cycle (deduped by _publish_status).
+            self._publish_status(server_name, status, err)
             if status in TERMINAL_OK:
                 self._notify("mcp_oauth_completed", {
                     "sessionId": self.session_id,
@@ -327,7 +392,7 @@ class MCPOAuthCoordinator:
                     "sessionId": self.session_id,
                     "serverName": server_name,
                     "reason": f"Server reached terminal status: {status}",
-                    "error": getattr(srv, "error", None),
+                    "error": err,
                 })
                 return
             # else: still pending or needs-auth — keep polling
@@ -350,6 +415,8 @@ class MCPOAuthCoordinator:
             return
         srv = next((s for s in servers if getattr(s, "name", None) == server_name), None)
         status = _status_value(getattr(srv, "status", None)) if srv is not None else None
+        err = getattr(srv, "error", None) if srv is not None else None
+        self._publish_status(server_name, status, err)
         if completed and status in TERMINAL_OK:
             self._notify("mcp_oauth_completed", {
                 "sessionId": self.session_id,
