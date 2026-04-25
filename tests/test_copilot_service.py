@@ -78,7 +78,9 @@ class TestCopilotServiceInit:
 
     def test_init_idle_timeout_default(self, monkeypatch, tmp_path):
         svc = _make_copilot_service(monkeypatch, tmp_path)
-        assert svc._idle_timeout_seconds == 600
+        # Bumped to 15min in 663b25c (MCP OAuth cold-only gate work) so OAuth
+        # flows that take a few extra minutes don't get killed mid-sign-in.
+        assert svc._idle_timeout_seconds == 900
 
 
 # ===================================================================

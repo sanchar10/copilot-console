@@ -24,7 +24,7 @@ vi.mock('../../stores/sessionStore', () => ({
       updateSessionName: vi.fn(),
       openTab: vi.fn(),
     }),
-    { getState: () => ({ currentSessionId: 'session-1' }) },
+    { getState: () => ({ currentSessionId: 'session-1', sessions: [] }) },
   ),
 }));
 

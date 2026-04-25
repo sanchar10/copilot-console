@@ -151,7 +151,7 @@ describe('sendMessage SSE parsing', () => {
       sseChunk('turn_done', { messageId: 'turn-1' }),
       sseChunk('done', { message_id: 'm' }),
     ]);
-    expect(onTurnDone).toHaveBeenCalledWith('turn-1');
+    expect(onTurnDone).toHaveBeenCalledWith('turn-1', undefined, undefined);
   });
 
   // --- error events ---

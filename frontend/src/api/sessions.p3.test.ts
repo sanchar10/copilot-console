@@ -146,7 +146,7 @@ describe('P3-1: sendMessage options object', () => {
 
     expect(callbacks.onDelta).toHaveBeenCalledWith('A');
     expect(callbacks.onStep).toHaveBeenCalledWith({ title: 'Tool: grep' });
-    expect(callbacks.onTurnDone).toHaveBeenCalledWith('turn-1');
+    expect(callbacks.onTurnDone).toHaveBeenCalledWith('turn-1', undefined, undefined);
     expect(callbacks.onModeChanged).toHaveBeenCalledWith('agent');
     expect(callbacks.onDone).toHaveBeenCalledWith('msg-2', undefined);
   });
