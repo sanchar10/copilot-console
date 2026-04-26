@@ -46,7 +46,7 @@ SOURCE_LABELS = {
     COPILOT_GLOBAL: "Copilot Global",
     GITHUB_GLOBAL: "GitHub Global",
     GITHUB_CWD: "GitHub CWD",
-    CONSOLE_GLOBAL: "Console Global",
+    CONSOLE_GLOBAL: "App",
 }
 
 
