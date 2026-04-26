@@ -18,7 +18,7 @@ const TYPE_ICONS: Record<ToastType, string> = {
   info: 'ℹ️',
   success: '✓',
   warning: '⚠',
-  error: '❌',
+  error: '❗',
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
@@ -42,11 +42,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg
         text-sm font-medium max-w-sm
         transition-all duration-300 ease-out
-        ${toast.action ? '' : 'cursor-pointer'}
         ${TYPE_STYLES[toast.type]}
         ${visible && !exiting ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'}
       `}
-      onClick={toast.action ? undefined : onDismiss}
       role="alert"
     >
       <span className="text-base leading-none flex-shrink-0">{TYPE_ICONS[toast.type]}</span>

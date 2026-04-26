@@ -826,7 +826,7 @@ function AuthenticationTab() {
         {authStatus.authenticated ? (
           <span className="text-lg">🔒</span>
         ) : (
-          <span className="text-lg">🔓</span>
+          <span className="text-lg">🔐</span>
         )}
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

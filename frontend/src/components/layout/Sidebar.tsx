@@ -362,7 +362,7 @@ export function Sidebar() {
         >
           <span className="text-base">⚙️</span>
           <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-gray-100">Settings</span>
-          <span className="text-xs leading-none">{authStatus.authenticated === null ? '⏳' : authStatus.authenticated ? '🔒' : '🔓'}</span>
+          <span className="text-xs leading-none">{authStatus.authenticated === null ? '⏳' : authStatus.authenticated ? '🔒' : '🔐'}</span>
           {appVersion && <span className="text-[10px] leading-none text-gray-500 dark:text-gray-400">v{appVersion}</span>}
         </button>
       </div>

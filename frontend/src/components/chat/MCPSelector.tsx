@@ -271,7 +271,7 @@ export function MCPSelector({
         {/* Reserve a fixed-width slot so adding/removing the aggregate badge
             (e.g., a green dot or a 🔐 lock) doesn't make the trigger button
             jitter in width. */}
-        <span className="inline-block w-3.5 text-center text-[11px] leading-none">
+        <span className="inline-block w-2 text-center text-[11px] leading-none">
           {aggregateBadge && (
             <span className={aggregateBadge.className} aria-label={aggregateBadge.title}>
               {aggregateBadge.symbol}
