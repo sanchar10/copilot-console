@@ -268,11 +268,16 @@ export function MCPSelector({
         <span className="bg-blue-200/80 dark:bg-blue-800/40 text-blue-800 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-semibold min-w-[2.5rem] text-center">
           {enabledCount}/{availableServers.length}
         </span>
-        {aggregateBadge && (
-          <span className={`text-[11px] leading-none ${aggregateBadge.className}`} aria-label={aggregateBadge.title}>
-            {aggregateBadge.symbol}
-          </span>
-        )}
+        {/* Reserve a fixed-width slot so adding/removing the aggregate badge
+            (e.g., a green dot or a 🔐 lock) doesn't make the trigger button
+            jitter in width. */}
+        <span className="inline-block w-4 text-center text-[11px] leading-none">
+          {aggregateBadge && (
+            <span className={aggregateBadge.className} aria-label={aggregateBadge.title}>
+              {aggregateBadge.symbol}
+            </span>
+          )}
+        </span>
         <svg
           className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
@@ -312,8 +317,13 @@ export function MCPSelector({
             {availableServers.map((server) => {
               const isEnabled = selections[server.name] !== false;
               const meta = serverStatus[server.name];
-              const badge = sessionId ? badgeMetaFor(meta?.status ?? null, meta?.error) : null;
-              const isNeedsAuth = meta?.status === 'needs-auth';
+              // Per-row badge mirrors the aggregate's "active set" semantic:
+              // a deselected server shows no dot, symmetric with a server
+              // that has never been selected. Without this, unchecking a
+              // connected server would leave a stale green dot behind even
+              // though the trigger's aggregate badge has already cleared.
+              const badge = sessionId && isEnabled ? badgeMetaFor(meta?.status ?? null, meta?.error) : null;
+              const isNeedsAuth = isEnabled && meta?.status === 'needs-auth';
               const isRetriggering = retriggering[server.name] === true;
               return (
                 <div

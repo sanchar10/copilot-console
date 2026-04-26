@@ -237,7 +237,24 @@ describe('MCPSelector — badges', () => {
       // (only enabled servers count toward aggregate).
       expect(screen.getAllByLabelText('Connected').length).toBeGreaterThan(0);
     });
-    expect(screen.getAllByLabelText(/Sign-in required/).length).toBeLessThanOrEqual(1);
+    expect(screen.queryAllByLabelText(/Sign-in required/).length).toBe(0);
+  });
+
+  it('hides per-row badge for deselected servers', async () => {
+    setup({ sessionId: 'sess-1', selections: { github: true, bluebird: false } });
+    emit('mcp_server_status', 'sess-1', {
+      statuses: [
+        { serverName: 'github', status: 'connected' },
+        { serverName: 'bluebird', status: 'connected' },
+      ],
+    });
+    // Only the enabled (github) server's badge should render — both in the
+    // dropdown row and reflected in the aggregate. The deselected bluebird
+    // row must show no dot, symmetric with a never-seen server.
+    await waitFor(() => {
+      // Aggregate (1) + github row (1) = 2. Bluebird row contributes 0.
+      expect(screen.getAllByLabelText('Connected').length).toBe(2);
+    });
   });
 
   it('clears badge state when sessionId changes', async () => {
