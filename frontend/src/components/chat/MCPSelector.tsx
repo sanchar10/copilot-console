@@ -44,7 +44,9 @@ interface BadgeMeta {
 function badgeMetaFor(status: ServerStatus, error?: string | null): BadgeMeta | null {
   switch (status) {
     case 'connected':
-      return { symbol: '●', className: 'text-emerald-500', title: 'Connected' };
+      // Bump the dot one step up so it doesn't look tiny next to the
+      // 🔐 lock emoji (which renders larger at the same font size).
+      return { symbol: '●', className: 'text-emerald-500 text-[13px]', title: 'Connected' };
     case 'needs-auth':
       return { symbol: '🔐', className: 'text-amber-500', title: 'Sign-in required — click to start OAuth' };
     case 'pending':
