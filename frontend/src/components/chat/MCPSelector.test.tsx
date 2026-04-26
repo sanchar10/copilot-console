@@ -287,4 +287,14 @@ describe('MCPSelector — badges', () => {
       expect(screen.queryByLabelText('Connected')).not.toBeInTheDocument();
     });
   });
+
+  it('renders "App only" label for agent-only sources and raw label otherwise', () => {
+    setup({ sessionId: 'sess-1' });
+    // bluebird has source: 'agent-only' → friendly label
+    expect(screen.getByText('App only')).toBeInTheDocument();
+    // github has source: 'global' → unchanged
+    expect(screen.getByText('global')).toBeInTheDocument();
+    // The raw token must NOT leak into the UI for agent-only servers.
+    expect(screen.queryByText('agent-only')).not.toBeInTheDocument();
+  });
 });

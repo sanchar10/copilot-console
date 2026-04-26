@@ -344,8 +344,11 @@ export function MCPSelector({
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                         {server.name}
                       </span>
-                      <span className="text-[10px] text-gray-400 bg-white/50 dark:bg-gray-700/50 px-1 py-0.5 rounded">
-                        {server.source}
+                      <span
+                        className="text-[10px] text-gray-400 bg-white/50 dark:bg-gray-700/50 px-1 py-0.5 rounded"
+                        title={server.source === 'agent-only' ? 'Defined in this app only (not in your global Copilot CLI config)' : undefined}
+                      >
+                        {server.source === 'agent-only' ? 'App only' : server.source}
                       </span>
                       {badge && (
                         <span
