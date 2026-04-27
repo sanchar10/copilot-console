@@ -284,6 +284,32 @@ class EventProcessor:
             detail = "\n".join(detail_parts) if detail_parts else None
             self._enqueue_step(title, detail)
 
+        elif event_type == "subagent.started":
+            name = (
+                getattr(data, "agent_display_name", None)
+                or getattr(data, "agent_name", None)
+                or "sub-agent"
+            )
+            desc = getattr(data, "agent_description", None)
+            self._enqueue_step(f"🤖 Agent: {name}", desc if isinstance(desc, str) and desc.strip() else None)
+
+        elif event_type == "subagent.completed":
+            name = (
+                getattr(data, "agent_display_name", None)
+                or getattr(data, "agent_name", None)
+                or "sub-agent"
+            )
+            self._enqueue_step(f"✨ Agent: {name} completed")
+
+        elif event_type == "subagent.failed":
+            name = (
+                getattr(data, "agent_display_name", None)
+                or getattr(data, "agent_name", None)
+                or "sub-agent"
+            )
+            err = getattr(data, "error", None) or getattr(data, "message", None)
+            self._enqueue_step(f"✗ Agent: {name} failed", str(err) if err else None)
+
         elif event_type == "session.compaction_start":
             self.compacting = True
             self._enqueue_step("⟳ Compacting context", "Background compaction started — summarizing older messages to free context space. You can continue chatting.")
