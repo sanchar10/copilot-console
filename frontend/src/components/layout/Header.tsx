@@ -45,6 +45,7 @@ interface HeaderProps {
   toolSelections?: AgentTools;
   systemMessage?: SystemMessage | null;
   tokenUsage?: { tokenLimit: number; currentTokens: number; messagesLength: number } | null;
+  loadedMessageCount?: number;
   hasActiveResponse?: boolean;
   isActivating?: boolean;
   sessions?: Session[];
@@ -79,6 +80,7 @@ export function Header({
   toolSelections = { custom: [], builtin: [], excluded_builtin: [] },
   systemMessage,
   tokenUsage = null,
+  loadedMessageCount,
   hasActiveResponse = false,
   isActivating = false,
   sessions = [],
@@ -285,6 +287,7 @@ export function Header({
                   tokenLimit={tokenUsage?.tokenLimit}
                   currentTokens={tokenUsage?.currentTokens}
                   messagesLength={tokenUsage?.messagesLength}
+                  loadedMessageCount={loadedMessageCount}
                   isActive={hasActiveResponse}
                 />
               </div>

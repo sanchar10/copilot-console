@@ -42,7 +42,6 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   const [pinsOpen, setPinsOpen] = useState(false);
   const [eligibleSubAgents, setEligibleSubAgents] = useState<Agent[]>([]);
   const [discoverableAgents, setDiscoverableAgents] = useState<DiscoverableAgentsResponse | undefined>(undefined);
-  const [starterPrompts, setStarterPrompts] = useState<StarterPrompt[]>([]);
   const [promptToSend, setPromptToSend] = useState<string | null>(null);
   const [askPrefill, setAskPrefill] = useState<string | null>(null);
   const [focusPinId, setFocusPinId] = useState<string | null>(null);
@@ -63,13 +62,18 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
     if (newest) setFocusPinId(newest.id);
   }, [sessionId]);
 
-  // Show spinner only after 300ms delay to avoid flash on fast loads
+  // Show spinner only after 300ms delay to avoid flash on fast loads.
+  // After 5s, escalate the message so users know large sessions are still loading.
   const [showSpinner, setShowSpinner] = useState(false);
+  const [isLargeLoad, setIsLargeLoad] = useState(false);
   useEffect(() => {
-    if (!isLoadingMessages) { setShowSpinner(false); return; }
-    const timer = setTimeout(() => setShowSpinner(true), 300);
-    return () => clearTimeout(timer);
+    if (!isLoadingMessages) { setShowSpinner(false); setIsLargeLoad(false); return; }
+    const showTimer = setTimeout(() => setShowSpinner(true), 300);
+    const largeTimer = setTimeout(() => setIsLargeLoad(true), 4000);
+    return () => { clearTimeout(showTimer); clearTimeout(largeTimer); };
   }, [isLoadingMessages]);
+
+  const loadingMessage = isLargeLoad ? 'Loading a large session...' : 'Loading messages...';
 
   // Check if scroll container is near bottom (within threshold)
   const isNearBottom = useCallback(() => {
@@ -305,14 +309,8 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   }, [isActive, sessionId]);
 
   // Fetch starter prompts from agent definition
-  useEffect(() => {
-    const agentId = session?.agent_id;
-    if (agentId) {
-      getAgent(agentId)
-        .then((agent) => setStarterPrompts(agent.starter_prompts || []))
-        .catch(() => setStarterPrompts([]));
-    }
-  }, [session?.agent_id]);
+  // (Removed: ChatPane only mounts for sessions with messages, so starter prompts
+  // are never reachable from the message list. The pre-session screen has its own.)
 
   // Build agent picker items from session's selected sub_agents + discoverable metadata
   const agentPickerItems: AgentPickerItem[] = useMemo(() => {
@@ -371,6 +369,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
         toolSelections={session?.tools || { custom: [], builtin: [], excluded_builtin: [] }}
         systemMessage={session?.system_message}
         tokenUsage={tokenUsage}
+        loadedMessageCount={messages.reduce((n, m) => (m.role === 'user' || m.role === 'assistant' ? n + 1 : n), 0)}
         hasActiveResponse={isStreaming}
         isActivating={sendingSessionId === sessionId}
         sessions={sessions}
@@ -403,26 +402,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      <p className="text-sm">Loading messages...</p>
-                    </div>
-                  ) : messages.length === 0 && !isStreaming ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-4">
-                      <p className="text-gray-400">Start a conversation...</p>
-                      {starterPrompts.length > 0 && (
-                        <div className="w-full max-w-4xl mx-auto space-y-2 px-4">
-                          {starterPrompts.map((sp, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setPromptToSend(sp.prompt)}
-                              title={sp.prompt}
-                              className="w-full text-left px-4 py-2.5 rounded-lg border border-white/40 dark:border-[#3a3a4e] bg-white/50 dark:bg-[#2a2a3c]/50 hover:bg-white/80 dark:hover:bg-[#2a2a3c]/80 transition-colors"
-                            >
-                              <div className="font-medium text-gray-700 dark:text-gray-200">{sp.title}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{sp.prompt}</div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <p className="text-sm">{loadingMessage}</p>
                     </div>
                   ) : (
                     <>

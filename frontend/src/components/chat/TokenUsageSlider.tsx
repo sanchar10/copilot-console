@@ -2,6 +2,7 @@ interface TokenUsageSliderProps {
   tokenLimit?: number;
   currentTokens?: number;
   messagesLength?: number;
+  loadedMessageCount?: number; // user+assistant turns in loaded history (used when no token data yet)
   isActive: boolean; // Whether streaming is currently active
 }
 
@@ -9,13 +10,18 @@ export function TokenUsageSlider({
   tokenLimit, 
   currentTokens, 
   messagesLength, 
+  loadedMessageCount,
   isActive: _isActive 
 }: TokenUsageSliderProps) {
   // Show gray/disabled bar only when no token data exists
   // Keep colored bar after streaming ends to show final usage
   if (!tokenLimit || currentTokens === undefined) {
+    const hasCount = loadedMessageCount !== undefined && loadedMessageCount > 0;
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/50 dark:bg-[#2a2a3c]/50 backdrop-blur rounded-lg border border-gray-200/60 dark:border-gray-700 w-56">
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 bg-white/50 dark:bg-[#2a2a3c]/50 backdrop-blur rounded-lg border border-gray-200/60 dark:border-gray-700 w-56"
+        title={hasCount ? `Session Messages: ${loadedMessageCount!.toLocaleString()}` : undefined}
+      >
         <span className="text-xs font-medium text-gray-400">Tokens</span>
         <div className="flex-1 h-2 bg-white/60 dark:bg-gray-700 rounded-full" />
         <span className="text-xs text-gray-400 w-8 text-right">-</span>
@@ -31,7 +37,7 @@ export function TokenUsageSlider({
   return (
     <div 
       className="flex items-center gap-2 px-3 py-1.5 bg-white/50 dark:bg-[#2a2a3c]/50 backdrop-blur rounded-lg border border-gray-200/60 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors w-56"
-      title={`Token usage: ${currentTokens.toLocaleString()} / ${tokenLimit.toLocaleString()}\nMessages: ${messagesLength || 0}`}
+      title={`Token usage: ${currentTokens.toLocaleString()} / ${tokenLimit.toLocaleString()}\nContext Messages: ${messagesLength || 0}`}
     >
       <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Tokens</span>
       <div className="flex-1 h-2 bg-white/60 dark:bg-gray-700 rounded-full overflow-hidden">
