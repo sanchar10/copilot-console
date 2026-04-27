@@ -47,6 +47,17 @@ class SessionClient:
         # caller can plug in the notification callback) — see
         # ``ensure_oauth_coordinator``.
         self.oauth_coordinator: "MCPOAuthCoordinator | None" = None
+        # Phase 5: long-lived bridge listener that translates SDK
+        # ``session.compaction_start`` / ``session.compaction_complete`` events
+        # into ``session.compaction`` events on the global event_bus. Registered
+        # once per session activation, unsubscribed in ``stop()``. Lets compact
+        # lifecycle events flow on the always-on /events SSE channel instead of
+        # short-lived per-turn streams.
+        self._compact_bridge_unsub = None
+        # Phase 5: in-flight compact RPC task (at most one per session).
+        # Cancelled on ``stop()`` so a tab-close mid-compact doesn't leak the
+        # awaitable when the SDK connection drops.
+        self._compact_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         """Start the client with CWD."""
@@ -63,6 +74,25 @@ class SessionClient:
         """Stop the client and destroy session."""
         if not self.started or not self.client:
             return
+
+        # Phase 5: cancel any in-flight compact RPC before tearing down the
+        # SDK connection; otherwise the await would resolve with a transport
+        # error after we've already discarded the session.
+        if self._compact_task and not self._compact_task.done():
+            self._compact_task.cancel()
+            try:
+                await self._compact_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        self._compact_task = None
+
+        # Phase 5: unsubscribe the global-bus bridge listener.
+        if self._compact_bridge_unsub is not None:
+            try:
+                self._compact_bridge_unsub()
+            except Exception as e:
+                logger.debug(f"[{self.session_id}] compact bridge unsubscribe failed: {e}")
+            self._compact_bridge_unsub = None
 
         if self.oauth_coordinator is not None:
             try:
@@ -86,6 +116,78 @@ class SessionClient:
         self.client = None
         self.started = False
         logger.debug(f"[{self.session_id}] Stopped per-session client")
+
+    def _register_compact_bridge(self) -> None:
+        """Phase 5: bridge SDK compaction + usage_info events to event_bus.
+
+        Registered once per session activation (idempotent — no-op if a
+        bridge is already attached). Forwards both manual-RPC and SDK
+        auto-compaction events; the SDK's ``_dispatch_event`` fires the
+        same events to listeners regardless of trigger.
+
+        ``session.usage_info`` is also bridged so the token bar refreshes
+        after SDK-initiated auto-compaction (which has no RPC result for
+        ``_run_compact`` to publish). When usage_info also flows through
+        an active per-turn stream the frontend just sets the same value
+        twice — harmless.
+        """
+        if self._compact_bridge_unsub is not None or self.session is None:
+            return
+
+        # Local import to avoid a cycle (copilot_service imports session_client).
+        from copilot_console.app.services.event_bus import event_bus
+
+        sid = self.session_id
+
+        def _on_event(evt) -> None:
+            try:
+                etype = evt.type.value if hasattr(evt.type, "value") else str(evt.type)
+            except Exception:
+                return
+            if etype == "session.compaction_start":
+                event_bus.publish(
+                    "session.compaction",
+                    {"phase": "start"},
+                    session_id=sid,
+                )
+            elif etype == "session.compaction_complete":
+                data = getattr(evt, "data", None)
+                event_bus.publish(
+                    "session.compaction",
+                    {
+                        "phase": "complete",
+                        "success": getattr(data, "success", True) if data else True,
+                        "error": getattr(data, "error", None) if data else None,
+                        "tokens_removed": getattr(data, "tokens_removed", None) if data else None,
+                        "messages_removed": getattr(data, "messages_removed", None) if data else None,
+                        "pre_compaction_tokens": getattr(data, "pre_compaction_tokens", None) if data else None,
+                        "post_compaction_tokens": getattr(data, "post_compaction_tokens", None) if data else None,
+                        "checkpoint_number": getattr(data, "checkpoint_number", None) if data else None,
+                    },
+                    session_id=sid,
+                )
+            elif etype == "session.usage_info":
+                data = getattr(evt, "data", None)
+                if data is None:
+                    return
+                token_limit = getattr(data, "token_limit", None)
+                current_tokens = getattr(data, "current_tokens", None)
+                if token_limit is None or current_tokens is None:
+                    return
+                event_bus.publish(
+                    "session.usage_info",
+                    {
+                        "tokenLimit": token_limit,
+                        "currentTokens": current_tokens,
+                        "messagesLength": getattr(data, "messages_length", None),
+                    },
+                    session_id=sid,
+                )
+
+        try:
+            self._compact_bridge_unsub = self.session.on(_on_event)
+        except Exception as e:
+            logger.warning(f"[{sid}] failed to register compact bridge: {e}")
 
     def ensure_oauth_coordinator(self, notify) -> MCPOAuthCoordinator:
         """Create (or return) the per-session OAuth coordinator.
@@ -186,6 +288,8 @@ class SessionClient:
             timeout=30,
         )
         self.touch()
+        # Phase 5: attach the global-bus compact bridge for this session.
+        self._register_compact_bridge()
         # Log capabilities to verify elicitation support
         if hasattr(self.session, 'capabilities'):
             logger.info(f"[{self.session_id}] Session capabilities: {self.session.capabilities}")
@@ -247,6 +351,8 @@ class SessionClient:
                 timeout=30,
             )
             self.touch()
+            # Phase 5: attach the global-bus compact bridge for this session.
+            self._register_compact_bridge()
             logger.debug(f"[{self.session_id}] Resumed SDK session with mcp_servers={len(mcp_servers or {})}, tools={len(tools or [])}")
             return self.session
         except asyncio.TimeoutError:

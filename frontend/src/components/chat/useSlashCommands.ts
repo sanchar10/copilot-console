@@ -37,30 +37,16 @@ export function useSlashCommands(sessionId?: string) {
         }
       } else if (cmd.name === 'compact') {
         if (sessionId && isSessionReady(sessionId)) {
-          // Active session — show progress, fire immediately
-          addMessage(sessionId, {
-            id: `system-compact-progress-${Date.now()}`,
-            role: 'system',
-            content: '⟳ Compacting context...',
-            timestamp: new Date().toISOString(),
-          });
-          compactSession(sessionId).then(result => {
-            const tokens = result.tokens_removed ?? 0;
-            const msgs = result.messages_removed ?? 0;
-            const detail = result.success && (tokens || msgs)
-              ? `Freed ${tokens} tokens. Messages summarized: ${msgs}.`
-              : 'nothing to compact';
+          // Phase 5: fire-and-forget POST. Lifecycle events
+          // (`session.compaction` start/complete + `session.usage_info`)
+          // arrive via the global `/events` SSE channel and are rendered
+          // by the global event bridge in `api/events.ts`.
+          compactSession(sessionId).catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
             addMessage(sessionId, {
-              id: `system-compact-${Date.now()}`,
+              id: `system-error-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               role: 'system',
-              content: `✓ Context compacted — ${detail}`,
-              timestamp: new Date().toISOString(),
-            });
-          }).catch(err => {
-            addMessage(sessionId, {
-              id: `system-error-${Date.now()}`,
-              role: 'system',
-              content: `❌ Failed to compact: ${err instanceof Error ? err.message : 'Unknown error'}`,
+              content: `❌ Failed to compact: ${msg}`,
               timestamp: new Date().toISOString(),
             });
           });
@@ -75,7 +61,7 @@ export function useSlashCommands(sessionId?: string) {
           // Show queued message (only when we have a sessionId to attach it to)
           if (sessionId) {
             addMessage(sessionId, {
-              id: `system-compact-${Date.now()}`,
+              id: `system-compact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               role: 'system',
               content: '📦 Compact: queued — will run when session activates',
               timestamp: new Date().toISOString(),

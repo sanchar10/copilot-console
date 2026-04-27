@@ -162,7 +162,11 @@ export async function updateRuntimeSettings(
 
 // --- Slash Command APIs ---
 
-export async function compactSession(sessionId: string): Promise<{ success: boolean; detail?: string; tokens_removed?: number; messages_removed?: number }> {
+export async function compactSession(sessionId: string): Promise<{ status: string }> {
+  // Phase 5: fire-and-forget. Lifecycle (compaction_start/complete) and the
+  // post-compact usage_info refresh arrive on the global /events SSE channel
+  // and are rendered by the bridge in `api/compactBridge.ts`. The response
+  // body is just a small status acknowledgement.
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/compact`, {
     method: 'POST',
   });

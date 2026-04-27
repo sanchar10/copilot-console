@@ -21,7 +21,7 @@ import { TaskRunDetail } from '../taskboard/TaskRunDetail';
 import { WorkflowLibrary } from '../workflows/WorkflowLibrary';
 import { WorkflowEditor } from '../workflows/WorkflowEditor';
 import { WorkflowRunView } from '../workflows/WorkflowRunView';
-import { updateSession, getSession, updateRuntimeSettings } from '../../api/sessions';
+import { updateSession, getSession, updateRuntimeSettings, compactSession } from '../../api/sessions';
 import { getAgent, getEligibleSubAgents, fetchDiscoverableAgents } from '../../api/agents';
 import type { AgentTools, SystemMessage, Agent, StarterPrompt, DiscoverableAgentsResponse } from '../../types/agent';
 import { useToastStore } from '../../stores/toastStore';
@@ -272,6 +272,30 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discoverableAgents, sessionId]);
 
+  // Auto-fire a queued /compact once the session becomes ready.
+  // User clicks /compact during the activation window -> useSlashCommands sets
+  // pendingCompact and shows "📦 Compact: queued". The fresh-send `consumePendingCompact`
+  // path only runs while the session is still cold (needsLock), so once activation
+  // completes the flag would otherwise be stuck. This effect closes that gap.
+  const isReadyForCompact = useChatStore((s) => s.readySessions.has(sessionId));
+  const hasPendingCompact = useChatStore((s) => !!s.pendingCompact[sessionId]);
+  useEffect(() => {
+    if (!isReadyForCompact || !hasPendingCompact) return;
+    // Consume synchronously so a re-render (e.g., strict-mode double invocation)
+    // can't fire a second POST.
+    const consumed = useChatStore.getState().consumePendingCompact(sessionId);
+    if (!consumed) return;
+    compactSession(sessionId).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      useChatStore.getState().addMessage(sessionId, {
+        id: `system-error-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        role: 'system',
+        content: `❌ Failed to compact: ${msg}`,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  }, [sessionId, isReadyForCompact, hasPendingCompact]);
+
   // Load pins for this session (only when first activated)
   const didFetchPinsRef = useRef(false);
   useEffect(() => {
@@ -372,7 +396,7 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
           <div className="relative flex-1 min-h-0">
             <div className="absolute inset-0">
               <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto p-4">
-                <div className="max-w-4xl mx-auto space-y-6">
+                <div className="max-w-4xl mx-auto space-y-5">
                   {isLoadingMessages && showSpinner ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
                       <svg className="w-6 h-6 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">

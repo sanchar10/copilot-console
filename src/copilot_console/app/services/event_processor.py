@@ -2,8 +2,13 @@
 
 Translates SDK session events into SSE queue entries. The ``on_event``
 callback is registered with ``session.on(processor.on_event)`` and converts
-raw SDK events (deltas, tool calls, compaction, usage, etc.) into the
-dict-based SSE events consumed by the frontend.
+raw SDK events (deltas, tool calls, usage, etc.) into the dict-based SSE
+events consumed by the frontend.
+
+Phase 5 note: compaction lifecycle events (``session.compaction_*`` and the
+follow-up ``session.usage_info``) are NOT handled here. They are bridged to
+the global ``event_bus`` by ``SessionClient._register_compact_bridge`` and
+rendered by the frontend's global ``/events`` SSE handler.
 """
 
 import asyncio
@@ -56,9 +61,6 @@ class EventProcessor:
         self.pending_turn_msg_id: str | None = None
         self.pending_turn_event_id: str | None = None
         self.pending_turn_timestamp: str | None = None
-        self.compacting = False
-        self.idle_received = False
-        self.last_token_limit: int | None = None
 
     # ------------------------------------------------------------------
     # Static helpers
@@ -156,11 +158,37 @@ class EventProcessor:
     # ------------------------------------------------------------------
 
     def on_event(self, event) -> None:
-        """Main event handler — register with ``session.on(processor.on_event)``."""
+        """Main event handler — register with ``session.on(processor.on_event)``.
+
+        The entire body is wrapped in try/except because the SDK's
+        ``_dispatch_event`` swallows handler exceptions silently (bare
+        ``print``, no logger). If an exception escapes us during a
+        terminal/control event (idle, error) the stream could hang forever,
+        so we install a fail-safe that calls ``terminate_stream()`` from the
+        outer handler in that case.
+        """
+        event_type = "<unknown>"
+        is_terminal_event = False
+        try:
+            event_type = event.type.value if hasattr(event.type, "value") else str(event.type)
+            is_terminal_event = event_type in {"session.idle", "session.error"}
+            self._handle_event(event, event_type)
+        except Exception:
+            logger.exception(
+                f"[{self.session_id}] on_event handler raised for event_type={event_type}"
+            )
+            if is_terminal_event and not self.done.is_set():
+                try:
+                    self.terminate_stream()
+                except Exception:
+                    logger.exception(
+                        f"[{self.session_id}] terminate_stream fail-safe raised"
+                    )
+
+    def _handle_event(self, event, event_type: str) -> None:
         # Keep session alive during long-running operations
         self.touch_callback()
 
-        event_type = event.type.value if hasattr(event.type, "value") else str(event.type)
         data = getattr(event, "data", None)
 
         if event_type == "assistant.message_delta":
@@ -208,6 +236,9 @@ class EventProcessor:
             intent = getattr(data, "intent", None)
             if isinstance(intent, str) and intent.strip():
                 self._enqueue_step("Intent", intent)
+
+        elif event_type == "assistant.turn_start":
+            pass
 
         elif event_type == "assistant.turn_end":
             if self.full_response or self.pending_turn_msg_id:
@@ -311,47 +342,16 @@ class EventProcessor:
             self._enqueue_step(f"✗ Agent: {name} failed", str(err) if err else None)
 
         elif event_type == "session.compaction_start":
-            self.compacting = True
-            self._enqueue_step("⟳ Compacting context", "Background compaction started — summarizing older messages to free context space. You can continue chatting.")
-            logger.debug(f"[{self.session_id}] Compaction started")
+            # Phase 5: compaction lifecycle is bridged to the global event_bus
+            # by SessionClient. No per-turn rendering here.
+            pass
 
         elif event_type == "session.compaction_complete":
-            self.compacting = False
-            success = getattr(data, "success", None)
-            tokens_removed = getattr(data, "tokens_removed", None)
-            pre_tokens = getattr(data, "pre_compaction_tokens", None)
-            post_tokens = getattr(data, "post_compaction_tokens", None)
-            msgs_removed = getattr(data, "messages_removed", None)
-            checkpoint = getattr(data, "checkpoint_number", None)
-
-            if success:
-                parts = ["Compaction completed successfully."]
-                if tokens_removed is not None and pre_tokens:
-                    pct = round((tokens_removed / pre_tokens) * 100)
-                    parts.append(f"Freed {int(tokens_removed):,} tokens ({pct}% of context).")
-                if post_tokens is not None:
-                    parts.append(f"Context now: {int(post_tokens):,} tokens.")
-                if msgs_removed is not None:
-                    parts.append(f"Messages summarized: {int(msgs_removed)}.")
-                if checkpoint is not None:
-                    parts.append(f"Checkpoint #{int(checkpoint)} saved.")
-                self._enqueue_step("✓ Context compacted", " ".join(parts))
-                if post_tokens is not None and self.last_token_limit is not None:
-                    _safe_enqueue(self.event_queue, {
-                        "event": "usage_info",
-                        "data": {
-                            "tokenLimit": self.last_token_limit,
-                            "currentTokens": post_tokens,
-                            "messagesLength": 0,
-                        },
-                    })
-            else:
-                error = getattr(data, "error", None)
-                self._enqueue_step("✗ Compaction failed", str(error) if error else "Compaction did not succeed.")
-            logger.debug(f"[{self.session_id}] Compaction complete: success={success}, tokens_removed={tokens_removed}")
-
-            if self.idle_received:
-                self.terminate_stream()
+            # Phase 5: see compaction_start. The compact bridge publishes the
+            # ``session.compaction`` event globally; ``CopilotService._run_compact``
+            # additionally publishes a ``session.usage_info`` event for the
+            # token-bar refresh.
+            pass
 
         elif event_type == "session.error":
             msg = getattr(data, "message", None)
@@ -363,8 +363,6 @@ class EventProcessor:
             token_limit = getattr(data, "token_limit", None)
             current_tokens = getattr(data, "current_tokens", None)
             messages_length = getattr(data, "messages_length", None)
-            if token_limit:
-                self.last_token_limit = token_limit
             if token_limit and current_tokens is not None:
                 _safe_enqueue(self.event_queue, {
                     "event": "usage_info",
@@ -399,8 +397,4 @@ class EventProcessor:
                 logger.debug(f"[{self.session_id}] Mode changed: {prev_val} → {mode_val}")
 
         elif event_type == "session.idle":
-            self.idle_received = True
-            if self.compacting:
-                logger.debug(f"[{self.session_id}] session.idle while compacting — waiting for compaction_complete")
-            else:
-                self.terminate_stream()
+            self.terminate_stream()

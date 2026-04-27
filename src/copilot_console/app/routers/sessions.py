@@ -316,9 +316,12 @@ async def update_runtime_settings(session_id: str, request: RuntimeSettingsReque
 @router.post("/{session_id}/compact")
 async def compact_session(session_id: str) -> dict:
     """Compact session context to free tokens.
-    
-    Removes old messages and frees token budget. Activates the session if
-    not already active.
+
+    Phase 5: thin wrapper that fires the compact RPC as a background task.
+    Lifecycle events (``session.compaction`` start/complete and a follow-up
+    ``session.usage_info``) flow on the global ``/events`` SSE channel and
+    are rendered by the frontend's global event handler. Returns immediately
+    with a status acknowledgement.
     """
     set_session_context(session_id)
     session = session_service.get_session_local(session_id)

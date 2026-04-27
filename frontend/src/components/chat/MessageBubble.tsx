@@ -282,9 +282,9 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
   if (isSystem) {
     return (
       <div className="flex items-center justify-center gap-2 py-1.5">
-        <div className="h-px w-8 flex-shrink-0 bg-gray-200 dark:bg-gray-700" />
-        <span className="text-xs text-gray-500 dark:text-gray-400 px-2 flex-1 min-w-0 text-center break-words">{message.content}</span>
-        <div className="h-px w-8 flex-shrink-0 bg-gray-200 dark:bg-gray-700" />
+        <div className="h-px flex-1 min-w-[2rem] bg-gray-200 dark:bg-gray-700" />
+        <span className="text-xs text-gray-500 dark:text-gray-400 px-2 max-w-[85%] text-center break-words">{message.content}</span>
+        <div className="h-px flex-1 min-w-[2rem] bg-gray-200 dark:bg-gray-700" />
       </div>
     );
   }

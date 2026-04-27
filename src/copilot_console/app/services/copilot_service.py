@@ -568,6 +568,85 @@ class CopilotService:
         )
         return await client.start_fleet(prompt)
 
+    # -------------------------------------------------------------------------
+    # Phase 5: kick_compact — fire-and-forget RPC; events flow on global bus
+    # -------------------------------------------------------------------------
+
+    async def kick_compact(self, session_id: str) -> dict:
+        """Fire ``session.history.compact`` as a background task.
+
+        Idempotent: if a compact RPC is already in flight for this session,
+        does nothing. The SDK's ``compaction_start`` / ``compaction_complete``
+        events are bridged to the global ``event_bus`` (see
+        ``SessionClient._register_compact_bridge``) so the UI receives
+        lifecycle updates on the always-on ``/events`` SSE channel,
+        independent of whether a per-turn stream is open.
+
+        Returns a small status dict for the caller (the actual outcome
+        flows through events on the global bus, not this return value).
+        """
+        client = self._session_clients.get(session_id)
+        if client is None or client.session is None:
+            return {"status": "no_session"}
+
+        if client._compact_task is not None and not client._compact_task.done():
+            return {"status": "already_running"}
+
+        client._compact_task = asyncio.create_task(self._run_compact(client))
+        return {"status": "kicked"}
+
+    async def _run_compact(self, client: SessionClient) -> None:
+        """Drive the compact RPC and publish post-completion usage_info.
+
+        The SDK fires ``compaction_start`` / ``compaction_complete`` events
+        through the bridge listener, so we don't need to publish them here.
+        We only need to:
+
+        * Synthesize a ``session.compaction`` failure event when the RPC
+          raises before the SDK could emit ``compaction_complete`` (transport
+          failure) — otherwise the UI would be stuck on "compacting…".
+        * Publish a ``session.usage_info`` event after a successful RPC so
+          the token bar refreshes immediately. The SDK's
+          ``compaction_complete`` event lacks the ``tokenLimit`` field; the
+          RPC result's ``context_window`` has all three values needed by the
+          frontend.
+        """
+        from copilot_console.app.services.event_bus import event_bus
+
+        session_id = client.session_id
+        try:
+            session = client.session
+            if session is None:
+                return  # raced with stop()
+            result = await session.rpc.history.compact()
+            client.touch()
+            cw = getattr(result, "context_window", None)
+            if cw is not None:
+                event_bus.publish(
+                    "session.usage_info",
+                    {
+                        "tokenLimit": getattr(cw, "token_limit", None),
+                        "currentTokens": getattr(cw, "current_tokens", None),
+                        "messagesLength": getattr(cw, "messages_length", None),
+                    },
+                    session_id=session_id,
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning(f"[{session_id}] kick_compact RPC raised: {e}")
+            event_bus.publish(
+                "session.compaction",
+                {"phase": "complete", "success": False, "error": str(e)},
+                session_id=session_id,
+            )
+        finally:
+            try:
+                if client._compact_task is asyncio.current_task():
+                    client._compact_task = None
+            except Exception:
+                pass
+
     async def compact_session(self, session_id: str, cwd: str,
                               mcp_servers: dict[str, dict] | None = None,
                               tools: list[Tool] | None = None,
@@ -575,14 +654,22 @@ class CopilotService:
                               excluded_tools: list[str] | None = None,
                               system_message: dict | None = None,
                               custom_agents: list[dict] | None = None) -> dict:
-        """Compact session context, activating the session if needed."""
+        """Compact session context, activating the session if needed.
+
+        Phase 5: thin wrapper around ``kick_compact``. Activates the session
+        if necessary, then fires the compact RPC as a background task whose
+        lifecycle events flow on the global ``event_bus`` (see
+        ``SessionClient._register_compact_bridge``). Returns immediately with
+        a status dict; the actual outcome arrives via the ``/events`` SSE
+        channel as ``session.compaction`` and ``session.usage_info`` events.
+        """
         client = await self.get_session_client(session_id, cwd)
         await client.get_or_create_session(
             model="", mcp_servers=mcp_servers, tools=tools,
             available_tools=available_tools, excluded_tools=excluded_tools,
             system_message=system_message, custom_agents=custom_agents,
         )
-        return await client.compact()
+        return await self.kick_compact(session_id)
 
     async def send_message(
         self,
@@ -647,9 +734,10 @@ class CopilotService:
             except Exception as e:
                 logger.warning(f"[{session_id}] Failed to set agent mode '{agent_mode}': {e}")
 
-        # Run deferred compact if requested (from new/resumed session)
-        # NOTE: compact requires an active agent context, which only exists
-        # after session.send() completes. We defer it to post-turn below.
+        # Run deferred compact if requested (from new/resumed session).
+        # Phase 5: simplified — fire kick_compact AFTER session.send() so the
+        # SDK has an active agent context. Lifecycle events flow on the global
+        # event_bus via SessionClient's bridge listener; no per-turn coupling.
         pending_compact = compact
 
         # Select or deselect agent if requested (from new/resumed session)
@@ -694,22 +782,28 @@ class CopilotService:
 
         coordinator = client.ensure_oauth_coordinator(_oauth_notify)
 
-        # Gate the agent on MCP readiness — COLD PATHS ONLY. The SDK boots
-        # HTTP MCP servers lazily on the first session.send() of a fresh or
-        # resumed session, and they take a few seconds to reach ``connected``
-        # (or longer if OAuth is needed). Sending the user prompt before tools
-        # are ready makes the agent answer "I don't have access to <tool>".
-        # We block here until every server has reached a terminal state, with
-        # a 30s ceiling — cached-token paths exit in 1-3s, OAuth paths surface
-        # a toast on the global event bus and the user signs in while we wait.
-        # The wait yields nothing on the per-turn stream, so the InputBox
-        # "Activating session, please wait..." UX stays visible end-to-end.
+        # Gate the agent on MCP readiness — COLD PATHS WITH MCP SERVERS ONLY.
+        # The SDK boots HTTP MCP servers lazily on the first session.send() of a
+        # fresh or resumed session, and they take a few seconds to reach
+        # ``connected`` (or longer if OAuth is needed). Sending the user prompt
+        # before tools are ready makes the agent answer "I don't have access to
+        # <tool>". We block here until every server has reached a terminal state,
+        # with a 30s ceiling — cached-token paths exit in 1-3s, OAuth paths
+        # surface a toast on the global event bus and the user signs in while
+        # we wait. The wait yields nothing on the per-turn stream, so the
+        # InputBox "Activating session, please wait..." UX stays visible
+        # end-to-end.
+        #
+        # Sessions with NO MCP servers configured skip the gate entirely:
+        # ``mcp.list()`` returns ``[]`` for them, and ``wait_until_ready``'s
+        # poll loop has no early-exit for the empty case — it would burn the
+        # full 30s ceiling for nothing.
         #
         # Warm turns skip this entirely: the SDK silently refreshes access
         # tokens (~1hr lifetime) using cached refresh tokens, and the
         # post_turn_hook safety net catches the rare refresh-token failure
         # case on the next turn_end -> surfaces a toast for the next turn.
-        if was_cold:
+        if was_cold and mcp_servers:
             try:
                 ready = await coordinator.wait_until_ready(timeout=30.0)
             except Exception as e:
@@ -743,66 +837,70 @@ class CopilotService:
             touch_callback=client.touch,
             post_turn_hook=_post_turn,
         )
-        session.on(processor.on_event)
+        unsubscribe = session.on(processor.on_event)
 
-        # Fleet mode: fire fleet.start() as a concurrent task so it doesn't
-        # block the generator. Events flow through on_event → queue → yield.
-        # session.idle (the last event) terminates the stream.
-        if fleet:
-            logger.debug(f"[{session_id}] Starting fleet mode")
+        try:
+            # Fleet mode: fire fleet.start() as a concurrent task so it doesn't
+            # block the generator. Events flow through on_event → queue → yield.
+            # session.idle (the last event) terminates the stream.
+            if fleet:
+                logger.debug(f"[{session_id}] Starting fleet mode")
 
-            async def _run_fleet() -> None:
+                async def _run_fleet() -> None:
+                    try:
+                        result = await client.start_fleet(prompt)
+                        logger.debug(f"[{session_id}] Fleet RPC returned: started={result.get('started')}")
+                    except Exception as e:
+                        logger.error(f"[{session_id}] Fleet RPC error: {e}", exc_info=True)
+                        if not done.is_set():
+                            processor.terminate_stream()
+
+                asyncio.create_task(_run_fleet())
+            else:
+                send_kwargs: dict = {}
+                if mode:
+                    send_kwargs["mode"] = mode
+                if attachments:
+                    send_kwargs["attachments"] = attachments
+                await session.send(prompt, **send_kwargs)
+
+            # Phase 5: pending compact requested via the activation message.
+            # Fire kick_compact AFTER session.send() so the SDK has accepted
+            # the prompt and an active context exists. Lifecycle events
+            # (compaction_start/complete + post-compact usage_info) flow on
+            # the global event_bus via SessionClient's bridge listener — they
+            # are NOT mixed into this per-turn stream.
+            if pending_compact:
                 try:
-                    result = await client.start_fleet(prompt)
-                    logger.debug(f"[{session_id}] Fleet RPC returned: started={result.get('started')}")
+                    await self.kick_compact(session_id)
                 except Exception as e:
-                    logger.error(f"[{session_id}] Fleet RPC error: {e}", exc_info=True)
-                    if not done.is_set():
-                        processor.terminate_stream()
+                    logger.warning(f"[{session_id}] kick_compact after send failed: {e}")
 
-            asyncio.create_task(_run_fleet())
-        else:
-            send_kwargs: dict = {}
-            if mode:
-                send_kwargs["mode"] = mode
-            if attachments:
-                send_kwargs["attachments"] = attachments
-            await session.send(prompt, **send_kwargs)
+            # Main event consumption loop.
+            while not done.is_set():
+                try:
+                    item = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                    if item is None:
+                        break
+                    yield item
+                except asyncio.TimeoutError:
+                    continue
 
-        # Main event consumption loop.
-        while not done.is_set():
-            try:
-                item = await asyncio.wait_for(event_queue.get(), timeout=1.0)
-                if item is None:
-                    break
-                yield item
-            except asyncio.TimeoutError:
-                continue
-
-        # Drain any remaining queued events
-        while not event_queue.empty():
-            item = event_queue.get_nowait()
-            if item is not None:
-                yield item
-
-        # Run deferred compact AFTER the turn completes (agent context is now active).
-        # The SDK emits its own ⟳/✓ step events through the event listener, which
-        # land on event_queue. We drain them after compact completes.
-        if pending_compact:
-            try:
-                result = await client.compact()
-                logger.info(
-                    f"[{session_id}] Deferred compact: tokens_removed={result.get('tokens_removed', 0)}, "
-                    f"messages_removed={result.get('messages_removed', 0)}"
-                )
-            except Exception as e:
-                logger.warning(f"[{session_id}] Deferred compact failed: {e}")
-            # Drain compact events from the queue
-            await asyncio.sleep(0.1)  # let SDK events propagate
+            # Drain any remaining queued events (including any compact step
+            # messages enqueued just before terminate_stream).
             while not event_queue.empty():
                 item = event_queue.get_nowait()
                 if item is not None:
                     yield item
+        finally:
+            # Always unsubscribe to prevent listener leaks across turns.
+            # Covers normal exit, GeneratorExit (consumer cancelled), and
+            # CancelledError (background task cancelled).
+            if callable(unsubscribe):
+                try:
+                    unsubscribe()
+                except Exception as e:
+                    logger.debug(f"[{session_id}] unsubscribe raised: {e}")
 
         logger.debug(f"[{session_id}] Agent responded")
 

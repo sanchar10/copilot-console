@@ -331,7 +331,7 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
           clearSendingOnce();
           if (step.title?.startsWith('⟳ Compacting') || step.title?.startsWith('✓ Context compacted') || step.title?.startsWith('✗ Compaction')
               || step.title?.startsWith('🤖 Agent:') || step.title?.startsWith('✨ Agent:') || step.title?.startsWith('✗ Agent')) {
-            addMessage(activeSessionId!, { id: `system-${Date.now()}`, role: 'system', content: `${step.title}${step.detail ? ` — ${step.detail}` : ''}`, timestamp: new Date().toISOString() });
+            addMessage(activeSessionId!, { id: `system-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, role: 'system', content: `${step.title}${step.detail ? ` — ${step.detail}` : ''}`, timestamp: new Date().toISOString() });
           } else { addStreamingStep(activeSessionId!, step); }
         },
         onUsageInfo: (usage) => { setTokenUsage(activeSessionId!, usage); },
