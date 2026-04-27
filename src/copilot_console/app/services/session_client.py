@@ -17,13 +17,9 @@ from copilot.generated.rpc import (
     AgentSelectRequest,
 )
 
-# SDK >=0.1.28 requires on_permission_request for create/resume session.
-# Import approve_all if available, otherwise provide a fallback for older SDKs.
-try:
-    from copilot.session import PermissionHandler
-    approve_all_permissions = PermissionHandler.approve_all
-except (ImportError, AttributeError):
-    approve_all_permissions = None
+# SDK requires on_permission_request for create/resume session.
+from copilot.session import PermissionHandler
+approve_all_permissions = PermissionHandler.approve_all
 
 from copilot_console.app.services.logging_service import get_logger
 from copilot_console.app.services.mcp_oauth_coordinator import MCPOAuthCoordinator

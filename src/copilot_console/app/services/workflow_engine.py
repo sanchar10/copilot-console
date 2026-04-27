@@ -120,12 +120,9 @@ except ImportError:
         def __init__(self, **kwargs: Any) -> None:
             pass
 
-# SDK >=0.1.28 requires on_permission_request for create/resume session.
-try:
-    from copilot.session import PermissionHandler
-    approve_all_permissions = PermissionHandler.approve_all
-except (ImportError, AttributeError):
-    approve_all_permissions = None
+# SDK requires on_permission_request for create/resume session.
+from copilot.session import PermissionHandler
+approve_all_permissions = PermissionHandler.approve_all
 
 logger = logging.getLogger(__name__)
 
