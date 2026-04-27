@@ -1,12 +1,24 @@
 kind: Workflow
 name: feature-tour
 description: |
-  Guided tour of the new workflow features. Click ▶ Run to see:
-    1. A multiple-choice Question (HITL question row)
-    2. A yes/no Confirmation (HITL confirmation row)
-    3. A TryCatch that triggers and recovers from an error (red "Executor failed" badge + 3-lane TryCatch in the YAML diagram)
-    4. The Creative Poet agent writing on your chosen topic
-  No PowerFx expressions are used, so this runs everywhere.
+  Guided tour of the new workflow features.
+
+  ⚠ Before clicking ▶ Run, type a topic into the "Input message (optional)"
+  field — e.g. "sunsets" or "a sleepy cat". The Creative Poet uses that as
+  the poem topic. (Threading a Question answer into the agent would require
+  PowerFx expressions, unavailable on Python 3.14+.)
+
+  You'll see:
+    1. A multiple-choice Question — HITL question row with three buttons
+    2. A yes/no Confirmation — HITL confirmation row with custom labels
+    3. Creative Poet streams a poem on the topic you typed
+    4. Click 📊 Diagram in the toolbar — YAML overlay of the flow
+
+  (TryCatch was removed from this demo: agent_framework_declarative
+  does not wire TryCatch/ThrowException as top-level YAML actions —
+  they would be silently skipped by the builder. The 'Executor failed'
+  badge styling still kicks in for any real executor failure, e.g. a
+  missing agent or network error.)
 trigger:
   kind: OnConversationStart
   id: feature_tour
@@ -15,41 +27,27 @@ trigger:
       id: intro
       activity: "👋 Welcome to the feature tour. Watch the live viewer on the right."
 
-    # ---- HITL #1: Question with choices -> HumanInputRow renders buttons
+    # ---- HITL #1: Question with choices -> HumanInputRow renders buttons.
+    # Note: without PowerFx we can't thread Local.topic into the agent below;
+    # this step is here to demonstrate the question-with-choices HITL pattern.
     - kind: Question
-      id: pick_topic
-      variable: Local.topic
-      prompt: "Pick a topic for the poem"
+      id: pick_mood
+      variable: Local.mood
+      prompt: "Pick a mood for the poem (decorative — actual topic comes from the Input message field)"
       choices:
-        - sunsets
-        - quantum physics
-        - a sleepy cat
+        - playful
+        - reflective
+        - dramatic
 
-    # ---- HITL #2: Confirmation -> HumanInputRow renders Yes/No
+    # ---- HITL #2: Confirmation -> HumanInputRow renders Yes/No.
     - kind: Confirmation
-      id: confirm_demo_error
-      text: "Next we'll deliberately trigger an error to demo TryCatch recovery. Continue?"
-      yesLabel: Trigger error
-      noLabel: Skip
+      id: confirm_proceed
+      text: "Ready to invoke the Creative Poet on your topic?"
+      yesLabel: Write the poem
+      noLabel: Cancel
 
-    # ---- TryCatch: shows the 3-lane mermaid + "Executor failed" badge in the
-    #      event log when the throw fires, then the catch lane runs cleanly.
-    - kind: TryCatch
-      id: demo_recovery
-      try:
-        - kind: SendActivity
-          id: about_to_throw
-          activity: "About to raise a controlled error..."
-        - kind: ThrowException
-          id: boom
-          message: "Demo error — this is intentional and will be caught."
-          code: DEMO_ERROR
-      catch:
-        - kind: SendActivity
-          id: caught
-          activity: "✅ Recovered from the error — the catch lane is running."
-
-    # ---- Real agent invocation, using a seeded agent.
+    # ---- Real agent invocation. Receives the conversation's initial
+    # message (the "Input message" field) as its prompt.
     - kind: InvokeAzureAgent
       id: write_poem
       agent:
@@ -58,3 +56,4 @@ trigger:
     - kind: SendActivity
       id: outro
       activity: "🎉 Tour complete. Click 📊 Diagram in the toolbar to see the YAML overlay."
+
