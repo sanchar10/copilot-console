@@ -100,15 +100,24 @@ async def delete_workflow(workflow_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 @router.get("/workflows/{workflow_id}/visualize")
-async def visualize_workflow(workflow_id: str) -> dict:
-    """Get Mermaid diagram for a workflow."""
+async def visualize_workflow(workflow_id: str, raw: bool = False) -> dict:
+    """Get Mermaid diagram for a workflow.
+
+    By default returns the YAML-overlay diagram (Phase 4) which surfaces
+    declarative semantics — diamonds for ``If``/``Switch``/``ConditionGroup``,
+    subgraphs for ``Foreach``/``RepeatUntil``/``TryCatch``. Pass ``?raw=true``
+    to get AF's built-in mermaid (handy for debugging diagram drift).
+    """
     yaml_content = workflow_storage_service.get_yaml_content(workflow_id)
     if yaml_content is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
-    result = workflow_engine.validate_yaml(yaml_content)
-    if not result["valid"]:
-        raise HTTPException(status_code=400, detail=f"Invalid YAML: {result['error']}")
-    return {"mermaid": result["mermaid"]}
+    if raw:
+        result = workflow_engine.validate_yaml(yaml_content)
+        if not result["valid"]:
+            raise HTTPException(status_code=400, detail=f"Invalid YAML: {result['error']}")
+        return {"mermaid": result["mermaid"]}
+    # Overlay path doesn't need a successful Workflow build — pure YAML walk.
+    return {"mermaid": workflow_engine.visualize_overlay(yaml_content)}
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +152,8 @@ async def run_workflow(workflow_id: str, request: WorkflowRunRequest | None = No
         "events": [],
         "status": "running",
         "pending_input": None,
+        "handle": None,
+        "pending_emitted": False,
     }
 
     # Start execution in background
@@ -195,8 +206,12 @@ async def _execute_workflow(
         if request:
             run_input = request.input_params or ({"message": request.message} if request.message else None)
 
-        # Use workflow.run() for streaming events (oneshot path)
-        async for event in workflow_engine.run_oneshot(workflow, run_input):
+        # Start the run with HITL support — RunHandle owns the live workflow
+        # across pause/resume boundaries.
+        handle = await workflow_engine.start_run(workflow, run_input)
+        active["handle"] = handle
+
+        async for event in handle.events():
             event_data = _serialize_workflow_event(event, run_id)
             active["events"].append(event_data)
 
@@ -225,13 +240,19 @@ async def _execute_workflow(
                         node_results[executor_id]["status"] = "failed"
                         node_results[executor_id]["error"] = event_data.get("error")
 
-            # Check for human input requests
+            # Check for human input requests — RunHandle has paused internally
+            # by the time we see this event, awaiting submit_response().
             if event_data.get("type") == "request_info":
+                pending_req = handle.pending_request
                 active["pending_input"] = {
                     "request_id": event_data.get("request_id"),
                     "data": event_data.get("data"),
+                    "request_type": getattr(pending_req, "request_type", None) if pending_req else None,
+                    "message": getattr(pending_req, "message", None) if pending_req else None,
+                    "metadata": getattr(pending_req, "metadata", None) if pending_req else None,
                 }
                 active["status"] = "paused"
+                active["pending_emitted"] = False
                 workflow_run_service.mark_paused(run)
 
         # Append a completion event so history view matches live SSE view
@@ -453,11 +474,31 @@ async def send_human_input(run_id: str, request: HumanInputRequest) -> dict:
         raise HTTPException(status_code=404, detail="Active workflow run not found")
     if active["status"] != "paused":
         raise HTTPException(status_code=400, detail=f"Run is not paused (status: {active['status']})")
-    if not active.get("pending_input"):
+    pending = active.get("pending_input")
+    if not pending:
         raise HTTPException(status_code=400, detail="No pending input request")
 
-    # Store the response — the workflow execution loop will pick it up
-    active["pending_input"]["response"] = request.data
+    handle = active.get("handle")
+    if handle is None:
+        raise HTTPException(status_code=500, detail="Run handle missing — cannot resume")
+
+    # Validate request_id matches the live pending request (rejects stale /
+    # double-submits before any state mutation).
+    expected = handle.pending_request_id
+    if expected and request.request_id != expected:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Stale request_id: expected {expected}, got {request.request_id}",
+        )
+
+    try:
+        await handle.submit_response(request.request_id, request.data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Atomically clear pending state so SSE stops emitting human_input_required.
+    active["pending_input"] = None
+    active["pending_emitted"] = False
     active["status"] = "running"
     active["events"].append({
         "type": "human_input_received",
@@ -531,7 +572,11 @@ async def stream_workflow_run(run_id: str, from_event: int = 0) -> EventSourceRe
                         _active_runs.pop(run_id, None)
                         return
 
-                if active["status"] == "paused" and active.get("pending_input"):
+                if (
+                    active["status"] == "paused"
+                    and active.get("pending_input")
+                    and not active.get("pending_emitted")
+                ):
                     yield {
                         "event": "human_input_required",
                         "data": json.dumps({
@@ -539,8 +584,12 @@ async def stream_workflow_run(run_id: str, from_event: int = 0) -> EventSourceRe
                             "run_id": run_id,
                             "request_id": active["pending_input"].get("request_id"),
                             "data": active["pending_input"].get("data"),
+                            "request_type": active["pending_input"].get("request_type"),
+                            "message": active["pending_input"].get("message"),
+                            "metadata": active["pending_input"].get("metadata"),
                         }, default=str),
                     }
+                    active["pending_emitted"] = True
 
                 await asyncio.sleep(0.5)
                 idle_count += 1

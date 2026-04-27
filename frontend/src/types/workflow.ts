@@ -74,5 +74,34 @@ export interface WorkflowRunRequest {
 
 export interface HumanInputRequest {
   request_id: string;
-  data: Record<string, unknown> | string | boolean;
+  data: unknown;
+}
+
+/** Discriminator from agent_framework's ExternalInputRequest.request_type. */
+export type HumanInputKind = 'confirmation' | 'question' | 'user_input' | 'external';
+
+/** Choice shape for question kind. */
+export interface HumanInputChoice {
+  value: string;
+  label: string;
+}
+
+/** Polymorphic prompt shape pushed via the human_input_required SSE event. */
+export interface HumanInputPrompt {
+  request_id: string;
+  request_type?: HumanInputKind | string | null;
+  message?: string | null;
+  metadata?: {
+    output_property?: string;
+    choices?: HumanInputChoice[] | null;
+    yes_label?: string;
+    no_label?: string;
+    default_value?: unknown;
+    allow_free_text?: boolean;
+    timeout_seconds?: number | null;
+    required_fields?: string[] | null;
+    [key: string]: unknown;
+  } | null;
+  /** Legacy free-form data carried forward from the SDK event for fallback rendering. */
+  data?: unknown;
 }
