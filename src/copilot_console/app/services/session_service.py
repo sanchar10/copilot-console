@@ -6,8 +6,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-import aiofiles
-
 from copilot_console.app.config import COPILOT_SESSION_STATE
 from copilot_console.app.models.message import Message, MessageAttachment, MessageStep
 from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages
@@ -31,33 +29,6 @@ def _migrate_selections(value: Any) -> list[str]:
     if isinstance(value, dict):
         return [k for k, v in value.items() if v]
     return []
-
-
-async def read_raw_events(session_id: str) -> list[dict[str, Any]]:
-    """Read raw events from events.jsonl file asynchronously.
-    
-    The SDK doesn't expose reasoningText in its API, so we need to read
-    the raw events file directly to get this information.
-    """
-    events_file = COPILOT_SESSION_STATE / session_id / "events.jsonl"
-    events = []
-    
-    if not events_file.exists():
-        return events
-    
-    try:
-        async with aiofiles.open(events_file, 'r', encoding='utf-8') as f:
-            async for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        events.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-    except Exception as e:
-        logger.warning(f"Failed to read events.jsonl for session {session_id}: {e}")
-    
-    return events
 
 
 def get_session_mtime(session_id: str) -> datetime:
@@ -586,10 +557,6 @@ class SessionService:
                                 displayName=getattr(att, "display_name", None),
                             ))
 
-                    # Skip CLI-injected system notifications masquerading as user messages
-                    if isinstance(content, str) and "<system_notification>" in content:
-                        continue
-
                     if isinstance(content, str) and (content.strip() or msg_attachments):
                         evt_id = getattr(evt, 'id', None)
                         evt_ts = getattr(evt, 'timestamp', None)
@@ -658,6 +625,15 @@ class SessionService:
                 elif evt_type == "assistant.message":
                     content = _format_assistant_content(data)
                     if content and content.strip():
+                        # SDK exposes reasoning_text directly on AssistantMessageData;
+                        # prepend it as a Reasoning step (skipping if a Reasoning step
+                        # was already captured from a separate assistant.reasoning event,
+                        # which doesn't happen with current SDK/CLI but guards future skew).
+                        reasoning_text = getattr(data, "reasoning_text", None)
+                        if isinstance(reasoning_text, str) and reasoning_text.strip():
+                            already_has_reasoning = any(s.get("title") == "Reasoning" for s in pending_steps)
+                            if not already_has_reasoning:
+                                pending_steps.insert(0, {"title": "Reasoning", "detail": reasoning_text})
                         # Attach pending steps to this message
                         steps = [MessageStep(title=s["title"], detail=s.get("detail")) for s in pending_steps] if pending_steps else None
                         sdk_message_id = _extract_sdk_message_id(data)
@@ -677,49 +653,7 @@ class SessionService:
         except Exception as e:
             logger.error(f"Failed to get messages for session {session_id}: {e}")
             messages = []
-        
-        # SDK doesn't expose reasoningText, so read from raw events.jsonl
-        # and merge reasoningText into assistant messages
-        try:
-            raw_events = await read_raw_events(session_id)
-            reasoning_by_message_id: dict[str, str] = {}
-            
-            for raw_evt in raw_events:
-                if raw_evt.get("type") == "assistant.message":
-                    data = raw_evt.get("data", {})
-                    msg_id = data.get("messageId")
-                    reasoning = data.get("reasoningText")
-                    if msg_id and reasoning:
-                        reasoning_by_message_id[msg_id] = reasoning
-            
-            # Fallback content mapping (legacy) for cases where SDK IDs aren't available.
-            content_to_reasoning: dict[str, str] = {}
-            for raw_evt in raw_events:
-                if raw_evt.get("type") == "assistant.message":
-                    data = raw_evt.get("data", {})
-                    content = data.get("content", "")
-                    reasoning = data.get("reasoningText")
-                    if content and reasoning:
-                        content_to_reasoning[content.strip()] = reasoning
 
-            # Add reasoning as a step to matching messages (prefer SDK messageId).
-            for msg in messages:
-                if msg.role == "assistant":
-                    anchor_id = msg.sdk_message_id or msg.id
-                    reasoning = reasoning_by_message_id.get(anchor_id)
-                    if not reasoning and msg.content:
-                        reasoning = content_to_reasoning.get(msg.content.strip())
-                    if reasoning:
-                        reasoning_step = MessageStep(title="Reasoning", detail=reasoning)
-                        if msg.steps:
-                            # Add reasoning at the beginning
-                            msg.steps = [reasoning_step] + list(msg.steps)
-                        else:
-                            msg.steps = [reasoning_step]
-        
-        except Exception as e:
-            logger.warning(f"Failed to read raw events for reasoningText: {e}")
-        
         logger.debug(f"Returning {len(messages)} messages for session {session_id}")
 
         return SessionWithMessages(
