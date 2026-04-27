@@ -1,0 +1,77 @@
+kind: Workflow
+name: feature-tour-advanced
+description: |
+  Advanced tour — exercises branching, loops, and PowerFx expressions.
+
+  This file uses =expressions, which require the optional `powerfx` Python
+  package (wheels ship for Python 3.10–3.13 only). On environments without
+  powerfx, validation will fail with a clear message — that's intentional and
+  demonstrates the expression-availability guard.
+
+  When powerfx IS available, you'll see:
+    • An If/else diamond in the YAML diagram and at runtime
+    • A Switch with three cases (diamond with labelled arrows)
+    • A Foreach subgraph iterating over the choices
+trigger:
+  kind: OnConversationStart
+  id: feature_tour_advanced
+  actions:
+    - kind: SendActivity
+      id: intro
+      activity: "🧪 Advanced tour — branching + looping demo."
+
+    - kind: Question
+      id: pick_mode
+      variable: Local.mode
+      prompt: "Pick a path"
+      choices:
+        - quick
+        - thorough
+        - scenic
+
+    # If/else — renders as a diamond in the YAML overlay
+    - kind: If
+      id: branch_quick
+      condition: =Local.mode == "quick"
+      then:
+        - kind: SendActivity
+          id: quick_path
+          activity: "⚡ Quick path selected."
+      else:
+        - kind: SendActivity
+          id: other_path
+          activity: "🐢 Taking the longer path."
+
+    # Switch — renders as a diamond with one labelled edge per case
+    - kind: Switch
+      id: per_mode
+      value: =Local.mode
+      cases:
+        - match: quick
+          actions:
+            - kind: SendActivity
+              id: case_quick
+              activity: "Case: quick"
+        - match: thorough
+          actions:
+            - kind: SendActivity
+              id: case_thorough
+              activity: "Case: thorough"
+      default:
+        - kind: SendActivity
+          id: case_default
+          activity: "Default case"
+
+    # Foreach — renders as a subgraph in the YAML overlay
+    - kind: Foreach
+      id: greet_each
+      items: =["alice", "bob", "carol"]
+      itemVariable: Local.person
+      actions:
+        - kind: SendActivity
+          id: greet
+          activity: =Concatenate("Hello, ", Local.person, "!")
+
+    - kind: SendActivity
+      id: outro
+      activity: "🎉 Advanced tour complete."
