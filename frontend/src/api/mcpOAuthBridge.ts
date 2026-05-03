@@ -61,16 +61,27 @@ function surfaceRequired(evt: MCPOAuthRequiredEvent) {
 }
 
 function surfaceCompleted(evt: MCPOAuthCompletedEvent) {
-  useToastStore.getState().removeToast(mcpOAuthToastId(evt.serverName));
-  useToastStore.getState().addToast(`${evt.serverName} signed in`, 'success', 4000);
+  // Id-keyed: replaces the sticky 'required'/'failed' toast for the same
+  // server, so the user sees a single transition rather than a stack.
+  useToastStore.getState().addToast(`${evt.serverName} signed in`, 'success', {
+    id: mcpOAuthToastId(evt.serverName),
+    duration: 4000,
+  });
 }
 
 function surfaceFailed(evt: MCPOAuthFailedEvent) {
-  useToastStore.getState().removeToast(mcpOAuthToastId(evt.serverName));
+  // Sticky + id-keyed: collapses any duplicate 'failed' events from
+  // backend retries into a single toast that the user must dismiss.
+  // Backend backoff ought to prevent the dupes in the first place, but
+  // this is defense-in-depth and also makes failures visible until
+  // acknowledged (e.g. EACCES on the OAuth callback port).
   useToastStore.getState().addToast(
     `${evt.serverName} sign-in failed${evt.reason ? `: ${evt.reason}` : ''}`,
     'error',
-    6000,
+    {
+      id: mcpOAuthToastId(evt.serverName),
+      duration: 0,
+    },
   );
 }
 

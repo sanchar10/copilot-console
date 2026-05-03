@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import type { MCPServer, MCPServerSelections } from '../../types/mcp';
 import { onEvent, openEventsChannel, type EventEnvelope } from '../../api/events';
 import type {
@@ -65,6 +65,58 @@ function badgeMetaFor(status: ServerStatus, error?: string | null): BadgeMeta | 
   }
 }
 
+interface ServerGroup {
+  key: string;
+  label: string;
+  path: string;
+  servers: MCPServer[];
+}
+
+function pathForSource(source: string): string {
+  if (source === 'global') return '~/.copilot/mcp-config.json';
+  if (source === 'agent-only') return '~/.copilot-console/mcp-config.json';
+  return `~/.copilot/installed-plugins/copilot-plugins/`;
+}
+
+function groupServers(servers: MCPServer[]): ServerGroup[] {
+  const global: MCPServer[] = [];
+  const app: MCPServer[] = [];
+  const pluginsBySource = new Map<string, MCPServer[]>();
+  for (const s of servers) {
+    if (s.source === 'global') global.push(s);
+    else if (s.source === 'agent-only') app.push(s);
+    else {
+      const arr = pluginsBySource.get(s.source) ?? [];
+      arr.push(s);
+      pluginsBySource.set(s.source, arr);
+    }
+  }
+  const byName = (a: MCPServer, b: MCPServer) =>
+    a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  global.sort(byName);
+  app.sort(byName);
+  const out: ServerGroup[] = [];
+  if (global.length > 0) {
+    out.push({ key: 'global', label: 'Global', path: pathForSource('global'), servers: global });
+  }
+  if (app.length > 0) {
+    out.push({ key: 'app', label: 'App', path: pathForSource('agent-only'), servers: app });
+  }
+  const pluginEntries = Array.from(pluginsBySource.entries()).sort((a, b) =>
+    a[0].toLowerCase().localeCompare(b[0].toLowerCase()),
+  );
+  for (const [source, list] of pluginEntries) {
+    list.sort(byName);
+    out.push({
+      key: `plugin:${source}`,
+      label: 'Plugin',
+      path: pathForSource(source),
+      servers: list,
+    });
+  }
+  return out;
+}
+
 export function MCPSelector({
   availableServers,
   selections,
@@ -77,6 +129,7 @@ export function MCPSelector({
   const [serverStatus, setServerStatus] = useState<Record<string, { status: ServerStatus; error?: string | null }>>({});
   const [retriggering, setRetriggering] = useState<Record<string, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const groupedServers = useMemo(() => groupServers(availableServers), [availableServers]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -194,20 +247,16 @@ export function MCPSelector({
     });
   };
 
-  const handleSelectAll = () => {
-    const allEnabled: MCPServerSelections = {};
-    availableServers.forEach((server) => {
-      allEnabled[server.name] = true;
-    });
-    onSelectionsChange(allEnabled);
+  const handleSectionAll = (servers: MCPServer[]) => {
+    const next: MCPServerSelections = { ...selections };
+    servers.forEach((s) => { next[s.name] = true; });
+    onSelectionsChange(next);
   };
 
-  const handleDeselectAll = () => {
-    const allDisabled: MCPServerSelections = {};
-    availableServers.forEach((server) => {
-      allDisabled[server.name] = false;
-    });
-    onSelectionsChange(allDisabled);
+  const handleSectionNone = (servers: MCPServer[]) => {
+    const next: MCPServerSelections = { ...selections };
+    servers.forEach((s) => { next[s.name] = false; });
+    onSelectionsChange(next);
   };
 
   const handleRetrigger = async (serverName: string) => {
@@ -293,93 +342,112 @@ export function MCPSelector({
       {isOpen && (
         <div className="absolute top-full left-0 mt-1 w-72 bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
           <div className="p-2 border-b border-white/40 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">MCP Servers</span>
-              {!readOnly && (
-              <div className="flex gap-1">
-                <button
-                  onClick={handleSelectAll}
-                  className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1.5 py-0.5"
-                >
-                  All
-                </button>
-                <span className="text-gray-300 dark:text-gray-600">|</span>
-                <button
-                  onClick={handleDeselectAll}
-                  className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1.5 py-0.5"
-                >
-                  None
-                </button>
-              </div>
-              )}
-            </div>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">MCP Servers</span>
           </div>
-          
+
           <div className="max-h-64 overflow-y-auto py-1">
-            {availableServers.map((server) => {
-              const isEnabled = selections[server.name] !== false;
-              const meta = serverStatus[server.name];
-              // Per-row badge mirrors the aggregate's "active set" semantic:
-              // a deselected server shows no dot, symmetric with a server
-              // that has never been selected. Without this, unchecking a
-              // connected server would leave a stale green dot behind even
-              // though the trigger's aggregate badge has already cleared.
-              const badge = sessionId && isEnabled ? badgeMetaFor(meta?.status ?? null, meta?.error) : null;
-              const isNeedsAuth = isEnabled && meta?.status === 'needs-auth';
-              const isRetriggering = retriggering[server.name] === true;
+            {groupedServers.map((group) => {
+              const enabledInSection = group.servers.filter(
+                (s) => selections[s.name] !== false,
+              ).length;
               return (
-                <div
-                  key={server.name}
-                  className={`flex items-start gap-2 px-3 py-2 ${readOnly ? 'opacity-60' : 'hover:bg-white/40 dark:hover:bg-gray-700/40'}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isEnabled}
-                    onChange={() => handleToggle(server.name)}
-                    className="mt-0.5 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
-                    disabled={readOnly}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {server.name}
-                      </span>
-                      <span
-                        className="text-[10px] text-gray-400 bg-white/50 dark:bg-gray-700/50 px-1 py-0.5 rounded"
-                        title={server.source === 'agent-only' ? 'Defined in this app only' : undefined}
-                      >
-                        {server.source === 'agent-only' ? 'app' : server.source}
-                      </span>
-                      {badge && (
-                        <span
-                          className={`text-[11px] leading-none ${badge.className}`}
-                          title={badge.title}
-                          aria-label={badge.title}
-                        >
-                          {badge.symbol}
+                <div key={group.key}>
+                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700/50 sticky top-0">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                          {group.label}
                         </span>
-                      )}
-                      {isNeedsAuth && sessionId && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          ({enabledInSection}/{group.servers.length})
+                        </span>
+                      </div>
+                      <span
+                        className="text-[9px] font-mono text-gray-400 dark:text-gray-500 truncate max-w-[220px]"
+                        title={group.path}
+                      >
+                        {group.path}
+                      </span>
+                    </div>
+                    {!readOnly && group.servers.length > 0 && (
+                      <div className="flex gap-1 flex-shrink-0">
                         <button
-                          type="button"
-                          onClick={() => handleRetrigger(server.name)}
-                          disabled={isRetriggering}
-                          className="ml-auto text-[10px] font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 underline disabled:opacity-50 disabled:no-underline"
-                          // Intentionally NOT keyed off readOnly: even when the picker
-                          // is read-only mid-turn, we still want sign-in actionable —
-                          // it doesn't change the server set, just refreshes auth.
-                          title="Start a fresh sign-in flow for this server"
+                          onClick={() => handleSectionAll(group.servers)}
+                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1 py-0.5"
                         >
-                          {isRetriggering ? 'Starting…' : 'Sign in'}
+                          All
                         </button>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-gray-500 truncate mt-0.5">
-                      {server.url 
-                        ? server.url 
-                        : `${server.command || ''} ${(server.args || []).join(' ')}`}
-                    </div>
+                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                        <button
+                          onClick={() => handleSectionNone(group.servers)}
+                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 px-1 py-0.5"
+                        >
+                          None
+                        </button>
+                      </div>
+                    )}
                   </div>
+                  {group.servers.map((server) => {
+                  const isEnabled = selections[server.name] !== false;
+                  const meta = serverStatus[server.name];
+                  // Per-row badge mirrors the aggregate's "active set" semantic:
+                  // a deselected server shows no dot, symmetric with a server
+                  // that has never been selected. Without this, unchecking a
+                  // connected server would leave a stale green dot behind even
+                  // though the trigger's aggregate badge has already cleared.
+                  const badge = sessionId && isEnabled ? badgeMetaFor(meta?.status ?? null, meta?.error) : null;
+                  const isNeedsAuth = isEnabled && meta?.status === 'needs-auth';
+                  const isRetriggering = retriggering[server.name] === true;
+                  return (
+                    <div
+                      key={server.name}
+                      className={`flex items-start gap-2 px-3 py-2 ${readOnly ? 'opacity-60' : 'hover:bg-white/40 dark:hover:bg-gray-700/40'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={() => handleToggle(server.name)}
+                        className="mt-0.5 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
+                        disabled={readOnly}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {server.name}
+                          </span>
+                          {badge && (
+                            <span
+                              className={`text-[11px] leading-none ${badge.className}`}
+                              title={badge.title}
+                              aria-label={badge.title}
+                            >
+                              {badge.symbol}
+                            </span>
+                          )}
+                          {isNeedsAuth && sessionId && (
+                            <button
+                              type="button"
+                              onClick={() => handleRetrigger(server.name)}
+                              disabled={isRetriggering}
+                              className="ml-auto text-[10px] font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 underline disabled:opacity-50 disabled:no-underline"
+                              // Intentionally NOT keyed off readOnly: even when the picker
+                              // is read-only mid-turn, we still want sign-in actionable —
+                              // it doesn't change the server set, just refreshes auth.
+                              title="Start a fresh sign-in flow for this server"
+                            >
+                              {isRetriggering ? 'Starting…' : 'Sign in'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-500 truncate mt-0.5">
+                          {server.url
+                            ? server.url
+                            : `${server.command || ''} ${(server.args || []).join(' ')}`}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
                 </div>
               );
             })}

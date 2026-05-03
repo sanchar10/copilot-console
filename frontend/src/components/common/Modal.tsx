@@ -8,9 +8,19 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  /** Visual size; defaults to ``md`` (max-w-md) for back-compat. */
+  size?: 'md' | 'lg' | 'xl';
+  /** Optional non-scrolling slot rendered between the header and the scrollable body (e.g. tab bar). */
+  tabs?: ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) {
+const SIZE_CLASS: Record<NonNullable<ModalProps['size']>, string> = {
+  md: 'max-w-md',
+  lg: 'max-w-xl',
+  xl: 'max-w-4xl',
+};
+
+export function Modal({ isOpen, onClose, title, children, footer, size = 'md', tabs }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,7 +57,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-[#3a3a4e] rounded-2xl shadow-2xl max-w-md w-full mx-4 max-h-[90vh] flex flex-col"
+        className={`relative bg-white/95 dark:bg-[#2a2a3c]/95 backdrop-blur-xl border border-gray-200 dark:border-[#3a3a4e] rounded-2xl shadow-2xl ${SIZE_CLASS[size]} w-full mx-4 max-h-[90vh] flex flex-col`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/30 dark:border-[#3a3a4e]">
@@ -62,6 +72,13 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
             </svg>
           </button>
         </div>
+
+        {/* Tabs (non-scrolling slot between header and body) */}
+        {tabs && (
+          <div className="px-6 pt-1 border-b border-gray-200 dark:border-[#3a3a4e]">
+            {tabs}
+          </div>
+        )}
 
         {/* Content */}
         <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">

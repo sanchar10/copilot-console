@@ -70,6 +70,26 @@ class MCPOAuthCoordinator:
         # on every transition so the frontend badge stays live without
         # polling. None means "never observed".
         self._last_status: dict[str, str | None] = {}
+        # Per-server failure backoff. ``_run_flow`` normally lives many
+        # seconds (it enters a poll loop after returning ``auth_url``), so
+        # the in-flight dedup at ``_maybe_start`` collapses re-triggers.
+        # But sub-second failure paths (EACCES on the OAuth callback port,
+        # malformed config, SDK validation errors) raise from
+        # ``oauth.login()`` in <100ms, leaving a tiny dedup window. Without
+        # this backoff, ``wait_until_ready``'s 0.5s poll re-triggers ~60
+        # times in 30s, each emitting a fresh ``mcp_oauth_failed`` event.
+        # Cleared on successful login or on explicit retrigger.
+        self._last_failed_at: dict[str, float] = {}
+        self._failure_backoff_seconds: float = 30.0
+
+    def _mark_failed(self, server_name: str) -> None:
+        """Record fast-failure timestamp for backoff in ``_maybe_start``."""
+        try:
+            self._last_failed_at[server_name] = asyncio.get_running_loop().time()
+        except RuntimeError:
+            # No running loop — extremely unlikely from notify paths, but
+            # safe to skip; backoff just won't engage for this call.
+            pass
 
     def _publish_status(
         self,
@@ -135,7 +155,7 @@ class MCPOAuthCoordinator:
             (getattr(s, "name", "?"), _status_value(getattr(s, "status", None)))
             for s in servers
         ]
-        logger.info(f"[{self.session_id}] OAuth check: mcp.list -> {statuses}")
+        logger.debug(f"[{self.session_id}] OAuth check: mcp.list -> {statuses}")
         for srv in servers:
             status = _status_value(getattr(srv, "status", None))
             if status == NEEDS_AUTH:
@@ -223,7 +243,7 @@ class MCPOAuthCoordinator:
             final_status.setdefault(name, status)
 
         if final_status:
-            logger.info(
+            logger.debug(
                 f"[{self.session_id}] wait_until_ready -> {final_status}"
             )
         return final_status
@@ -273,6 +293,9 @@ class MCPOAuthCoordinator:
         """
         if self._closed:
             return
+        # The user explicitly asked for a fresh attempt — clear any
+        # backoff so ``_maybe_start`` doesn't silently no-op.
+        self._last_failed_at.pop(server_name, None)
         async with self._lock:
             existing = self._inflight.pop(server_name, None)
         if existing is not None and not existing.done():
@@ -304,6 +327,21 @@ class MCPOAuthCoordinator:
             existing = self._inflight.get(server_name)
             if existing and not existing.done():
                 return
+            # Backoff: skip if the last attempt fast-failed within the
+            # window. Prevents ``mcp_oauth_failed`` event storms when
+            # ``oauth.login()`` raises sub-second (EACCES, misconfig, etc.)
+            # and the various trigger sources (wait_until_ready 0.5s poll,
+            # post-turn discovery, retrigger) hammer this method.
+            last_fail = self._last_failed_at.get(server_name)
+            if last_fail is not None:
+                elapsed = asyncio.get_running_loop().time() - last_fail
+                if elapsed < self._failure_backoff_seconds:
+                    logger.debug(
+                        f"[{self.session_id}] OAuth flow for '{server_name}' "
+                        f"skipped — within failure backoff ({elapsed:.1f}s < "
+                        f"{self._failure_backoff_seconds}s)"
+                    )
+                    return
             task = asyncio.create_task(self._run_flow(server_name))
             self._inflight[server_name] = task
 
@@ -324,6 +362,7 @@ class MCPOAuthCoordinator:
             from copilot.generated.rpc import MCPOauthLoginRequest
         except Exception as e:  # pragma: no cover — SDK should always provide it
             logger.error(f"[{self.session_id}] MCPOauthLoginRequest import failed: {e}")
+            self._mark_failed(server_name)
             self._notify("mcp_oauth_failed", {
                 "sessionId": self.session_id,
                 "serverName": server_name,
@@ -336,10 +375,11 @@ class MCPOAuthCoordinator:
                 server_name=server_name,
                 client_name=self._client_name,
             )
-            logger.info(f"[{self.session_id}] Calling mcp.oauth.login for '{server_name}'")
+            logger.debug(f"[{self.session_id}] Calling mcp.oauth.login for '{server_name}'")
             result = await session.rpc.mcp.oauth.login(req)
         except Exception as e:
             logger.warning(f"[{self.session_id}] oauth.login failed for '{server_name}': {e}")
+            self._mark_failed(server_name)
             self._notify("mcp_oauth_failed", {
                 "sessionId": self.session_id,
                 "serverName": server_name,
@@ -349,7 +389,8 @@ class MCPOAuthCoordinator:
 
         auth_url = getattr(result, "authorization_url", None)
         if auth_url is None:
-            logger.info(f"[{self.session_id}] OAuth for '{server_name}' returned no auth URL — token was cached")
+            logger.debug(f"[{self.session_id}] OAuth for '{server_name}' returned no auth URL — token was cached")
+            self._last_failed_at.pop(server_name, None)
             await self._reconcile_after_login(server_name, completed=True)
             return
 
@@ -381,6 +422,7 @@ class MCPOAuthCoordinator:
             # Publish badge updates on every poll cycle (deduped by _publish_status).
             self._publish_status(server_name, status, err)
             if status in TERMINAL_OK:
+                self._last_failed_at.pop(server_name, None)
                 self._notify("mcp_oauth_completed", {
                     "sessionId": self.session_id,
                     "serverName": server_name,
@@ -388,6 +430,7 @@ class MCPOAuthCoordinator:
                 })
                 return
             if status in TERMINAL_BAD:
+                self._mark_failed(server_name)
                 self._notify("mcp_oauth_failed", {
                     "sessionId": self.session_id,
                     "serverName": server_name,
@@ -397,6 +440,7 @@ class MCPOAuthCoordinator:
                 return
             # else: still pending or needs-auth — keep polling
 
+        self._mark_failed(server_name)
         self._notify("mcp_oauth_failed", {
             "sessionId": self.session_id,
             "serverName": server_name,
@@ -418,6 +462,7 @@ class MCPOAuthCoordinator:
         err = getattr(srv, "error", None) if srv is not None else None
         self._publish_status(server_name, status, err)
         if completed and status in TERMINAL_OK:
+            self._last_failed_at.pop(server_name, None)
             self._notify("mcp_oauth_completed", {
                 "sessionId": self.session_id,
                 "serverName": server_name,

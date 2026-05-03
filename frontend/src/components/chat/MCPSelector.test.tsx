@@ -288,12 +288,12 @@ describe('MCPSelector — badges', () => {
     });
   });
 
-  it('renders "app" label for agent-only sources and raw label otherwise', () => {
+  it('renders "App" section header for agent-only sources and "Global" otherwise', () => {
     setup({ sessionId: 'sess-1' });
-    // bluebird has source: 'agent-only' → friendly lowercase tag
-    expect(screen.getByText('app')).toBeInTheDocument();
-    // github has source: 'global' → unchanged
-    expect(screen.getByText('global')).toBeInTheDocument();
+    // bluebird has source: 'agent-only' → grouped under "App" section header (CSS uppercases visually)
+    expect(screen.getByText('App')).toBeInTheDocument();
+    // github has source: 'global' → grouped under "Global" section header
+    expect(screen.getByText('Global')).toBeInTheDocument();
     // The raw token must NOT leak into the UI for agent-only servers.
     expect(screen.queryByText('agent-only')).not.toBeInTheDocument();
   });
