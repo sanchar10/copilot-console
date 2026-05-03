@@ -43,6 +43,10 @@ export function ModelSelector({
 
   const currentModel = models.find(m => m.id === selectedModelId);
   const modelName = currentModel?.name || selectedModelId;
+  // Compact label drops only the redundant "Claude " vendor prefix; "GPT-..." etc.
+  // are left intact since "GPT" is itself the family identifier. Full name is
+  // still shown in the dropdown and in tooltips.
+  const compactLabel = modelName.replace(/^Claude\s+/i, '');
   const hasReasoning = !!(currentModel?.supported_reasoning_efforts?.length);
   const displayEffort = reasoningEffort || currentModel?.default_reasoning_effort || null;
 
@@ -80,7 +84,7 @@ export function ModelSelector({
         type="button"
         onClick={handleToggle}
         className={isCompact
-          ? `min-w-[80px] h-[30px] px-2.5 py-0.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 ${
+          ? `w-[120px] h-[30px] px-2.5 py-0.5 text-xs font-medium rounded-md flex items-center gap-1.5 transition-colors duration-150 ${
               !disabled
                 ? 'bg-blue-50 dark:bg-blue-900/[0.18] text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer border border-blue-200/60 dark:border-blue-500/35'
                 : 'bg-gray-100 dark:bg-[#2a2a3c] text-gray-600 dark:text-gray-400 cursor-default border border-gray-200/60 dark:border-gray-700/60'
@@ -93,8 +97,8 @@ export function ModelSelector({
         }
         title={disabled ? 'Model cannot be changed' : 'Click to change model'}
       >
-        <div className={`flex flex-col items-start leading-tight ${isCompact ? '' : 'min-w-0 flex-1'}`}>
-          <span className={`truncate ${isCompact ? 'max-w-[120px]' : ''}`}>{modelName}</span>
+        <div className={`flex flex-col items-start leading-tight min-w-0 flex-1 ${isCompact ? '' : ''}`}>
+          <span className={`truncate w-full text-left ${isCompact ? '' : ''}`} title={modelName}>{isCompact ? compactLabel : modelName}</span>
           {hasReasoning && displayEffort && (
             <span className="text-[9px] opacity-70 capitalize">{displayEffort}</span>
           )}

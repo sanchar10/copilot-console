@@ -409,6 +409,59 @@ class TestSessionCreate:
             assert session.mcp_servers == []
         asyncio.run(_run())
 
+    def test_create_defaults_mcp_from_auto_enable(self, monkeypatch, tmp_path):
+        """When mcp_servers is omitted, default to auto-enable ∩ available servers."""
+        async def _run():
+            svc = self._setup(monkeypatch, tmp_path)
+            from copilot_console.app.models.session import SessionCreate
+            from copilot_console.app.services import storage_service as storage_mod
+            from copilot_console.app.services import mcp_service as mcp_mod
+
+            # Configure auto-enable map: srv-a on, srv-c off, srv-missing on
+            storage_mod.storage_service.patch_settings(
+                {"mcp_auto_enable": {"srv-a": True, "srv-c": False, "srv-missing": True}}
+            )
+
+            class _FakeServer:
+                def __init__(self, name): self.name = name
+            class _FakeConfig:
+                servers = [_FakeServer("srv-a"), _FakeServer("srv-b"), _FakeServer("srv-c")]
+            monkeypatch.setattr(
+                mcp_mod.mcp_service, "get_available_servers", lambda *a, **k: _FakeConfig()
+            )
+
+            req = SessionCreate(model="gpt-4.1")
+            session = await svc.create_session(req)
+            # srv-a enabled and available; srv-c off; srv-b not in auto-enable;
+            # srv-missing in auto-enable but not in available list -> filtered out
+            assert session.mcp_servers == ["srv-a"]
+        asyncio.run(_run())
+
+    def test_create_explicit_empty_mcp_overrides_auto_enable(self, monkeypatch, tmp_path):
+        """Explicit [] in the request must NOT be replaced by the auto-enable default."""
+        async def _run():
+            svc = self._setup(monkeypatch, tmp_path)
+            from copilot_console.app.models.session import SessionCreate
+            from copilot_console.app.services import storage_service as storage_mod
+            from copilot_console.app.services import mcp_service as mcp_mod
+
+            storage_mod.storage_service.patch_settings(
+                {"mcp_auto_enable": {"srv-a": True}}
+            )
+
+            class _FakeServer:
+                def __init__(self, name): self.name = name
+            class _FakeConfig:
+                servers = [_FakeServer("srv-a")]
+            monkeypatch.setattr(
+                mcp_mod.mcp_service, "get_available_servers", lambda *a, **k: _FakeConfig()
+            )
+
+            req = SessionCreate(model="gpt-4.1", mcp_servers=[])
+            session = await svc.create_session(req)
+            assert session.mcp_servers == []
+        asyncio.run(_run())
+
     def test_create_persists_to_storage(self, monkeypatch, tmp_path):
         async def _run():
             svc = self._setup(monkeypatch, tmp_path)

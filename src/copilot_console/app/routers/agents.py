@@ -27,13 +27,33 @@ async def get_discoverable_agents(cwd: str = Query(""), exclude: str | None = No
     console_agents = agent_storage_service.get_eligible_sub_agents(exclude_agent_id=exclude)
     
     all_agents = discover_all_agents(cwd, console_agents=console_agents)
-    
-    # Source folder paths for UI display
+
+    # Source folder paths for UI display. Use ``~``-relative form for paths
+    # under the user's home directory so the UI is consistent with how MCP
+    # config locations are displayed elsewhere (Settings → MCP Servers,
+    # chat-header MCP picker).
+    home = os.path.expanduser("~")
+
+    def _pretty(p: str) -> str:
+        if not p:
+            return p
+        try:
+            np = os.path.normpath(p)
+            nh = os.path.normpath(home)
+            if np == nh:
+                return "~"
+            if np.lower().startswith(nh.lower() + os.sep):
+                rel = np[len(nh) + 1:].replace(os.sep, "/")
+                return f"~/{rel}"
+        except Exception:
+            pass
+        return p.replace(os.sep, "/")
+
     source_paths = {
-        "copilot_global": str(COPILOT_HOME / "agents"),
-        "github_global": os.path.join(os.path.expanduser("~"), ".github", "agents"),
-        "github_cwd": os.path.join(cwd, ".github", "agents") if cwd else "",
-        "console_global": str(AGENTS_DIR),
+        "copilot_global": _pretty(str(COPILOT_HOME / "agents")),
+        "github_global": _pretty(os.path.join(home, ".github", "agents")),
+        "github_cwd": _pretty(os.path.join(cwd, ".github", "agents")) if cwd else "",
+        "console_global": _pretty(str(AGENTS_DIR)),
     }
     
     result = {}
