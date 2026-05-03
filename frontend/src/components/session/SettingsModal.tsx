@@ -4,6 +4,7 @@ import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { ModelSelector } from '../common/ModelSelector';
 import { FolderBrowserModal } from '../common/FolderBrowserModal';
+import { MCPServersTab } from './MCPServersTab';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { updateSettings, getSettings } from '../../api/settings';
@@ -12,10 +13,11 @@ import { apiClient } from '../../api/client';
 import { useTheme } from '../../hooks/useTheme';
 import { requestNotificationPermission, setDesktopNotificationSetting } from '../../utils/desktopNotifications';
 
-type SettingsTab = 'general' | 'mobile' | 'notifications' | 'auth';
+type SettingsTab = 'general' | 'mcp' | 'mobile' | 'notifications' | 'auth';
 
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'general', label: 'General' },
+  { id: 'mcp', label: 'MCP Servers' },
   { id: 'auth', label: 'Authentication' },
   { id: 'mobile', label: 'Mobile' },
   { id: 'notifications', label: 'Notifications' },
@@ -43,14 +45,20 @@ export function SettingsModal() {
   const [error, setError] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
 
-  // Auto-select tab when opened; default to general (first tab)
+  const authenticated = useAuthStore(s => s.status.authenticated);
+
+  // Auto-select tab when modal opens.
+  // - Explicit `settingsSection === 'auth'` always wins (programmatic deep-link).
+  // - Else if the user is unauthenticated (false, not null/checking), land on Auth.
+  // - Otherwise default to General.
   useEffect(() => {
-    if (isSettingsModalOpen && settingsSection === 'auth') {
+    if (!isSettingsModalOpen) return;
+    if (settingsSection === 'auth' || authenticated === false) {
       setActiveTab('auth');
-    } else if (isSettingsModalOpen) {
+    } else {
       setActiveTab('general');
     }
-  }, [isSettingsModalOpen, settingsSection]);
+  }, [isSettingsModalOpen, settingsSection, authenticated]);
 
   useEffect(() => {
     setSelectedModel(defaultModel);
@@ -87,6 +95,28 @@ export function SettingsModal() {
       isOpen={isSettingsModalOpen}
       onClose={closeSettingsModal}
       title="Settings"
+      size="lg"
+      tabs={
+        <div className="flex">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+      }
       footer={
         activeTab === 'general' ? (
           <>
@@ -104,27 +134,6 @@ export function SettingsModal() {
         )
       }
     >
-      {/* Tab Bar */}
-      <div className="flex border-b border-gray-200 dark:border-[#3a3a4e] -mx-6 px-6 mb-4 -mt-2">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'text-blue-600 dark:text-blue-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* Tab Content */}
       {activeTab === 'general' && (
         <GeneralTab
@@ -138,6 +147,10 @@ export function SettingsModal() {
           onCwdChange={setSelectedCwd}
           onBrowseFolders={() => setShowFolderPicker(true)}
         />
+      )}
+
+      {activeTab === 'mcp' && (
+        <MCPServersTab isOpen={isSettingsModalOpen} />
       )}
 
       {activeTab === 'mobile' && (
@@ -561,14 +574,16 @@ function NotificationsTab({ isOpen }: { isOpen: boolean }) {
 
   const cliToggle = (
     <div className="mb-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
             CLI Notifications
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Receive desktop toast notifications when Copilot completes a response in CLI sessions.
-            Toggle via CLI: <code className="bg-gray-100 dark:bg-[#1e1e2e] px-1 rounded text-xs">!cli-notify on</code>
+            Receive mobile notifications when Copilot completes a response in CLI session.
+            <span className="block mt-1">
+              Toggle within CLI: <code className="bg-gray-100 dark:bg-[#1e1e2e] px-1 rounded text-xs">!cli-notify on|off</code>
+            </span>
           </p>
         </div>
         <button
