@@ -456,6 +456,35 @@
         </div>
       </div>
     </section>
+
+    <!-- Feature 6: Workflows -->
+    <section class="feature-section py-24 px-6">
+      <div class="max-w-6xl mx-auto">
+        <div class="text-center max-w-3xl mx-auto mb-12">
+          <div class="fade-in">
+            <div class="inline-flex items-center gap-2 text-accent-light text-sm font-mono mb-4">
+              <span>🔀</span> Multi-agent pipelines
+            </div>
+            <h2 class="font-display font-700 text-3xl sm:text-4xl text-white mb-5 tracking-tight">
+              Workflows
+            </h2>
+            <p class="text-gray-400 text-lg leading-relaxed mb-6">
+              Chain agents into deterministic pipelines with YAML — built on
+              <a href="https://github.com/microsoft/agent-framework" class="text-accent-light hover:underline">Microsoft Agent Framework</a>.
+              Branch with <code class="font-mono text-accent-light">If</code>/<code class="font-mono text-accent-light">Switch</code>,
+              loop with <code class="font-mono text-accent-light">Foreach</code>, pause for human input, and watch each step
+              light up in a live Mermaid diagram. Run history is replayable; failures surface as sticky toasts.
+              Optional Power Fx <code class="font-mono text-accent-light">=expressions</code> for richer logic.
+            </p>
+          </div>
+        </div>
+        <div class="fade-in stagger-2 max-w-5xl mx-auto">
+          <div class="screenshot-glow rounded-xl overflow-hidden border border-white/20">
+            <img src="screenshots/workflow-run-dark.jpg" alt="Workflow run with live Mermaid diagram and event stream" class="w-full h-auto rounded-xl">
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- ─── FEATURE GRID ─── -->
@@ -501,7 +530,7 @@
         <div class="feature-card fade-in stagger-5 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">🔌</div>
           <h3 class="font-display font-600 text-white text-lg mb-2">MCP &amp; Custom Tools</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Extend with plugins — global and per-session MCP server management. Drop Python functions as custom tools. Built-in Tool Builder agent.</p>
+          <p class="text-gray-400 text-sm leading-relaxed">Per-session MCP server management with OAuth sign-in and auto-recovery. Drop Python functions as custom tools. Built-in Tool Builder agent.</p>
         </div>
 
         <!-- Card: Web Browsing -->
@@ -525,11 +554,11 @@
           <p class="text-gray-400 text-sm leading-relaxed">Open project folders in VS Code, Terminal, or Explorer with one click. Jump straight from Console into your favorite editor.</p>
         </div>
 
-        <!-- Card: Workflows -->
+        <!-- Card: Full Visibility -->
         <div class="feature-card fade-in bg-surface-700/50 border border-white/5 rounded-xl p-6">
-          <div class="text-2xl mb-3">🔀</div>
-          <h3 class="font-display font-600 text-white text-lg mb-2">Workflows <span class="text-xs text-gray-500 font-mono">(experimental)</span></h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Multi-agent YAML pipelines — chain agents into deterministic steps. Each step's output flows to the next with live event streaming.</p>
+          <div class="text-2xl mb-3">👁️</div>
+          <h3 class="font-display font-600 text-white text-lg mb-2">Full Visibility</h3>
+          <p class="text-gray-400 text-sm leading-relaxed">See what your agents are doing — streamed reasoning steps, live status banners, sticky error alerts, and replayable run history. No surprises, no black boxes.</p>
         </div>
       </div>
     </div>

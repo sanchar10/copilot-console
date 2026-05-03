@@ -35,6 +35,36 @@ This only prevents idle sleep — manual sleep is still possible.
 copilot-console --port 9000
 ```
 
+## MCP Servers
+
+### MCP server sign-in fails with "EACCES: permission denied 127.0.0.1:`<port>`"
+
+**Cause:** The MCP server's OAuth callback uses a fixed localhost port that was chosen during the SDK's initial dynamic client registration. If Windows has since reserved that port (Hyper-V, WSL2, and Docker dynamically reserve port ranges that change on reboot/service restart), the SDK can no longer bind to it and sign-in fails immediately.
+
+You can confirm the conflict with:
+```powershell
+netsh int ipv4 show excludedportrange protocol=tcp
+```
+If the port from the error message falls inside any reserved range, that's the cause.
+
+**Fix — re-register with a fresh port:**
+Delete the SDK's cached registration for the affected server, then sign in again. The SDK will pick a new port and re-register.
+```powershell
+# Find the file matching your server — each .json contains the server URL.
+# Delete both the matching <hash>.json and <hash>.tokens.json.
+Get-ChildItem "$env:USERPROFILE\.copilot\mcp-oauth-config\*.json" -Exclude *.tokens.json |
+  ForEach-Object { Write-Host $_.Name; Get-Content $_ | Select-String 'serverUrl' }
+```
+Then `Remove-Item` the matching `<hash>.json` and `<hash>.tokens.json`, and click **Sign in** on the MCP server in the dropdown.
+
+### MCP servers added externally don't appear until app restart
+
+**Cause:** The console reads `mcp-config.json` (and the agent-only override) **once at startup** and caches the list in memory. This avoids a disk re-read on every session open. Servers added or removed via the in-app **Settings → MCP Servers** tab update the cache automatically — but edits made directly to the JSON files (or by another tool while the app is running) won't be picked up until the next launch.
+
+**Fix:** Restart `copilot-console`. After the app reopens, the new server appears in the per-session MCP picker and (if you toggled **Auto-enable** for it) is pre-selected for new sessions.
+
+If you'd rather not restart, add/edit the server through **Settings → MCP Servers → Add Server / Edit** — those paths refresh the in-memory cache immediately.
+
 ## macOS Issues
 
 ### Python: use `python3` not `python`

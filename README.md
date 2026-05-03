@@ -26,14 +26,14 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 | | Feature | Description |
 |---|---|---|
 | 🖥️ | **Visual Session Management** | Multiple sessions in a tabbed interface with per-session context management: system prompt, model, tools, MCP servers, agents, and working directory |
-| 🔀 | **Workflows** | Multi-agent YAML pipelines (experimental) using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — chain agents deterministically and watch events stream in real-time |
+| 🔀 | **Workflows** | Multi-agent YAML pipelines using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — branch, loop, pause for human input, and watch each step light up in a live Mermaid diagram. See [docs/Workflows.md](docs/Workflows.md). |
 | ⚡ | **Slash Commands** | Type `/` for command palette — `/fleet` fires parallel sub-agents, `/compact` compresses context, `/agent` picks the primary agent persona for the session. Inline chips with auto-complete |
 | ⏰ | **Automations** | Cron-scheduled agent runs with a Runs dashboard and live session access |
 | 📂 | **Project Facilitation** | Folder-based session filtering, cross-session search with keyword highlighting, pin responses with notes |
 | 🤖 | **Agent Library** | Reusable agent personalities with custom prompts, models, tools, and MCP servers |
 | 🤝 | **Agent Teams** | Compose agents into teams with automatic delegation to specialized sub-agents |
 | 🌐 | **Agentic Web Browsing** | Autonomous web navigation via bundled Playwright MCP server |
-| 🔌 | **MCP Servers** | Global and app-level MCP config with per-session server / tool toggling |
+| 🔌 | **MCP Servers** | Global and app-level MCP config with per-session server / tool toggling. OAuth sign-in with auto-recovery when tokens expire. See [docs/guides/MCP-SERVERS.md](docs/guides/MCP-SERVERS.md) |
 | 🔧 | **Custom Tools** | Drop Python functions into `~/.copilot-console/tools/` to easily create selectable agent tools |
 | 📎 | **Files & Images** | Drag-and-drop files and paste images into messages to give agents visual and textual context |
 | 🎨 | **Rich Rendering** | Markdown, syntax highlighting, Mermaid diagrams, streaming, reasoning steps |

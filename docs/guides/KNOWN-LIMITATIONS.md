@@ -8,12 +8,6 @@ This document lists known limitations of Copilot Console and the underlying GitH
 
 Copilot Console on macOS is newly added and not tested on all versions. While the core functionality works, you may encounter edge cases or compatibility issues not present on Windows. If you find issues on macOS, please report them on GitHub.
 
-## Workflows Feature is Experimental
-
-**Affected area:** Workflow orchestration, YAML pipelines
-
-The Workflows feature is under active development. Multi-agent pipelines may have failures or limitations not yet documented. Refer to [Workflows](WORKFLOWS.md) for known issues with specific workflow patterns.
-
 ## Tools and Sub-Agents Are Mutually Exclusive
 
 **Affected area:** Session configuration, Agent definitions
