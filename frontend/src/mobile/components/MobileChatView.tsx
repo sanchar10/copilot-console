@@ -82,6 +82,7 @@ export function MobileChatView() {
         const status = await mobileApiClient.get<ResponseStatus>(`/sessions/${sessionId}/response-status`);
         if (status.active) {
           sessionActivatedRef.current = true;
+          setAgentActive(sessionId, true);
           // Restore pending ask_user/elicitation card if present
           if (status.pending_input) {
             const evt = status.pending_input;
@@ -206,14 +207,45 @@ export function MobileChatView() {
       addStreamingStep(sessionId, step);
     });
 
+    es.addEventListener('turn_done', (event) => {
+      // Promote streamed content to a real message locally so that subsequent
+      // setStreaming(false) doesn't wipe it before reloadMessages runs.
+      try {
+        const data = JSON.parse(event.data);
+        finalizeTurn(sessionId, data.message_id, data.event_id, data.timestamp);
+      } catch {
+        finalizeTurn(sessionId);
+      }
+    });
+
+    es.addEventListener('ask_user', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.request_id) setPendingAskUser(data as AskUserRequest);
+      } catch { /* ignore */ }
+    });
+
+    es.addEventListener('elicitation', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.request_id) setPendingElicitation(data as ElicitationRequest);
+      } catch { /* ignore */ }
+    });
+
     es.addEventListener(SSE_EVENTS.DONE, () => {
       es.close();
-      reloadMessages(sessionId);
+      eventSourceRef.current = null;
+      setStreaming(sessionId, false);
+      setAgentActive(sessionId, false);
+      updateSessionTimestamp(sessionId);
+      if (isMountedRef.current) markViewed(sessionId);
     });
 
     es.addEventListener(SSE_EVENTS.ERROR, () => {
       es.close();
+      eventSourceRef.current = null;
       reloadMessages(sessionId);
+      setAgentActive(sessionId, false);
     });
 
     es.onerror = () => {
@@ -489,9 +521,12 @@ export function MobileChatView() {
               choices={pendingAskUser.choices}
               allowFreeform={pendingAskUser.allowFreeform}
               onResolved={() => {
+                // Just dismiss the card. The existing channel (POST /messages
+                // reader OR the /response-stream EventSource opened by
+                // loadSession) is alive and will deliver the agent's
+                // continuation deltas naturally. Calling resumeStream() here
+                // would abort that channel mid-stream and reset content.
                 setPendingAskUser(null);
-                // Resume stream to receive agent's continued response
-                resumeStream();
               }}
             />
           )}
@@ -504,9 +539,8 @@ export function MobileChatView() {
               message={pendingElicitation.message}
               schema={pendingElicitation.schema}
               onResolved={() => {
+                // See note above on AskUser.
                 setPendingElicitation(null);
-                // Resume stream to receive agent's continued response
-                resumeStream();
               }}
             />
           )}
@@ -556,7 +590,7 @@ export function MobileChatView() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">Activating session…</span>
                 </div>
               ) : isThinking ? (
-                <div className="flex-1 flex items-center gap-0">
+                <div className="flex-1 flex items-center gap-0 relative">
                   <textarea
                     ref={inputRef}
                     value={input}
@@ -567,11 +601,21 @@ export function MobileChatView() {
                         handleSend();
                       }
                     }}
-                    placeholder={placeholder}
+                    placeholder={input ? placeholder : ''}
                     rows={1}
                     className="flex-1 resize-none rounded-xl border border-amber-200 dark:border-amber-700/40 bg-white/60 dark:bg-[#2a2a3c]/60 px-3 py-2.5 text-base text-gray-900 dark:text-gray-100 placeholder-amber-400 dark:placeholder-amber-500/70 focus:outline-none focus:ring-2 focus:ring-amber-400"
                     style={{ maxHeight: '120px' }}
                   />
+                  {!input && (
+                    <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      <span className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-amber-400 dark:bg-amber-500/70 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 bg-amber-400 dark:bg-amber-500/70 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 bg-amber-400 dark:bg-amber-500/70 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </span>
+                      <span className="text-base text-amber-400 dark:text-amber-500/70">{placeholder}</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <textarea

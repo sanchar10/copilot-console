@@ -11,7 +11,14 @@ interface MobileElicitationCardProps {
   requestId: string;
   message: string;
   schema: Record<string, unknown>;
-  onResolved: () => void;
+  /**
+   * Called when the card is dismissed.
+   * @param success - true if the response was accepted by the backend; false if the
+   *   request failed (typically 404 because the elicitation was cancelled or the
+   *   session's response buffer was cleaned up). Callers should NOT attempt to
+   *   resume the SSE stream when success=false — the buffer is gone.
+   */
+  onResolved: (success: boolean) => void;
 }
 
 export function MobileElicitationCard({
@@ -37,20 +44,23 @@ export function MobileElicitationCard({
       await mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
         request_id: requestId, action: 'accept', content: values,
       });
-      onResolved();
+      onResolved(true);
     } catch {
-      onResolved();
+      // 404 = resolved elsewhere or buffer gone; dismiss gracefully without resuming SSE.
+      onResolved(false);
     }
   };
 
   const handleCancel = async () => {
     setSubmitting(true);
+    let ok = false;
     try {
       await mobileApiClient.post(`/sessions/${sessionId}/elicitation-response`, {
         request_id: requestId, action: 'cancel',
       });
+      ok = true;
     } catch { /* ignore */ }
-    onResolved();
+    onResolved(ok);
   };
 
   // Check if all required fields are filled
@@ -83,7 +93,7 @@ export function MobileElicitationCard({
                     value={(values[key] as string) || ''}
                     onChange={(e) => handleChange(key, e.target.value)}
                     disabled={submitting}
-                    className="w-full mt-0.5 text-sm rounded-lg border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-[#2a2a3c] px-2 py-1.5 text-gray-800 dark:text-gray-200"
+                    className="w-full mt-0.5 text-base rounded-lg border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-[#2a2a3c] px-2 py-1.5 text-gray-800 dark:text-gray-200"
                   >
                     <option value="">Select...</option>
                     {enumValues.map((v) => (
@@ -120,7 +130,7 @@ export function MobileElicitationCard({
                     value={(values[key] as number) ?? ''}
                     onChange={(e) => handleChange(key, e.target.value ? Number(e.target.value) : '')}
                     disabled={submitting}
-                    className="w-full mt-0.5 text-sm rounded-lg border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-[#2a2a3c] px-2 py-1.5 text-gray-800 dark:text-gray-200"
+                    className="w-full mt-0.5 text-base rounded-lg border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-[#2a2a3c] px-2 py-1.5 text-gray-800 dark:text-gray-200"
                   />
                 </div>
               );
@@ -137,7 +147,7 @@ export function MobileElicitationCard({
                   value={(values[key] as string) || ''}
                   onChange={(e) => handleChange(key, e.target.value)}
                   disabled={submitting}
-                  className="w-full mt-0.5 text-sm rounded-lg border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-[#2a2a3c] px-2 py-1.5 text-gray-800 dark:text-gray-200"
+                  className="w-full mt-0.5 text-base rounded-lg border border-blue-200 dark:border-blue-700/40 bg-white dark:bg-[#2a2a3c] px-2 py-1.5 text-gray-800 dark:text-gray-200"
                 />
               </div>
             );

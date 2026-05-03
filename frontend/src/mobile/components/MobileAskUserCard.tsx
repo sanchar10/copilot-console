@@ -12,7 +12,14 @@ interface MobileAskUserCardProps {
   question: string;
   choices?: string[] | null;
   allowFreeform: boolean;
-  onResolved: () => void;
+  /**
+   * Called when the card is dismissed.
+   * @param success - true if the response was accepted by the backend; false if the
+   *   request failed (typically 404 because the elicitation was cancelled or the
+   *   session's response buffer was cleaned up). Callers should NOT attempt to
+   *   resume the SSE stream when success=false — the buffer is gone.
+   */
+  onResolved: (success: boolean) => void;
 }
 
 export function MobileAskUserCard({
@@ -38,21 +45,23 @@ export function MobileAskUserCard({
       await mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
         request_id: requestId, answer, wasFreeform: useOther || !hasChoices,
       });
-      onResolved();
+      onResolved(true);
     } catch {
-      // 404 = resolved elsewhere, dismiss gracefully
-      onResolved();
+      // 404 = resolved elsewhere or buffer gone; dismiss gracefully without resuming SSE.
+      onResolved(false);
     }
   };
 
   const handleSkip = async () => {
     setSubmitting(true);
+    let ok = false;
     try {
       await mobileApiClient.post(`/sessions/${sessionId}/user-input-response`, {
         request_id: requestId, cancelled: true,
       });
+      ok = true;
     } catch { /* ignore */ }
-    onResolved();
+    onResolved(ok);
   };
 
   const canSubmit = hasChoices
@@ -104,7 +113,7 @@ export function MobileAskUserCard({
             placeholder="Type your answer..."
             disabled={submitting}
             rows={2}
-            className="w-full text-sm rounded-lg border border-emerald-200 dark:border-emerald-700/40 bg-white dark:bg-[#2a2a3c] px-3 py-2 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none mb-2"
+            className="w-full text-base rounded-lg border border-emerald-200 dark:border-emerald-700/40 bg-white dark:bg-[#2a2a3c] px-3 py-2 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none mb-2"
           />
         )}
 

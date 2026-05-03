@@ -120,8 +120,36 @@ export function MobileApp() {
 
   useEffect(() => {
     handleConnectionChange();
-    const interval = setInterval(handleConnectionChange, 30000);
-    return () => clearInterval(interval);
+    let interval: number | null = null;
+    const startInterval = () => {
+      if (interval === null) {
+        interval = window.setInterval(handleConnectionChange, 30000);
+      }
+    };
+    const stopInterval = () => {
+      if (interval !== null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // Coming back to foreground: probe immediately, then resume polling.
+        handleConnectionChange();
+        startInterval();
+      } else {
+        // Backgrounded — stop the timer so we don't wake the radio.
+        stopInterval();
+      }
+    };
+    if (document.visibilityState === 'visible') {
+      startInterval();
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [handleConnectionChange]);
 
   // Subscribe to global auth errors from mobileClient

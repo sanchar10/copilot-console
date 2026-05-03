@@ -5,6 +5,7 @@ import { formatRelativeTime } from '../../utils/formatters';
 import { SSE_EVENTS } from '../../utils/sseConstants';
 import { useSessionStore } from '../../stores/sessionStore';
 import { useViewedStore } from '../../stores/viewedStore';
+import { isUserSession } from '../../utils/sessionFilters';
 import type { Session } from '../../types/session';
 
 interface ActiveAgentsResponse {
@@ -34,7 +35,7 @@ export function MobileSessionList({ onNotification }: Props) {
         mobileApiClient.get<Record<string, number>>('/viewed'),
         mobileApiClient.get<ActiveAgentsResponse>('/sessions/active-agents'),
       ]);
-      const filtered = sessionsData.sessions.filter(s => s.trigger !== 'automation');
+      const filtered = sessionsData.sessions.filter(isUserSession);
       setSessions(filtered);
       // Merge viewed timestamps: keep the more recent of in-memory vs backend
       const currentViewed = useViewedStore.getState().lastViewed;
