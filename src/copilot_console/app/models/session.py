@@ -113,6 +113,10 @@ class SessionWithMessages(Session):
     """Session with message history."""
 
     messages: list["Message"] = Field(default_factory=list)
+    load_error: str | None = None
+    """Set when the session could not be loaded from the SDK (e.g. CLI schema
+    mismatch). When non-null, ``messages`` will typically be empty and the UI
+    should show a clear notice rather than treating the session as empty."""
 
 
 from copilot_console.app.models.message import Message  # noqa: E402

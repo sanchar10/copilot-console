@@ -44,6 +44,24 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+class SessionResumeError(Exception):
+    """Raised when a session cannot be resumed via the SDK due to a CLI/SDK bug.
+
+    The CLI's JSON-RPC ``session.resume`` parser is stricter than its interactive
+    resume path. Some sessions written by older CLI builds (e.g. permission events
+    missing the ``ephemeral: true`` field) parse fine in the CLI's own UI but are
+    rejected by ``session.resume`` with errors like
+    ``Session file is corrupted (line N: ...)``. We surface those upstream so the
+    UI can tell the user the session can't be loaded, rather than silently
+    showing it as empty.
+    """
+
+    def __init__(self, session_id: str, reason: str):
+        self.session_id = session_id
+        self.reason = reason
+        super().__init__(f"Session {session_id} could not be resumed: {reason}")
+
+
 # Max events buffered per session before backpressure kicks in
 _EVENT_QUEUE_MAX = 1000
 
@@ -179,7 +197,7 @@ class CopilotService:
             for session_id, client in list(self._session_clients.items()):
                 try:
                     await client.stop()
-                    logger.info(f"Destroyed session client {session_id}")
+                    logger.debug(f"Destroyed session client {session_id}")
                 except Exception as e:
                     logger.warning(f"Error destroying session client {session_id}: {e}")
             self._session_clients.clear()
@@ -326,6 +344,11 @@ class CopilotService:
                         except Exception as retry_err:
                             logger.warning(f"Session {session_id} resume failed even after sanitization: {retry_err}")
                             return []
+                # CLI/SDK bug: ``session.resume`` Zod parser is stricter than the
+                # CLI's interactive resume. Surface this so the UI can show a
+                # clear message rather than the user thinking the session is empty.
+                if "Session file is corrupted (line " in error_msg:
+                    raise SessionResumeError(session_id, error_msg)
                 logger.warning(f"Could not get messages for session {session_id}: {e}")
                 return []
 

@@ -20,7 +20,7 @@ import type { Session } from '../types/session';
  * Open a session tab with full initialization.
  *
  * Replicates the exact flow from SessionItem's click handler:
- * 1. Refresh & merge MCP servers
+ * 1. Merge MCP server selections against cached availableMcpServers
  * 2. Open tab
  * 3. Load messages via SDK (getSession)
  * 4. Update session store with adopted metadata
@@ -31,26 +31,28 @@ export async function openSessionTab(session: Session): Promise<void> {
   const sessionId = session.session_id;
   const sessionTabId = tabId.session(sessionId);
 
-  const { refreshMcpServers, updateSessionMcpServers, setSessions, updateSessionTimestamp, clearNewSession } = useSessionStore.getState();
-  const { messagesPerSession, setMessages, setStreaming, appendStreamingContent, addStreamingStep, finalizeStreaming } = useChatStore.getState();
+  const { updateSessionMcpServers, setSessions, updateSessionTimestamp, clearNewSession } = useSessionStore.getState();
+  const { messagesPerSession, setMessages, setStreaming, appendStreamingContent, addStreamingStep, finalizeStreaming, setLoadError } = useChatStore.getState();
   const { setAgentActive } = useViewedStore.getState();
   const { openTab } = useTabStore.getState();
 
   // Clear new-session mode when switching to an existing session
   clearNewSession();
 
-  // Always refresh MCP servers from disk when opening a session
-  const freshServers = await refreshMcpServers();
+  // Use the cached availableMcpServers (loaded once at app startup); external
+  // edits to mcp-config.json require an app restart, documented in
+  // TROUBLESHOOTING.
+  const cachedServers = useSessionStore.getState().availableMcpServers;
 
   // Helper to merge MCP servers — keep saved selections that still exist, add new servers
   const mergeMcpServers = (savedSelections: string[] | undefined) => {
-    const freshNames = new Set(freshServers.map(s => s.name));
+    const cachedNames = new Set(cachedServers.map(s => s.name));
     if (savedSelections !== undefined && savedSelections !== null) {
       // User has configured selections (may be empty = chose none)
-      return savedSelections.filter(name => freshNames.has(name));
+      return savedSelections.filter(name => cachedNames.has(name));
     }
     // Never configured — default to all servers enabled
-    return freshServers.map(s => s.name);
+    return cachedServers.map(s => s.name);
   };
 
   // Helper to check and resume active response stream
@@ -129,6 +131,7 @@ export async function openSessionTab(session: Session): Promise<void> {
     // Load session with messages
     const sessionData = await getSession(sessionId);
     setMessages(sessionId, sessionData.messages);
+    setLoadError(sessionId, sessionData.load_error || null);
 
     const mergedSelections = mergeMcpServers(sessionData.mcp_servers);
 

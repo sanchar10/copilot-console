@@ -30,7 +30,18 @@ export { scrollToMessageBySdkId } from '../../utils/chatUtils';
 
 const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive }: { sessionId: string; isActive: boolean }) {
   const { sessions, availableMcpServers, availableTools, setSessions, updateSessionMcpServers, updateSessionTools } = useSessionStore();
-  const { messagesPerSession, getStreamingState, getTokenUsage, sendingSessionId, pendingElicitation, resolvedElicitations, pendingAskUser } = useChatStore();
+  // Sliced chatStore subscriptions: each tab subscribes only to its own session's
+  // slices, so a streaming flush in tab B no longer re-renders tab A. The
+  // streaming tab itself still re-renders every 50ms (delta batch), which is
+  // required for the auto-scroll effect below.
+  const rawMessages = useChatStore((s) => s.messagesPerSession[sessionId]);
+  const streamingState = useChatStore((s) => s.getStreamingState(sessionId));
+  const tokenUsage = useChatStore((s) => s.getTokenUsage(sessionId));
+  const sendingSessionId = useChatStore((s) => s.sendingSessionId);
+  const pendingElicitationForSession = useChatStore((s) => s.pendingElicitation[sessionId]);
+  const pendingAskUserForSession = useChatStore((s) => s.pendingAskUser[sessionId]);
+  const resolvedElicitationsForSession = useChatStore((s) => s.resolvedElicitations[sessionId]);
+  const loadError = useChatStore((s) => s.loadErrors[sessionId]);
   const { availableModels } = useUIStore();
   const { tabs, openTab: openGenericTab, switchTab: switchGenericTab } = useTabStore();
   const pins = usePinStore((s) => s.pinsPerSession[sessionId]) || [];
@@ -47,11 +58,9 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
   const [focusPinId, setFocusPinId] = useState<string | null>(null);
 
   const session = sessions.find((s) => s.session_id === sessionId);
-  const rawMessages = messagesPerSession[sessionId];
   const isLoadingMessages = rawMessages === undefined;
   const messages = rawMessages || [];
-  const { content: streamingContent, steps: streamingSteps, isStreaming } = getStreamingState(sessionId);
-  const tokenUsage = getTokenUsage(sessionId);
+  const { content: streamingContent, steps: streamingSteps, isStreaming } = streamingState;
 
   // Feature 2: open drawer + set focus target — PinsDrawer's useEffect handles actual focus after render
   const handlePinCreated = useCallback(() => {
@@ -406,21 +415,29 @@ const SessionTabContent = memo(function SessionTabContent({ sessionId, isActive 
                     </div>
                   ) : (
                     <>
+                      {loadError && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30 p-4 text-sm text-amber-900 dark:text-amber-200">
+                          <div className="font-semibold mb-1">⚠ Session history unavailable</div>
+                          <div>
+                            The Copilot CLI's session resume errored out. It was likely written by an older CLI build. The session is intact on disk and still works in the CLI directly — run <code className="font-mono">copilot --resume {sessionId}</code> to continue it there.
+                          </div>
+                        </div>
+                      )}
                       {messages.map((message) => (
                         <MessageBubble key={message.id} message={message} cwd={session?.cwd} sessionId={sessionId} onPinCreated={handlePinCreated} />
                       ))}
                       {isStreaming && (streamingContent || streamingSteps.length > 0) && <StreamingMessage content={streamingContent} steps={streamingSteps} cwd={session?.cwd} />}
                       {/* Resolved elicitations */}
-                      {(resolvedElicitations[sessionId] || []).map((re, i) => (
+                      {(resolvedElicitationsForSession || []).map((re, i) => (
                         <ResolvedElicitationCard key={`resolved-${i}`} resolved={re} schema={re.schema} />
                       ))}
                       {/* Pending elicitation card */}
-                      {pendingElicitation[sessionId] && (
-                        <ElicitationCard sessionId={sessionId} data={pendingElicitation[sessionId]!} />
+                      {pendingElicitationForSession && (
+                        <ElicitationCard sessionId={sessionId} data={pendingElicitationForSession} />
                       )}
                       {/* Pending ask_user card */}
-                      {pendingAskUser[sessionId] && (
-                        <AskUserCard sessionId={sessionId} data={pendingAskUser[sessionId]!} />
+                      {pendingAskUserForSession && (
+                        <AskUserCard sessionId={sessionId} data={pendingAskUserForSession} />
                       )}
                     </>
                   )}

@@ -54,6 +54,10 @@ interface ChatState {
   pendingCompact: Record<string, boolean>;
   pendingAgent: Record<string, string>;
 
+  // Per-session load errors (e.g. SDK couldn't resume due to CLI schema mismatch).
+  // When non-null, UI should show a banner instead of treating as empty.
+  loadErrors: Record<string, string | null>;
+
   // Getters
   getStreamingState: (sessionId: string | null) => StreamingState;
   getTokenUsage: (sessionId: string | null) => TokenUsage | null;
@@ -75,6 +79,7 @@ interface ChatState {
   setSending: (sessionId: string | null) => void;
   clearSessionMessages: (sessionId: string) => void;
   clearAllMessages: () => void;
+  setLoadError: (sessionId: string, error: string | null) => void;
 
   // Session readiness & mode
   markSessionReady: (sessionId: string) => void;
@@ -132,6 +137,46 @@ function clearDeltaBuffer(sessionId: string): void {
     delete flushTimers[sessionId];
   }
   delete deltaBuffers[sessionId];
+  delete mergedStreamingCache[sessionId];
+}
+
+/**
+ * Per-session memoization for getStreamingState's merged result.
+ *
+ * When the delta buffer has unflushed content, getStreamingState must combine
+ * `stored.content` with the buffer. Without caching, every invocation returns a
+ * new object literal. Zustand selectors backed by useSyncExternalStore call
+ * getSnapshot multiple times per render — an unstable snapshot triggers React's
+ * "Maximum update depth exceeded" guard.
+ *
+ * The cache key is (stored ref, buf length, total chars). Any state change
+ * invalidates: flushStreamingBuffer rotates `stored` (new ref), and pushes to
+ * the buf grow length/chars. Same inputs → same returned object reference.
+ */
+const mergedStreamingCache: Record<
+  string,
+  { stored: StreamingState; bufLen: number; bufChars: number; result: StreamingState }
+> = {};
+
+function getMergedStreamingState(
+  sessionId: string,
+  stored: StreamingState,
+  buf: string[]
+): StreamingState {
+  let bufChars = 0;
+  for (let i = 0; i < buf.length; i++) bufChars += buf[i].length;
+  const cached = mergedStreamingCache[sessionId];
+  if (
+    cached &&
+    cached.stored === stored &&
+    cached.bufLen === buf.length &&
+    cached.bufChars === bufChars
+  ) {
+    return cached.result;
+  }
+  const result = { ...stored, content: stored.content + buf.join('') };
+  mergedStreamingCache[sessionId] = { stored, bufLen: buf.length, bufChars, result };
+  return result;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -146,16 +191,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sessionModes: {},
   pendingCompact: {},
   pendingAgent: {},
+  loadErrors: {},
 
   getStreamingState: (sessionId) => {
     if (!sessionId) return emptyStreamingState;
     const stored = get().streamingPerSession[sessionId] || emptyStreamingState;
-    // Include any buffered but unflushed deltas for accurate reads
     const buf = deltaBuffers[sessionId];
-    if (buf && buf.length > 0) {
-      return { ...stored, content: stored.content + buf.join('') };
-    }
-    return stored;
+    if (!buf || buf.length === 0) return stored;
+    // Memoize merged result so consecutive calls with identical inputs return
+    // the same object reference (required for useSyncExternalStore stability).
+    return getMergedStreamingState(sessionId, stored, buf);
   },
 
   getTokenUsage: (sessionId) => {
@@ -354,6 +399,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clearAllMessages: () => set({ messagesPerSession: {}, streamingPerSession: {}, tokenUsagePerSession: {} }),
+
+  setLoadError: (sessionId, error) =>
+    set((state) => ({
+      loadErrors: { ...state.loadErrors, [sessionId]: error },
+    })),
 
   markSessionReady: (sessionId) =>
     set((state) => {

@@ -81,6 +81,31 @@ describe('chatStore', () => {
       expect(result.content).toBe('hello');
       expect(result.isStreaming).toBe(true);
     });
+
+    it('returns the same object reference for consecutive calls when inputs are unchanged (snapshot stability)', () => {
+      useChatStore.getState().setStreaming('s1', true);
+      useChatStore.getState().appendStreamingContent('s1', 'hello');
+      const a = useChatStore.getState().getStreamingState('s1');
+      const b = useChatStore.getState().getStreamingState('s1');
+      expect(a).toBe(b);
+    });
+
+    it('returns a new object reference after appendStreamingContent', () => {
+      useChatStore.getState().setStreaming('s1', true);
+      useChatStore.getState().appendStreamingContent('s1', 'a');
+      const a = useChatStore.getState().getStreamingState('s1');
+      useChatStore.getState().appendStreamingContent('s1', 'b');
+      const b = useChatStore.getState().getStreamingState('s1');
+      expect(a).not.toBe(b);
+      expect(b.content).toBe('ab');
+    });
+
+    it('returns stable reference for empty buffer (no merge needed)', () => {
+      useChatStore.getState().setStreaming('s1', true);
+      const a = useChatStore.getState().getStreamingState('s1');
+      const b = useChatStore.getState().getStreamingState('s1');
+      expect(a).toBe(b);
+    });
   });
 
   // --- appendStreamingContent ---

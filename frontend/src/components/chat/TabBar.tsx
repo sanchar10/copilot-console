@@ -6,7 +6,6 @@ import { clearReadySession } from './InputBox';
 
 export function TabBar() {
   const { sessions, isNewSession, clearNewSession } = useSessionStore();
-  const { messagesPerSession, setMessages, clearSessionMessages } = useChatStore();
   const { tabs, activeTabId, switchTab, closeTab } = useTabStore();
 
   const handleTabClick = async (tab: { id: string; type: string; sessionId?: string }) => {
@@ -16,11 +15,15 @@ export function TabBar() {
     clearNewSession();
 
     if (tab.type === 'session' && tab.sessionId) {
-      // Load messages if not cached
+      // Load messages if not cached. Read messagesPerSession imperatively from
+      // getState() — this view doesn't need a reactive subscription, so avoiding
+      // it stops TabBar from re-rendering on every streaming delta.
+      const { messagesPerSession, setMessages, setLoadError } = useChatStore.getState();
       if (!messagesPerSession[tab.sessionId]) {
         try {
           const sessionData = await getSession(tab.sessionId);
           setMessages(tab.sessionId, sessionData.messages);
+          setLoadError(tab.sessionId, sessionData.load_error || null);
         } catch (err) {
           console.error('Failed to switch tab:', err);
           return;
@@ -38,7 +41,7 @@ export function TabBar() {
     closeTab(tab.id);
 
     if (tab.type === 'session' && tab.sessionId) {
-      clearSessionMessages(tab.sessionId);
+      useChatStore.getState().clearSessionMessages(tab.sessionId);
       // Disconnect in background — don't block UI
       disconnectSession(tab.sessionId)
         .then(() => clearReadySession(tab.sessionId!))

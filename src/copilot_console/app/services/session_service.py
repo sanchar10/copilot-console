@@ -10,7 +10,7 @@ from copilot_console.app.config import COPILOT_SESSION_STATE
 from copilot_console.app.models.message import Message, MessageAttachment, MessageStep
 from copilot_console.app.models.session import Session, SessionCreate, SessionUpdate, SessionWithMessages
 from copilot_console.app.models.agent import AgentTools
-from copilot_console.app.services.copilot_service import copilot_service
+from copilot_console.app.services.copilot_service import copilot_service, SessionResumeError
 from copilot_console.app.services.mcp_service import mcp_service
 from copilot_console.app.services.storage_service import storage_service, atomic_write
 from copilot_console.app.services.logging_service import get_logger
@@ -90,8 +90,17 @@ class SessionService:
         settings = storage_service.get_settings()
         default_cwd = settings.get("default_cwd", str(os.path.expanduser("~")))
         
-        # MCP servers and tools default to none selected — user opts in explicitly
-        mcp_servers = request.mcp_servers if request.mcp_servers is not None else []
+        # MCP servers: explicit value (including []) wins; if omitted entirely (None),
+        # default to the user's mcp_auto_enable list intersected with currently
+        # available servers. Pre-existing sessions persisted with [] are NOT
+        # retroactively auto-enabled — this only affects new session creation.
+        if request.mcp_servers is not None:
+            mcp_servers = request.mcp_servers
+        else:
+            auto_enable = storage_service.get_mcp_auto_enable()
+            enabled_names = {name for name, on in auto_enable.items() if on}
+            available_names = {s.name for s in mcp_service.get_available_servers().servers}
+            mcp_servers = sorted(enabled_names & available_names)
         tools = request.tools if request.tools is not None else AgentTools()
 
         session = Session(
@@ -525,6 +534,7 @@ class SessionService:
             except Exception:
                 return None
 
+        load_error: str | None = None
         try:
             sdk_events = await copilot_service.get_session_messages(session_id)
             logger.debug(f"Got {len(sdk_events)} events from SDK for session {session_id}")
@@ -650,6 +660,15 @@ class SessionService:
                         ))
                         pending_steps.clear()
 
+        except SessionResumeError as e:
+            # CLI/SDK schema mismatch — surface to UI rather than silently empty.
+            logger.warning(f"Session {session_id} could not be resumed: {e.reason}")
+            load_error = (
+                "This session can't be loaded because the Copilot CLI's session.resume "
+                "rejected one or more events written by an earlier CLI build. "
+                "The session is intact on disk and still works in the CLI itself."
+            )
+            messages = []
         except Exception as e:
             logger.error(f"Failed to get messages for session {session_id}: {e}")
             messages = []
@@ -667,6 +686,7 @@ class SessionService:
             created_at=session.created_at,
             updated_at=session.updated_at,
             messages=messages,
+            load_error=load_error,
         )
 
     async def delete_session(self, session_id: str) -> bool:

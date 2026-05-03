@@ -24,11 +24,20 @@ vi.mock('../../stores/tabStore', () => ({
 }));
 
 vi.mock('../../stores/chatStore', () => ({
-  useChatStore: () => ({
-    messagesPerSession: {},
-    setMessages: vi.fn(),
-    clearSessionMessages: vi.fn(),
-  }),
+  useChatStore: Object.assign(
+    () => ({
+      messagesPerSession: {},
+      setMessages: vi.fn(),
+      clearSessionMessages: vi.fn(),
+    }),
+    {
+      getState: () => ({
+        messagesPerSession: {},
+        setMessages: vi.fn(),
+        clearSessionMessages: vi.fn(),
+      }),
+    },
+  ),
 }));
 
 vi.mock('../../stores/viewedStore', () => ({

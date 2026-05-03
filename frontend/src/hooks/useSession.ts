@@ -9,13 +9,14 @@ import { getSession, connectSession, getResponseStatus, resumeResponseStream } f
  */
 export function useSession() {
   const updateSessionTimestamp = useSessionStore((s) => s.updateSessionTimestamp);
-  const { setMessages, appendStreamingContent, addStreamingStep, addMessage, setStreaming, finalizeStreaming } = useChatStore();
+  const { setMessages, appendStreamingContent, addStreamingStep, addMessage, setStreaming, finalizeStreaming, setLoadError } = useChatStore();
   const { setAgentActive, markViewed } = useViewedStore();
 
   const loadSession = useCallback(async (id: string) => {
     try {
       const session = await getSession(id);
       setMessages(id, session.messages);
+      setLoadError(id, session.load_error || null);
       await connectSession(id);
       
       // Check if there's an active response being generated (agent still running)

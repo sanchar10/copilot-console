@@ -14,9 +14,10 @@ vi.mock('../../stores/sessionStore', () => ({
 }));
 
 vi.mock('../../stores/chatStore', () => ({
-  useChatStore: Object.assign(() => mockChatState, {
-    getState: () => mockChatState,
-  }),
+  useChatStore: Object.assign(
+    (sel?: (s: typeof mockChatState) => unknown) => sel ? sel(mockChatState) : mockChatState,
+    { getState: () => mockChatState },
+  ),
 }));
 
 vi.mock('../../stores/tabStore', () => ({
@@ -124,6 +125,9 @@ function setupStores(overrides?: { openTabs?: string[]; currentSessionId?: strin
     pendingElicitation: {},
     resolvedElicitations: {},
     pendingAskUser: {},
+    readySessions: new Set<string>(),
+    pendingCompact: {},
+    loadErrors: {},
     setSending: vi.fn(),
     setStreaming: vi.fn(),
     addMessage: vi.fn(),
@@ -132,6 +136,7 @@ function setupStores(overrides?: { openTabs?: string[]; currentSessionId?: strin
     setTokenUsage: vi.fn(),
     finalizeStreaming: vi.fn(),
     finalizeTurn: vi.fn(),
+    consumePendingCompact: vi.fn(() => false),
   };
 }
 

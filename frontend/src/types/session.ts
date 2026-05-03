@@ -23,6 +23,7 @@ export interface Session {
 
 export interface SessionWithMessages extends Session {
   messages: Message[];
+  load_error?: string | null;
 }
 
 export type { ChatStep, Message };
