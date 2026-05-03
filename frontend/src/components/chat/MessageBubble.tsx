@@ -289,6 +289,7 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
     );
   }
 
+  const isHelp = message.kind === 'help';
   const canPin = !isUser && !!sessionId && !!message.sdk_message_id;
   const isPinned = usePinStore((s) => {
     if (!canPin) return false;
@@ -299,24 +300,35 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
   return (
     <div className="flex gap-3" data-sdk-message-id={message.sdk_message_id}>
       {/* Avatar */}
-      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${
-      isUser ? 'bg-blue-600' : 'bg-emerald-600'
+      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+        isHelp && !isUser
+          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+          : `text-white ${isUser ? 'bg-blue-600' : 'bg-emerald-600'}`
       }`}>
         {isUser ? (
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
           </svg>
         ) : (
-          <span className="text-sm leading-none">🤖</span>
+          <span className="text-sm leading-none">{isHelp ? '❓' : '🤖'}</span>
         )}
       </div>
-      
+
       {/* Message content */}
       <div className="flex-1 min-w-0 group/pin">
         {/* Label */}
         <div className="flex items-center justify-between gap-2 mb-1">
-          <div className={`text-sm font-medium ${isUser ? 'text-blue-600' : 'text-emerald-600'}`}>
-            {isUser ? 'You' : 'Copilot'}
+          <div className={`text-sm font-medium ${
+            isHelp && !isUser
+              ? 'text-amber-700 dark:text-amber-400'
+              : isUser ? 'text-blue-600' : 'text-emerald-600'
+          }`}>
+            {isUser ? 'You' : (isHelp ? 'Help Agent' : 'Copilot')}
+            {isHelp && isUser && (
+              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium align-middle bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-600">
+                <span>❓</span><span>/help</span>
+              </span>
+            )}
             {isEnqueued && (
               <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-600">
                 <svg className="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,11 +347,13 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
         
         {/* Message body */}
         <div ref={bodyRef} onClick={handleFilePathClick} className={`relative rounded-lg px-4 py-3 ${
-          isEnqueued
-            ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700'
-            : isUser 
-              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800' 
-              : 'bg-white dark:bg-[#2a2a3c] border border-gray-200 dark:border-gray-700'
+          isHelp && !isUser
+            ? 'bg-amber-50/60 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/40'
+            : isEnqueued
+              ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700'
+              : isUser
+                ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800'
+                : 'bg-white dark:bg-[#2a2a3c] border border-gray-200 dark:border-gray-700'
         }`}>
           {/* Pin icon — top-right of message body */}
           {canPin && (
@@ -471,7 +485,9 @@ export const MessageBubble = memo(function MessageBubble({ message, cwd, session
           })()}
           {isUser ? (
             <>
-              <div className="whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100">{message.content || (message.attachments?.length ? '' : message.content)}</div>
+              <div className="whitespace-pre-wrap break-words text-gray-900 dark:text-gray-100">
+                {message.content || (message.attachments?.length ? '' : message.content)}
+              </div>
               {message.attachments && message.attachments.length > 0 && <AttachmentChips attachments={message.attachments} />}
             </>
           ) : (

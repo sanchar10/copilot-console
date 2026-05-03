@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { formatRelativeTime } from '../../utils/formatters';
+import { isUserSession } from '../../utils/sessionFilters';
 import type { Session } from '../../types/session';
 
 interface RelatedSessionsProps {
@@ -22,7 +23,7 @@ export function RelatedSessions({ sessions, currentSessionId, cwd, openTabs, onS
   const related = useMemo(() => {
     const normalizedCwd = normalizePath(cwd);
     return sessions
-      .filter(s => s.session_id !== currentSessionId && s.trigger !== 'automation' && s.cwd && normalizePath(s.cwd) === normalizedCwd)
+      .filter(s => s.session_id !== currentSessionId && isUserSession(s) && s.cwd && normalizePath(s.cwd) === normalizedCwd)
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   }, [sessions, currentSessionId, cwd]);
 

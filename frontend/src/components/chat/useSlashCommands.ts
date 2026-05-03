@@ -4,6 +4,7 @@ import { useSessionStore } from '../../stores/sessionStore';
 import type { SlashCommand } from './slashCommands';
 import { SLASH_COMMANDS } from './slashCommands';
 import { compactSession, selectAgent, deselectAgent, updateSession } from '../../api/sessions';
+import { askHelp } from '../../api/help';
 import { isSessionReady } from './InputBox';
 
 /**
@@ -24,18 +25,7 @@ export function useSlashCommands(sessionId?: string) {
     setShowSlashPalette(false);
     setSlashQuery('');
     if (cmd.interaction === 'immediate') {
-      if (cmd.name === 'help') {
-        const helpLines = SLASH_COMMANDS.map(c => `${c.icon} **/${c.name}** — ${c.description}`).join('\n');
-        const helpContent = `Available commands:\n${helpLines}`;
-        if (sessionId) {
-          addMessage(sessionId, {
-            id: `system-help-${Date.now()}`,
-            role: 'system',
-            content: helpContent,
-            timestamp: new Date().toISOString(),
-          });
-        }
-      } else if (cmd.name === 'compact') {
+      if (cmd.name === 'compact') {
         if (sessionId && isSessionReady(sessionId)) {
           // Phase 5: fire-and-forget POST. Lifecycle events
           // (`session.compaction` start/complete + `session.usage_info`)
@@ -175,18 +165,44 @@ export function useSlashCommands(sessionId?: string) {
     if (!sessionId) return;
     try {
       if (cmd.name === 'compact') {
-        const result = await compactSession(sessionId);
-        const tokens = result.tokens_removed ?? 0;
-        const msgs = result.messages_removed ?? 0;
-        const detail = result.success && (tokens || msgs)
-          ? `Freed ${tokens} tokens. Messages summarized: ${msgs}.`
-          : 'nothing to compact';
+        await compactSession(sessionId);
+        // Lifecycle (compaction_start/complete) and the resulting usage_info
+        // refresh arrive on the global SSE channel; we just acknowledge here.
         addMessage(sessionId, {
           id: `system-compact-${Date.now()}`,
           role: 'system',
-          content: `✓ Context compacted — ${detail}`,
+          content: '✓ Context compaction started…',
           timestamp: new Date().toISOString(),
         });
+      } else if (cmd.name === 'help') {
+        const question = _prompt.trim();
+        if (!question) return;
+        // Show the user's question as a normal user bubble, tagged kind:'help'.
+        addMessage(sessionId, {
+          id: `help-q-${Date.now()}`,
+          role: 'user',
+          content: question,
+          timestamp: new Date().toISOString(),
+          kind: 'help',
+        });
+        try {
+          const result = await askHelp(question);
+          addMessage(sessionId, {
+            id: `help-a-${Date.now()}`,
+            role: 'assistant',
+            content: result.answer,
+            timestamp: new Date().toISOString(),
+            kind: 'help',
+          });
+        } catch (err) {
+          addMessage(sessionId, {
+            id: `help-err-${Date.now()}`,
+            role: 'assistant',
+            content: `❌ Help request failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            timestamp: new Date().toISOString(),
+            kind: 'help',
+          });
+        }
       }
     } catch (err) {
       console.error(`Failed to execute /${cmd.name}:`, err);

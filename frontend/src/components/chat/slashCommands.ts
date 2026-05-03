@@ -54,11 +54,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   },
   {
     name: 'help',
-    description: 'Show available commands',
+    description: 'Ask a question about Copilot Console',
     icon: '❓',
-    interaction: 'immediate',
+    interaction: 'prompt',
+    placeholder: 'Ask anything about Copilot Console...',
     actionType: 'client',
-    usage: '',
+    usage: '[question]',
   },
   {
     name: 'agent',
@@ -74,5 +75,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
 /** Filter commands by partial name match (case-insensitive). */
 export function filterCommands(query: string): SlashCommand[] {
   const q = query.toLowerCase();
-  return SLASH_COMMANDS.filter((c) => c.name.startsWith(q));
+  return SLASH_COMMANDS
+    .filter((c) => c.name.startsWith(q))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

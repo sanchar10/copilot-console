@@ -60,17 +60,26 @@ export function InputBox({ sessionId, promptToSend, onPromptSent, onMessageSent,
   const { defaultModel, defaultCwd } = useUIStore();
   const { setAgentActive, markViewed } = useViewedStore();
   const { openTab: openGenericTab } = useTabStore();
+  // Reactive chatStore slices — only these trigger re-renders.
+  // Each slice is keyed by sessionId so other tabs don't re-render this InputBox
+  // during their own streaming.
+  const sendingSessionId = useChatStore((s) => s.sendingSessionId);
+  const streamingState = useChatStore((s) => s.getStreamingState(sessionId || null));
+  const pendingAskUserForSession = useChatStore((s) => (sessionId ? s.pendingAskUser[sessionId] : null));
+  const pendingElicitationForSession = useChatStore((s) => (sessionId ? s.pendingElicitation[sessionId] : null));
+  // Stable action references — pulled once via getState(); not reactive.
+  // Zustand actions are created at store init and never replaced, so destructuring
+  // here doesn't subscribe to the store.
   const {
-    sendingSessionId, getStreamingState, setSending, setStreaming,
+    setSending, setStreaming,
     addMessage, appendStreamingContent, addStreamingStep, setTokenUsage,
     finalizeTurn, setElicitation, clearElicitation, setAskUser, clearAskUser,
-    pendingAskUser, pendingElicitation,
     isSessionReady: isSessionReadyFn, markSessionReady: markSessionReadyFn,
     setSessionMode: setSessionModeStore, getSessionMode,
-  } = useChatStore();
+  } = useChatStore.getState();
 
-  const { isStreaming, latestIntent } = getStreamingState(sessionId || null);
-  const hasPendingInput = !!(sessionId && (pendingAskUser[sessionId] || pendingElicitation[sessionId]));
+  const { isStreaming, latestIntent } = streamingState;
+  const hasPendingInput = !!(pendingAskUserForSession || pendingElicitationForSession);
   const isSending = sendingSessionId === sessionId;
   const isDisabled = isSending;
 

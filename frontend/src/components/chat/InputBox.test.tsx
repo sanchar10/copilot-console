@@ -10,7 +10,7 @@ let mockSessionModes: Record<string, string> = {};
 
 vi.mock('../../stores/chatStore', () => ({
   useChatStore: Object.assign(
-    () => mockChatState,
+    (sel?: (s: typeof mockChatState) => unknown) => sel ? sel(mockChatState) : mockChatState,
     {
       getState: () => ({
         ...mockChatState,

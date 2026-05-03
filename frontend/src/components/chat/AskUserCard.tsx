@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import type { AskUserRequest } from '../../api/sessions';
 import { respondToUserInput } from '../../api/sessions';
 import { useChatStore } from '../../stores/chatStore';
+import { useToastStore } from '../../stores/toastStore';
 
 interface AskUserCardProps {
   sessionId: string;
@@ -27,7 +28,22 @@ export function AskUserCard({ sessionId, data }: AskUserCardProps) {
       await respondToUserInput(sessionId, data.request_id, answer, useFreeform);
       clearAskUser(sessionId);
     } catch (err) {
-      console.error('Failed to respond to ask_user:', err);
+      const status = (err as { status?: number }).status;
+      if (status === 404) {
+        useToastStore.getState().addToast(
+          'This request expired (session was idle too long). Continue in the message box below.',
+          'warning',
+          { duration: 6000, id: `ask-user-expired-${data.request_id}` },
+        );
+        clearAskUser(sessionId);
+      } else {
+        useToastStore.getState().addToast(
+          'Failed to send your answer. Please try again.',
+          'error',
+          { duration: 5000 },
+        );
+        console.error('Failed to respond to ask_user:', err);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -39,7 +55,18 @@ export function AskUserCard({ sessionId, data }: AskUserCardProps) {
       await respondToUserInput(sessionId, data.request_id, '', true, true);
       clearAskUser(sessionId);
     } catch (err) {
-      console.error('Failed to skip ask_user:', err);
+      const status = (err as { status?: number }).status;
+      if (status === 404) {
+        // Card already expired server-side; user wanted it gone anyway.
+        clearAskUser(sessionId);
+      } else {
+        useToastStore.getState().addToast(
+          'Failed to skip this request. Please try again.',
+          'error',
+          { duration: 5000 },
+        );
+        console.error('Failed to skip ask_user:', err);
+      }
     } finally {
       setSubmitting(false);
     }
