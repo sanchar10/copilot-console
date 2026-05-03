@@ -14,7 +14,7 @@ const mockSessionStoreState = {
   removeSession: vi.fn(),
   setSessions: vi.fn(),
   sessions: [],
-  refreshMcpServers: vi.fn().mockResolvedValue([]),
+  availableMcpServers: [],
   updateSessionMcpServers: vi.fn(),
   updateSessionTimestamp: vi.fn(),
   clearNewSession: mockClearNewSession,

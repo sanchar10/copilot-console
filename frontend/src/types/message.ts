@@ -21,6 +21,12 @@ export interface Message {
   steps?: ChatStep[];
   mode?: 'enqueue' | 'immediate';
   attachments?: MessageAttachment[];
+  /**
+   * Side-channel marker. Messages with `kind === 'help'` are rendered with a
+   * distinct visual identity (amber ❓ avatar, "Help Agent" label, badge) to
+   * make clear they are NOT part of the primary agent's conversation context.
+   */
+  kind?: 'help';
 }
 
 export interface StreamingMessage {

@@ -12,6 +12,7 @@ import { useTheme } from './hooks/useTheme';
 
 function App() {
   const refreshMcpServers = useSessionStore((state) => state.refreshMcpServers);
+  const refreshMcpAutoEnable = useSessionStore((state) => state.refreshMcpAutoEnable);
   const refreshTools = useSessionStore((state) => state.refreshTools);
   const tabs = useTabStore((state) => state.tabs);
   const { loadViewedTimestamps } = useViewedStore();
@@ -20,12 +21,13 @@ function App() {
   // Initialize theme from localStorage on mount
   useTheme();
 
-  // Load available MCP servers, tools, and viewed timestamps on app startup
+  // Load available MCP servers, MCP auto-enable map, tools, and viewed timestamps on app startup
   useEffect(() => {
     refreshMcpServers();
+    refreshMcpAutoEnable();
     refreshTools();
     loadViewedTimestamps();
-  }, [refreshMcpServers, refreshTools, loadViewedTimestamps]);
+  }, [refreshMcpServers, refreshMcpAutoEnable, refreshTools, loadViewedTimestamps]);
 
   // Disconnect all open sessions when browser tab closes
   useEffect(() => {

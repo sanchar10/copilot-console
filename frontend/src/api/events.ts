@@ -155,6 +155,18 @@ function ensureSource(channel: EventChannel): void {
       // Drop reference so ensureSource recreates it.
       if (channel.source === src) channel.source = null;
       scheduleReconnect(channel);
+      // After 2+ failed reconnects, surface a single dedup'd toast so
+      // the user knows the backend is unreachable. Imported lazily to
+      // avoid pulling the toast store into the SSE bootstrap path.
+      if (channel.reconnectAttempts >= 2) {
+        import('../stores/toastStore').then(({ useToastStore }) => {
+          useToastStore.getState().addToast(
+            'Copilot Console server unreachable',
+            'error',
+            { id: 'server-down', duration: 5000 },
+          );
+        }).catch(() => { /* noop */ });
+      }
     }
     // CONNECTING (0) is a normal native auto-reconnect — leave it alone.
   });

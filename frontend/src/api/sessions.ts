@@ -56,7 +56,9 @@ export async function respondToUserInput(
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`Failed to respond to user input: ${response.statusText}`);
+    const err = new Error(`Failed to respond to user input: ${response.statusText}`) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
   return response.json();
 }

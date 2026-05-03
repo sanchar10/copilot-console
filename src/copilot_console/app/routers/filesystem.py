@@ -172,8 +172,12 @@ async def open_with(request: OpenWithRequest) -> dict:
 
 @router.post("/open")
 async def open_file(request: OpenFileRequest) -> dict:
-    """Open a file with the OS default application."""
-    file_path = Path(request.path)
+    """Open a file with the OS default application.
+
+    Accepts paths starting with ``~`` (expanded to the user's home directory)
+    so callers can pass the same display-friendly form shown in the UI.
+    """
+    file_path = Path(request.path).expanduser()
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {request.path}")
 

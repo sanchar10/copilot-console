@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from copilot_console.app.config import API_PREFIX, ensure_directories
-from copilot_console.app.routers import agents, auth, events, filesystem, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, pins, cli_hooks, search
+from copilot_console.app.routers import agents, auth, events, filesystem, help, logs, mcp, models, automations, projects, sessions, settings, tools, task_runs, viewed, push, pins, cli_hooks, search
 try:
     from copilot_console.app.routers import workflows
     _has_workflows = True
@@ -167,6 +167,7 @@ if _has_workflows:
 app.include_router(pins.router, prefix=API_PREFIX)
 app.include_router(cli_hooks.router, prefix=API_PREFIX)
 app.include_router(search.router, prefix=API_PREFIX)
+app.include_router(help.router, prefix=API_PREFIX)
 
 
 @app.get("/health")
@@ -178,13 +179,35 @@ async def health_check():
 @app.get(f"{API_PREFIX}/features")
 async def get_features():
     """Check which optional features are available."""
-    install_cmd = "python -m pip install agent-framework --pre"
-    if sys.platform != "win32":
-        install_cmd = "python3 -m pip install agent-framework --pre"
     return {
         "agent_framework": _has_workflows,
-        "install_command": install_cmd,
+        "install_command": _build_install_command(),
     }
+
+
+def _build_install_command() -> str:
+    """Return the install command tailored to how Copilot Console was installed.
+
+    Detects pipx (via path heuristic + ``PIPX_HOME`` env var). Otherwise falls
+    back to ``python -m pip`` (Windows) or ``python3 -m pip`` (macOS/Linux),
+    which works for system pip, regular venvs, dev installs, and conda envs.
+    """
+    exe = Path(sys.executable).resolve()
+    parts = {p.lower() for p in exe.parts}
+
+    pipx_home = os.environ.get("PIPX_HOME")
+    if pipx_home:
+        try:
+            exe.relative_to(Path(pipx_home).resolve())
+            return 'pipx inject copilot-console agent-framework --pip-args="--pre"'
+        except ValueError:
+            pass
+
+    if "pipx" in parts and "venvs" in parts:
+        return 'pipx inject copilot-console agent-framework --pip-args="--pre"'
+
+    py = "python" if sys.platform == "win32" else "python3"
+    return f"{py} -m pip install agent-framework --pre"
 
 
 # Serve static files (built frontend) if available

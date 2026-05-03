@@ -101,4 +101,59 @@ describe('sessionStore', () => {
       expect(useSessionStore.getState().newSessionSettings).toBeNull();
     });
   });
+
+  // --- availableMcpServers CRUD merges (Phase 3 Slice 6) ---
+  describe('upsertAvailableMcpServer', () => {
+    const baseServer = (name: string, command = 'echo') => ({
+      name,
+      command,
+      tools: ['*'],
+      source: 'global',
+    });
+
+    it('appends a server when no existing entry matches the name', () => {
+      useSessionStore.setState({ availableMcpServers: [baseServer('a')] });
+      useSessionStore.getState().upsertAvailableMcpServer(baseServer('b'));
+      const names = useSessionStore.getState().availableMcpServers.map((s) => s.name);
+      expect(names).toEqual(['a', 'b']);
+    });
+
+    it('replaces an existing server in place when names match', () => {
+      useSessionStore.setState({
+        availableMcpServers: [baseServer('a'), baseServer('b'), baseServer('c')],
+      });
+      useSessionStore.getState().upsertAvailableMcpServer(baseServer('b', 'newcmd'));
+      const list = useSessionStore.getState().availableMcpServers;
+      expect(list.map((s) => s.name)).toEqual(['a', 'b', 'c']); // order preserved
+      expect(list[1].command).toBe('newcmd');
+    });
+
+    it('produces a new array reference (immutability — Zustand selectors rely on this)', () => {
+      const original = [baseServer('a')];
+      useSessionStore.setState({ availableMcpServers: original });
+      useSessionStore.getState().upsertAvailableMcpServer(baseServer('b'));
+      expect(useSessionStore.getState().availableMcpServers).not.toBe(original);
+    });
+  });
+
+  describe('removeAvailableMcpServer', () => {
+    it('drops the matching server from the list', () => {
+      useSessionStore.setState({
+        availableMcpServers: [
+          { name: 'a', tools: [], source: 'global' },
+          { name: 'b', tools: [], source: 'global' },
+        ],
+      });
+      useSessionStore.getState().removeAvailableMcpServer('a');
+      const names = useSessionStore.getState().availableMcpServers.map((s) => s.name);
+      expect(names).toEqual(['b']);
+    });
+
+    it('is a no-op when no server matches the name', () => {
+      const original = [{ name: 'a', tools: [], source: 'global' }];
+      useSessionStore.setState({ availableMcpServers: original });
+      useSessionStore.getState().removeAvailableMcpServer('ghost');
+      expect(useSessionStore.getState().availableMcpServers).toHaveLength(1);
+    });
+  });
 });
