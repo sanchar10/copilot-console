@@ -16,6 +16,7 @@ import { useViewedStore } from '../../stores/viewedStore';
 import { Dropdown } from '../common/Dropdown';
 import { Modal } from '../common/Modal';
 import { withRetry } from '../../utils/retry';
+import { isUserSession } from '../../utils/sessionFilters';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
 import { SearchModal } from '../search/SearchModal';
@@ -143,7 +144,7 @@ export function Sidebar() {
     // When a project filter is active, use that project's folder as CWD
     if (selectedProject) {
       const match = sessions.find(
-        s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === selectedProject
+        s => isUserSession(s) && s.cwd && getProjectName(s.cwd) === selectedProject
       );
       if (match?.cwd) {
         // Verify the folder still exists via browse endpoint
@@ -302,7 +303,7 @@ export function Sidebar() {
           // Build unique folder entries: { name, cwd (shortest path for that name) }
           const folderMap = new Map<string, string>(); // name → cwd
           sessions
-            .filter(s => s.trigger !== 'automation' && s.cwd)
+            .filter(s => isUserSession(s) && s.cwd)
             .forEach(s => {
               const name = getProjectName(s.cwd!);
               if (!folderMap.has(name)) folderMap.set(name, s.cwd!);
@@ -314,11 +315,11 @@ export function Sidebar() {
               return { name, path: shortPath, fullPath: cwd };
             })
             .sort((a, b) => a.name.localeCompare(b.name));
-          const totalNonAutoSessions = sessions.filter(s => s.trigger !== 'automation').length;
+          const totalNonAutoSessions = sessions.filter(isUserSession).length;
           const dropdownOptions = [
             { value: '', label: `All Projects (${folderEntries.length}) · ${totalNonAutoSessions} sessions` },
             ...folderEntries.map(({ name, fullPath }) => {
-              const count = sessions.filter(s => s.trigger !== 'automation' && s.cwd && getProjectName(s.cwd) === name).length;
+              const count = sessions.filter(s => isUserSession(s) && s.cwd && getProjectName(s.cwd) === name).length;
               const suffix = ` · ${count} sessions`;
               const maxNameLen = 40 - suffix.length;
               const displayName = name.length > maxNameLen ? '…' + name.slice(-maxNameLen + 1) : name;
@@ -338,7 +339,7 @@ export function Sidebar() {
         })()}
         {sessions.length > 0 && (() => {
           const filteredSessions = sessions.filter(s => {
-            if (s.trigger === 'automation') return false;
+            if (!isUserSession(s)) return false;
             if (selectedProject) {
               if (!s.cwd) return false;
               if (getProjectName(s.cwd) !== selectedProject) return false;

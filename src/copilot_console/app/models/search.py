@@ -22,3 +22,4 @@ class SearchResult(BaseModel):
     match_type: str  # "name", "content", or "both"
     snippets: list[SearchSnippet] = []
     last_active: float  # Unix timestamp for sorting
+    trigger: str | None = None  # 'workflow' | 'automation' | 'help' | None — for client-side filtering

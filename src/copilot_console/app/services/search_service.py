@@ -74,11 +74,11 @@ async def search(query: str, sessions: list) -> list[SearchResult]:
     if not query or len(query) < MIN_QUERY_LENGTH:
         return []
 
-    # Build session lookup: id -> (name, last_active timestamp)
-    session_map: dict[str, tuple[str, float]] = {}
+    # Build session lookup: id -> (name, last_active timestamp, trigger)
+    session_map: dict[str, tuple[str, float, str | None]] = {}
     for s in sessions:
         ts = s.updated_at.timestamp() if s.updated_at else 0.0
-        session_map[s.session_id] = (s.session_name, ts)
+        session_map[s.session_id] = (s.session_name, ts, getattr(s, "trigger", None))
 
     results: dict[str, SearchResult] = {}
     q_lower = query.lower()
@@ -87,12 +87,14 @@ async def search(query: str, sessions: list) -> list[SearchResult]:
     for s in sessions:
         name = s.session_name or ""
         if q_lower in name.lower():
+            _, ts, trig = session_map[s.session_id]
             results[s.session_id] = SearchResult(
                 session_id=s.session_id,
                 session_name=name,
                 match_type="name",
                 snippets=[],
-                last_active=session_map[s.session_id][1],
+                last_active=ts,
+                trigger=trig,
             )
 
     # 2. Content search — ripgrep across events.jsonl
@@ -104,13 +106,14 @@ async def search(query: str, sessions: list) -> list[SearchResult]:
                 results[sid].snippets = snippets
                 results[sid].match_type = "both"
             else:
-                name, ts = session_map.get(sid, (sid, 0.0))
+                name, ts, trig = session_map.get(sid, (sid, 0.0, None))
                 results[sid] = SearchResult(
                     session_id=sid,
                     session_name=name,
                     match_type="content",
                     snippets=snippets,
                     last_active=ts,
+                    trigger=trig,
                 )
 
     # Sort by last_active descending
@@ -119,7 +122,7 @@ async def search(query: str, sessions: list) -> list[SearchResult]:
 
 
 async def _ripgrep_search(
-    rg_path: str, query: str, session_map: dict[str, tuple[str, float]]
+    rg_path: str, query: str, session_map: dict[str, tuple[str, float, str | None]]
 ) -> dict[str, list[SearchSnippet]]:
     """Run ripgrep and parse results into snippets grouped by session."""
     search_dir = str(COPILOT_SESSION_STATE)

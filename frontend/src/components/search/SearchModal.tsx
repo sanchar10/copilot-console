@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { searchSessions, type SearchResult, type SearchSnippet } from '../../api/search';
 import { useSessionStore } from '../../stores/sessionStore';
@@ -9,6 +9,22 @@ import { scrollToMessageBySdkId } from '../chat/ChatPane';
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+type FilterMode = 'chats' | 'all';
+const FILTER_MODE_KEY = 'copilot.search.filterMode';
+const HIDDEN_TRIGGERS = new Set(['workflow', 'automation', 'help']);
+
+function isChatResult(r: SearchResult): boolean {
+  return !r.trigger || !HIDDEN_TRIGGERS.has(r.trigger);
+}
+
+function triggerBadge(trigger: string | null | undefined): { icon: string; label: string } | null {
+  if (!trigger) return null;
+  if (trigger === 'workflow') return { icon: '🔀', label: 'Workflow' };
+  if (trigger === 'automation') return { icon: '⏰', label: 'Automation' };
+  if (trigger === 'help') return { icon: '❓', label: 'Help' };
+  return null;
 }
 
 function formatTimeAgo(ts: number): string {
@@ -28,11 +44,37 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [filterMode, setFilterMode] = useState<FilterMode>(() => {
+    try {
+      const stored = localStorage.getItem(FILTER_MODE_KEY);
+      return stored === 'all' ? 'all' : 'chats';
+    } catch {
+      return 'chats';
+    }
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const { sessions } = useSessionStore();
+
+  // Persist filter mode
+  useEffect(() => {
+    try { localStorage.setItem(FILTER_MODE_KEY, filterMode); } catch { /* ignore */ }
+  }, [filterMode]);
+
+  // Counts + filtered list
+  const chatsCount = useMemo(() => results.filter(isChatResult).length, [results]);
+  const allCount = results.length;
+  const filteredResults = useMemo(
+    () => (filterMode === 'chats' ? results.filter(isChatResult) : results),
+    [results, filterMode],
+  );
+
+  // Reset selected index when filter or results change
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [filterMode, results]);
 
   // Auto-focus input when modal opens
   useEffect(() => {
@@ -57,7 +99,8 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Debounced search
+  // Also remove setSelectedIndex(0) from search effect — it's handled by the
+  // results-change effect above (avoid stale-closure double reset).
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query || query.length < 2) {
@@ -70,7 +113,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       try {
         const res = await searchSessions(query);
         setResults(res);
-        setSelectedIndex(0);
       } catch {
         setResults([]);
       } finally {
@@ -83,7 +125,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   // Build flat list of clickable items for keyboard nav
   const flatItems = useCallback((): Array<{ result: SearchResult; snippet?: SearchSnippet }> => {
     const items: Array<{ result: SearchResult; snippet?: SearchSnippet }> = [];
-    for (const r of results) {
+    for (const r of filteredResults) {
       if (r.snippets.length === 0) {
         items.push({ result: r });
       } else {
@@ -93,7 +135,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
       }
     }
     return items;
-  }, [results]);
+  }, [filteredResults]);
 
   const handleSelect = useCallback(async (result: SearchResult, snippet?: SearchSnippet) => {
     const currentQuery = query;
@@ -204,10 +246,23 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
           {query.length >= 2 && !loading && results.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-gray-400">No results found</div>
           )}
-          {results.length > 0 && (() => {
+          {query.length >= 2 && !loading && results.length > 0 && filteredResults.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-gray-400">
+              No chat matches —{' '}
+              <button
+                onClick={() => setFilterMode('all')}
+                className="underline hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                switch to All
+              </button>
+              {' '}to see {allCount} other result{allCount === 1 ? '' : 's'}
+            </div>
+          )}
+          {filteredResults.length > 0 && (() => {
             // Pre-compute flat index for each renderable item
             let globalIdx = 0;
-            return results.map((result) => {
+            return filteredResults.map((result) => {
+              const badge = triggerBadge(result.trigger);
               if (result.snippets.length === 0) {
                 const idx = globalIdx++;
                 return (
@@ -225,6 +280,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">{result.session_name}</span>
+                      {badge && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#3a3a4e] text-gray-500 dark:text-gray-400 flex-shrink-0"
+                          title={badge.label}
+                        >
+                          {badge.icon} {badge.label}
+                        </span>
+                      )}
                       <span className="text-[11px] text-gray-400 flex-shrink-0">{formatTimeAgo(result.last_active)}</span>
                     </button>
                   </div>
@@ -239,6 +302,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">{result.session_name}</span>
+                    {badge && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#3a3a4e] text-gray-500 dark:text-gray-400 flex-shrink-0"
+                        title={badge.label}
+                      >
+                        {badge.icon} {badge.label}
+                      </span>
+                    )}
                     <span className="text-[11px] text-gray-400 flex-shrink-0">{formatTimeAgo(result.last_active)}</span>
                   </div>
                   {result.snippets.map((snippet, si) => (
@@ -274,6 +345,31 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-[#1e1e2e] rounded text-[10px] border border-gray-200 dark:border-[#3a3a4e]">↑↓</kbd> navigate</span>
             <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-[#1e1e2e] rounded text-[10px] border border-gray-200 dark:border-[#3a3a4e]">↵</kbd> open</span>
             <span><kbd className="px-1 py-0.5 bg-gray-100 dark:bg-[#1e1e2e] rounded text-[10px] border border-gray-200 dark:border-[#3a3a4e]">esc</kbd> close</span>
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                onClick={() => setFilterMode('chats')}
+                className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                  filterMode === 'chats'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium'
+                    : 'hover:bg-gray-100 dark:hover:bg-[#3a3a4e]'
+                }`}
+                title="Show only chat sessions"
+              >
+                Chats ({chatsCount})
+              </button>
+              <span className="text-gray-300 dark:text-gray-600">·</span>
+              <button
+                onClick={() => setFilterMode('all')}
+                className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                  filterMode === 'all'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium'
+                    : 'hover:bg-gray-100 dark:hover:bg-[#3a3a4e]'
+                }`}
+                title="Include workflow, automation, and help sessions"
+              >
+                All ({allCount})
+              </button>
+            </div>
           </div>
         )}
       </div>

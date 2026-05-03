@@ -11,6 +11,7 @@ export interface SearchResult {
   match_type: string; // "name" | "content" | "both"
   snippets: SearchSnippet[];
   last_active: number;
+  trigger?: string | null; // "workflow" | "automation" | "help" | null — for client-side filtering
 }
 
 const API_BASE = '/api';
