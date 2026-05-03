@@ -15,6 +15,8 @@ export interface WorkflowMetadata {
   yaml_filename: string;
   created_at: string;
   updated_at: string;
+  uses_powerfx?: boolean;
+  powerfx_available?: boolean;
 }
 
 export interface WorkflowDetail {

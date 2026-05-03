@@ -1,24 +1,25 @@
 kind: Workflow
 name: feature-tour
 description: |
-  Guided tour of the new workflow features.
-
-  ⚠ Before clicking ▶ Run, type a topic into the "Input message (optional)"
-  field — e.g. "sunsets" or "a sleepy cat". The Creative Poet uses that as
-  the poem topic. (Threading a Question answer into the agent would require
-  PowerFx expressions, unavailable on Python 3.14+.)
+  Guided tour of the workflow features that work on Python 3.14
+  (no PowerFx required). Leave the "Input message (optional)" field
+  blank — the workflow asks for the topic interactively.
 
   You'll see:
-    1. A multiple-choice Question — HITL question row with three buttons
-    2. A yes/no Confirmation — HITL confirmation row with custom labels
-    3. Creative Poet streams a poem on the topic you typed
-    4. Click 📊 Diagram in the toolbar — YAML overlay of the flow
+    1. SendActivity — the intro banner
+    2. Question with choices — HITL row with three buttons (mood)
+    3. Question free-text — HITL row with a text box (poem topic;
+       written to Local.userInput, which InvokeAzureAgent reads
+       automatically as its implicit input fallback)
+    4. InvokeAzureAgent — Creative Poet streams a poem on the topic
+    5. The mermaid diagram in the right pane is the YAML overlay
+       (built by visualize_overlay; append ?raw=true to the URL for
+       AF's auto-generated version)
 
-  (TryCatch was removed from this demo: agent_framework_declarative
-  does not wire TryCatch/ThrowException as top-level YAML actions —
-  they would be silently skipped by the builder. The 'Executor failed'
-  badge styling still kicks in for any real executor failure, e.g. a
-  missing agent or network error.)
+  (Confirmation, If/Switch and TryCatch were left out: they require
+  PowerFx expression evaluation to gate behavior, and PowerFx wheels
+  are not available on Python 3.14+. See feature-tour-advanced for a
+  workflow that exercises those features on 3.10–3.13.)
 trigger:
   kind: OnConversationStart
   id: feature_tour
@@ -28,26 +29,27 @@ trigger:
       activity: "👋 Welcome to the feature tour. Watch the live viewer on the right."
 
     # ---- HITL #1: Question with choices -> HumanInputRow renders buttons.
-    # Note: without PowerFx we can't thread Local.topic into the agent below;
-    # this step is here to demonstrate the question-with-choices HITL pattern.
+    # Decorative — shows off the choices UI. Stored in Local.mood (unused).
     - kind: Question
       id: pick_mood
-      variable: Local.mood
-      prompt: "Pick a mood for the poem (decorative — actual topic comes from the Input message field)"
+      property: Local.mood
+      text: "Pick a mood for the poem (just for show — any choice works)"
       choices:
         - playful
         - reflective
         - dramatic
 
-    # ---- HITL #2: Confirmation -> HumanInputRow renders Yes/No.
-    - kind: Confirmation
-      id: confirm_proceed
-      text: "Ready to invoke the Creative Poet on your topic?"
-      yesLabel: Write the poem
-      noLabel: Cancel
+    # ---- HITL #2: Free-text Question. Writes to Local.userInput, which is
+    # the implicit fallback InvokeAzureAgent reads when no `input:` is set.
+    # This is how we thread the topic into the agent without PowerFx.
+    - kind: Question
+      id: ask_topic
+      property: Local.userInput
+      text: "What topic should the poem be about? (e.g. sunsets, a sleepy cat, quantum physics)"
+      allowFreeText: true
 
-    # ---- Real agent invocation. Receives the conversation's initial
-    # message (the "Input message" field) as its prompt.
+    # ---- Real agent invocation. With no `input:` field the executor falls
+    # back to Local.userInput (set by ask_topic above).
     - kind: InvokeAzureAgent
       id: write_poem
       agent:
@@ -55,5 +57,5 @@ trigger:
 
     - kind: SendActivity
       id: outro
-      activity: "🎉 Tour complete. Click 📊 Diagram in the toolbar to see the YAML overlay."
+      activity: "🎉 Tour complete. The mermaid diagram on the right is the YAML overlay."
 

@@ -22,8 +22,8 @@ trigger:
 
     - kind: Question
       id: pick_mode
-      variable: Local.mode
-      prompt: "Pick a path"
+      property: Local.mode
+      text: "Pick a path"
       choices:
         - quick
         - thorough

@@ -642,6 +642,7 @@ def _render_trycatch(
     lines.append(f'{indent}subgraph {sg_id}["{_mermaid_escape(title)}"]')
     inner_indent = indent + "    "
 
+    prev_lane_entry: str | None = None
     for lane_key, lane_label in (("try", "try"), ("catch", "catch"), ("finally", "finally")):
         lane_actions = action.get(lane_key) or []
         if not lane_actions:
@@ -653,6 +654,9 @@ def _render_trycatch(
         lines.append(f'{lane_inner_indent}{lane_entry}(("·"))')
         _render_actions(lane_actions, lane_entry, lines, counter, lane_inner_indent)
         lines.append(f"{inner_indent}end")
+        if prev_lane_entry is not None:
+            lines.append(f"{inner_indent}{prev_lane_entry} -.-> {lane_entry}")
+        prev_lane_entry = lane_entry
 
     lines.append(f"{indent}end")
     lines.append(f"{indent}{prev_id} --> {sg_id}")
@@ -827,6 +831,42 @@ class WorkflowEngine:
         self.sync_agents_from_library()
         factory = WorkflowFactory(agents=self._agents)
         return factory.create_workflow_from_yaml(yaml_content)
+
+    @staticmethod
+    def extract_executor_to_agent(yaml_content: str) -> dict[str, str]:
+        """Walk a workflow YAML and return {executor_id -> agent_name} for every
+        InvokeAzureAgent action, including those nested under If/Switch/TryCatch/
+        ForEach/While/etc.
+
+        Used by the run loop to attribute Copilot session_ids on
+        executor_completed events back to the WorkflowCopilotAgent that created
+        them, so the live view can attach an "Open session" button per node.
+        Missing or malformed entries are skipped silently — never raises.
+        """
+        import yaml as _yaml
+        try:
+            doc = _yaml.safe_load(yaml_content) or {}
+        except Exception:
+            return {}
+
+        result: dict[str, str] = {}
+
+        def _walk(node: Any) -> None:
+            if isinstance(node, dict):
+                if node.get("kind") == "InvokeAzureAgent":
+                    eid = node.get("id")
+                    agent = node.get("agent") or {}
+                    aname = agent.get("name") if isinstance(agent, dict) else None
+                    if isinstance(eid, str) and isinstance(aname, str):
+                        result[eid] = aname
+                for v in node.values():
+                    _walk(v)
+            elif isinstance(node, list):
+                for item in node:
+                    _walk(item)
+
+        _walk(doc)
+        return result
 
     async def run_as_agent(
         self,
@@ -1029,17 +1069,20 @@ class WorkflowEngine:
         lines.append(f"    {last} --> {end_id}")
         return "\n".join(lines) + "\n"
 
-    def validate_yaml(self, yaml_content: str) -> dict:
+    def validate_yaml(self, yaml_content: str, *, block_powerfx: bool = False) -> dict:
         """Validate YAML content by attempting to load it.
 
         Returns {"valid": True, "mermaid": "..."} or {"valid": False, "error": "..."}.
 
-        Also rejects expression-using YAML (any ``=…`` string scalar) up-front
-        when PowerFx is unavailable, with a clear error message that points at
-        the actual root cause (interpreter version) rather than the cryptic
-        downstream failure.
+        ``block_powerfx`` (default False) controls whether expression-using YAML
+        is rejected up-front when the ``powerfx`` package is unavailable. Save
+        paths leave it False — the YAML is structurally fine and we want users
+        to be able to author Power Fx workflows on machines that can't run
+        them. Run paths surface the failure naturally via the workflow_failed
+        event. The strict mermaid path (?raw=true) sets it True because AF's
+        built-in renderer needs the workflow object to be fully constructed.
         """
-        if not POWERFX_AVAILABLE and _yaml_uses_expressions(yaml_content):
+        if block_powerfx and not POWERFX_AVAILABLE and _yaml_uses_expressions(yaml_content):
             return {
                 "valid": False,
                 "error": (

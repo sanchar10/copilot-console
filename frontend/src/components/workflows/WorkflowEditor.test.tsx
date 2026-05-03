@@ -45,7 +45,7 @@ vi.mock('../../api/workflows', () => ({
   deleteWorkflow: vi.fn(),
   visualizeWorkflow: vi.fn().mockResolvedValue({ mermaid: 'graph TD; A-->B;' }),
   runWorkflow: vi.fn(),
-  listWorkflowRuns: vi.fn().mockResolvedValue([]),
+  listWorkflowRuns: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   deleteWorkflowRun: vi.fn(),
   createWorkflowRunStream: vi.fn(),
   sendHumanInput: vi.fn(),

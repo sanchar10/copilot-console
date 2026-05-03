@@ -33,6 +33,7 @@ from copilot_console.app.models.workflow import (
     WorkflowUpdate,
 )
 from copilot_console.app.services.workflow_engine import workflow_engine
+from copilot_console.app.services import workflow_engine as workflow_engine_module
 from copilot_console.app.services.workflow_run_service import workflow_run_service
 from copilot_console.app.services.workflow_storage_service import workflow_storage_service
 
@@ -41,6 +42,38 @@ logger = logging.getLogger(__name__)
 # In-memory tracking of active workflow runs
 # {run_id: {"events": [...], "status": "running"|"completed"|"failed", "pending_input": {...}|None}}
 _active_runs: dict[str, dict] = {}
+
+
+def _emit_status_change(active: dict, run, new_status: WorkflowRunStatus) -> None:
+    """Centralized status transition: persist + broadcast.
+
+    Updates the in-memory active dict, persists the run via the appropriate
+    mark_X helper, and appends a status_changed event to the active event log
+    so SSE consumers (frontend status badge) receive a real-time signal for
+    every transition — not just terminal ones. Terminal transitions
+    (completed/failed) are NOT funneled through here because they already
+    carry node_results/events via mark_completed/mark_failed and trigger a
+    frontend refetch via terminal SSE events.
+
+    Caller is responsible for ordering: emit BEFORE popping `active` from
+    `_active_runs`, so any open SSE viewer drains the event.
+    """
+    if new_status == WorkflowRunStatus.RUNNING:
+        workflow_run_service.mark_running(run)
+    elif new_status == WorkflowRunStatus.PAUSED:
+        workflow_run_service.mark_paused(run)
+    elif new_status == WorkflowRunStatus.ABORTED:
+        workflow_run_service.mark_aborted(run)
+    else:  # pragma: no cover — terminal transitions go through mark_completed/failed
+        return
+
+    status_str = new_status.value
+    active["status"] = status_str
+    active["events"].append({
+        "type": "status_changed",
+        "run_id": run.id,
+        "status": status_str,
+    })
 
 router = APIRouter(tags=["workflows"])
 
@@ -56,7 +89,10 @@ async def create_workflow(request: WorkflowCreate) -> WorkflowMetadata:
     validation = workflow_engine.validate_yaml(request.yaml_content)
     if not validation["valid"]:
         raise HTTPException(status_code=400, detail=f"Invalid YAML: {validation['error']}")
-    return workflow_storage_service.create_workflow(request)
+    meta = workflow_storage_service.create_workflow(request)
+    meta.uses_powerfx = workflow_engine_module._yaml_uses_expressions(request.yaml_content)
+    meta.powerfx_available = workflow_engine_module.POWERFX_AVAILABLE
+    return meta
 
 
 @router.get("/workflows", response_model=list[WorkflowMetadata])
@@ -84,6 +120,11 @@ async def update_workflow(workflow_id: str, request: WorkflowUpdate) -> Workflow
     result = workflow_storage_service.update_workflow(workflow_id, request)
     if not result:
         raise HTTPException(status_code=404, detail="Workflow not found")
+    yaml_for_check = request.yaml_content
+    if yaml_for_check is None:
+        yaml_for_check = workflow_storage_service.get_yaml_content(workflow_id) or ""
+    result.uses_powerfx = workflow_engine_module._yaml_uses_expressions(yaml_for_check)
+    result.powerfx_available = workflow_engine_module.POWERFX_AVAILABLE
     return result
 
 
@@ -112,7 +153,7 @@ async def visualize_workflow(workflow_id: str, raw: bool = False) -> dict:
     if yaml_content is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
     if raw:
-        result = workflow_engine.validate_yaml(yaml_content)
+        result = workflow_engine.validate_yaml(yaml_content, block_powerfx=True)
         if not result["valid"]:
             raise HTTPException(status_code=400, detail=f"Invalid YAML: {result['error']}")
         return {"mermaid": result["mermaid"]}
@@ -153,11 +194,12 @@ async def run_workflow(workflow_id: str, request: WorkflowRunRequest | None = No
         "status": "running",
         "pending_input": None,
         "handle": None,
-        "pending_emitted": False,
+        "task": None,
     }
 
-    # Start execution in background
-    asyncio.create_task(_execute_workflow(run.id, detail.yaml_content, request))
+    # Start execution in background — store the task so we can force-abort on delete
+    task = asyncio.create_task(_execute_workflow(run.id, detail.yaml_content, request))
+    _active_runs[run.id]["task"] = task
 
     return {"run_id": run.id, "status": "started"}
 
@@ -172,10 +214,10 @@ async def _execute_workflow(
     if not run:
         return
 
-    run = workflow_run_service.mark_running(run)
     active = _active_runs.get(run_id)
     if not active:
         return
+    _emit_status_change(active, run, WorkflowRunStatus.RUNNING)
 
     run_agents: dict = {}
 
@@ -186,6 +228,16 @@ async def _execute_workflow(
         # singleton may replace _agents during execution (e.g. editor preview).
         # Keep a local reference so we collect session IDs from the right objects.
         run_agents = dict(workflow_engine._agents)
+
+        # Map InvokeAzureAgent.id -> agent.name (walks nested If/Switch/TryCatch
+        # actions). Used to attribute Copilot session_ids back to the right
+        # agent for per-node "Open session" buttons in the live view.
+        executor_to_agent = workflow_engine.extract_executor_to_agent(yaml_content)
+        # agent_name -> count of executor_completed/failed seen so far.
+        # Each InvokeAzureAgent invocation creates one new Copilot session
+        # (AF doesn't pass session= to agent.run), so the i-th completion for
+        # agent X corresponds to agent._session_ids[i].
+        agent_invocation_counts: dict[str, int] = {}
 
         # Set working directory for all agents in this run
         cwd = (request.cwd if request else None) or _default_workflow_cwd(run_id)
@@ -213,7 +265,6 @@ async def _execute_workflow(
 
         async for event in handle.events():
             event_data = _serialize_workflow_event(event, run_id)
-            active["events"].append(event_data)
 
             # Track node results from executor events
             executor_id = getattr(event, "executor_id", None)
@@ -226,34 +277,75 @@ async def _execute_workflow(
                 event_type = event_data.get("type", "")
                 if event_type == "executor_invoked":
                     node_results[executor_id] = {"status": "running", "started_at": event_data.get("timestamp")}
-                elif event_type == "executor_completed":
-                    if executor_id in node_results:
-                        node_results[executor_id]["status"] = "completed"
-                        node_results[executor_id]["output"] = event_data.get("output")
-                    # Persist session IDs incrementally for crash recovery
-                    run.copilot_session_ids = [
-                        sid for a in run_agents.values() for sid in a._session_ids
-                    ]
-                    workflow_run_service.save_run(run)
-                elif event_type == "executor_failed":
-                    if executor_id in node_results:
-                        node_results[executor_id]["status"] = "failed"
-                        node_results[executor_id]["error"] = event_data.get("error")
+                elif event_type in ("executor_completed", "executor_failed"):
+                    # Attribute Copilot session_id created during this invocation
+                    # back onto the event so the UI can render an "Open session"
+                    # button. Loop iterations get one row per invocation, each
+                    # with its own session_id.
+                    sid = _attach_workflow_session_id(
+                        event_data,
+                        executor_id,
+                        executor_to_agent,
+                        run_agents,
+                        agent_invocation_counts,
+                        run.workflow_name,
+                        cwd,
+                    )
+                    if event_type == "executor_completed":
+                        if executor_id in node_results:
+                            node_results[executor_id]["status"] = "completed"
+                            node_results[executor_id]["output"] = event_data.get("output")
+                            if sid:
+                                node_results[executor_id]["session_id"] = sid
+                        # Persist session IDs incrementally for crash recovery.
+                        # Reload from disk before saving — send_human_input may
+                        # have flipped status PAUSED→RUNNING via a different run
+                        # object, and saving our stale local `run` would clobber
+                        # that transition. The fresh load picks up the current
+                        # status and any other field updates.
+                        fresh = workflow_run_service.load_run(run_id) or run
+                        fresh.copilot_session_ids = [
+                            sid for a in run_agents.values() for sid in a._session_ids
+                        ]
+                        workflow_run_service.save_run(fresh)
+                        run = fresh
+                    else:  # executor_failed
+                        if executor_id in node_results:
+                            node_results[executor_id]["status"] = "failed"
+                            node_results[executor_id]["error"] = event_data.get("error")
+                            if sid:
+                                node_results[executor_id]["session_id"] = sid
 
             # Check for human input requests — RunHandle has paused internally
             # by the time we see this event, awaiting submit_response().
             if event_data.get("type") == "request_info":
                 pending_req = handle.pending_request
-                active["pending_input"] = {
+                pending_input = {
                     "request_id": event_data.get("request_id"),
                     "data": event_data.get("data"),
                     "request_type": getattr(pending_req, "request_type", None) if pending_req else None,
                     "message": getattr(pending_req, "message", None) if pending_req else None,
                     "metadata": getattr(pending_req, "metadata", None) if pending_req else None,
                 }
-                active["status"] = "paused"
-                active["pending_emitted"] = False
-                workflow_run_service.mark_paused(run)
+                active["pending_input"] = pending_input
+                # Persist a structured human_input_required envelope into the
+                # event log so reopen / history view renders the same rich
+                # HumanInputRow card the live SSE shows. The raw request_info
+                # event is dropped (skip the append below) — the envelope below
+                # supersedes it for both UI rendering and replay.
+                active["events"].append({
+                    "type": "human_input_required",
+                    "run_id": run_id,
+                    "request_id": pending_input["request_id"],
+                    "data": pending_input["data"],
+                    "request_type": pending_input["request_type"],
+                    "message": pending_input["message"],
+                    "metadata": pending_input["metadata"],
+                    "executor_id": event_data.get("executor_id") or event_data.get("source_executor_id"),
+                })
+                _emit_status_change(active, run, WorkflowRunStatus.PAUSED)
+            else:
+                active["events"].append(event_data)
 
         # Append a completion event so history view matches live SSE view
         active["events"].append({
@@ -292,6 +384,55 @@ async def _execute_workflow(
 def _default_workflow_cwd(run_id: str) -> str:
     """Default working directory for workflow runs."""
     return str(Path.home() / ".copilot-console" / "workflow-runs" / run_id)
+
+
+def _attach_workflow_session_id(
+    event_data: dict,
+    executor_id: str,
+    executor_to_agent: dict[str, str],
+    run_agents: dict,
+    agent_invocation_counts: dict[str, int],
+    workflow_name: str,
+    cwd: str,
+) -> str | None:
+    """For executor_completed/failed events on InvokeAzureAgent nodes, attach
+    the Copilot session_id created during this invocation onto the event and
+    write a session sidecar with trigger="workflow" so the sidebar hides it.
+
+    Returns the session_id (or None if not applicable / not yet captured).
+    Each invocation creates exactly one new session, so the i-th completion
+    for an agent maps to agent._session_ids[i].
+    """
+    agent_name = executor_to_agent.get(executor_id)
+    if not agent_name or agent_name not in run_agents:
+        return None
+    agent = run_agents[agent_name]
+    idx = agent_invocation_counts.get(agent_name, 0)
+    agent_invocation_counts[agent_name] = idx + 1
+    session_ids = getattr(agent, "_session_ids", []) or []
+    if idx >= len(session_ids):
+        # Session creation may have failed before _create_session captured the
+        # id (rare). Skip — UI just won't render an Open-session button.
+        return None
+    sid = session_ids[idx]
+    event_data["session_id"] = sid
+
+    # Write a minimal sidecar so session_service.list_sessions() reports
+    # trigger="workflow" and the sidebar filter hides this session.
+    try:
+        from copilot_console.app.services.storage_service import storage_service
+        existing = storage_service.load_session(sid) or {}
+        existing.update({
+            "session_id": sid,
+            "session_name": existing.get("session_name") or f"{workflow_name} · {executor_id}",
+            "trigger": "workflow",
+            "cwd": existing.get("cwd") or cwd,
+            "name_set": True,
+        })
+        storage_service.save_session_raw(sid, existing)
+    except Exception as e:
+        logger.warning(f"Failed to write workflow session sidecar for {sid}: {e}")
+    return sid
 
 
 def _serialize_event_data(data) -> str | dict | list | None:
@@ -403,8 +544,19 @@ def _serialize_workflow_event(event, run_id: str) -> dict:
 
 @router.get("/workflows/{workflow_id}/runs")
 async def list_workflow_runs(workflow_id: str, limit: int = 50, status: str | None = None):
-    """List runs for a specific workflow."""
-    return workflow_run_service.list_runs(limit=limit, workflow_id=workflow_id, status=status)
+    """List runs for a specific workflow.
+
+    Returns {items, total} so the UI can show "Showing N of M" without
+    re-fetching just to count. `total` reflects all matching runs (after
+    workflow_id + status filters), regardless of limit.
+    """
+    # Single scan: pull everything matching the filter, then slice for items.
+    # The disk scan is bounded by total run count for this workflow, which the
+    # editor surfaces as the denominator anyway.
+    all_matching = workflow_run_service.list_runs(
+        limit=10_000, workflow_id=workflow_id, status=status,
+    )
+    return {"items": all_matching[:limit], "total": len(all_matching)}
 
 
 @router.get("/workflow-runs/{run_id}")
@@ -420,44 +572,97 @@ async def get_workflow_run(run_id: str):
 async def delete_workflow_run(run_id: str) -> dict:
     """Delete a workflow run and its associated Copilot sessions.
 
-    Refuses to delete active (running/paused) runs — abort first.
+    Active (running/paused) runs are force-aborted first: the background task
+    is cancelled, its `finally` block flushes the final session_id manifest,
+    and the run is marked aborted. Then per-session cleanup runs strictly —
+    if any session fails to delete the run record is preserved so the user
+    can retry (no orphaned sessions).
     """
     from copilot_console.app.services.copilot_service import copilot_service
     from copilot_console.app.services.storage_service import storage_service
+    from copilot_console.app.services.viewed_service import viewed_service
+    from copilot_console.app.services.completion_times_service import completion_times_service
 
-    # Guard: refuse delete on active runs
-    if run_id in _active_runs and _active_runs[run_id]["status"] in ("running", "paused"):
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot delete an active run. Abort it first."
-        )
+    # Force-abort any active run so its background task flushes session IDs
+    # via the _execute_workflow finally block before we try to clean up.
+    active = _active_runs.get(run_id)
+    if active and active.get("status") in ("running", "paused"):
+        task = active.get("task")
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await asyncio.wait_for(task, timeout=10)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+            except Exception as e:
+                logger.warning(f"Workflow task {run_id} raised on cancel: {e}")
+        # _execute_workflow's finally pops _active_runs and persists
+        # copilot_session_ids; mark aborted so history reflects user intent.
+        run_snapshot = workflow_run_service.load_run(run_id)
+        if run_snapshot and run_snapshot.status in (WorkflowRunStatus.RUNNING, WorkflowRunStatus.PAUSED):
+            # Emit through the helper while active still exists so any open
+            # SSE viewer sees the transition before _active_runs.pop().
+            still_active = _active_runs.get(run_id)
+            if still_active is not None:
+                _emit_status_change(still_active, run_snapshot, WorkflowRunStatus.ABORTED)
+            else:
+                workflow_run_service.mark_aborted(run_snapshot)
+        _active_runs.pop(run_id, None)
 
-    run = workflow_run_service.delete_run(run_id)
+    # Reload the run AFTER force-abort so we have the post-finally session manifest.
+    run = workflow_run_service.load_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Workflow run not found")
 
-    # Clean up associated Copilot sessions:
+    # Clean up associated Copilot sessions strictly — collect failures so a
+    # partial cleanup never leaves the run record gone with orphans behind.
     #   copilot_service.delete_session → SDK destroy + ~/.copilot/session-state/{id}/
     #   storage_service.delete_session → ~/.copilot-console/sessions/{id}/
+    failed_sessions: list[dict] = []
+    sessions_removed = 0
     for sid in run.copilot_session_ids:
+        sid_failed = False
         try:
             await copilot_service.delete_session(sid)
         except Exception as e:
-            logger.warning(f"Failed to clean up Copilot session {sid}: {e}")
+            logger.warning(f"Failed to delete Copilot session {sid}: {e}")
+            failed_sessions.append({"session_id": sid, "stage": "copilot", "error": str(e)})
+            sid_failed = True
         try:
             storage_service.delete_session(sid)
         except Exception as e:
-            logger.warning(f"Failed to clean up session storage {sid}: {e}")
-        # Clean up viewed and completion timestamps
+            logger.warning(f"Failed to delete session storage {sid}: {e}")
+            failed_sessions.append({"session_id": sid, "stage": "storage", "error": str(e)})
+            sid_failed = True
+        # Best-effort: viewed/completion timestamps are non-critical
         try:
-            from copilot_console.app.services.viewed_service import viewed_service
-            from copilot_console.app.services.completion_times_service import completion_times_service
             viewed_service.remove(sid)
             completion_times_service.remove(sid)
         except Exception:
             pass
+        if not sid_failed:
+            sessions_removed += 1
 
-    return {"deleted": True}
+    if failed_sessions:
+        # Preserve the run record (and its copilot_session_ids manifest) so
+        # the user can retry. Surface what went wrong.
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": (
+                    f"Aborted run, but {len(failed_sessions)} associated session(s) "
+                    f"failed to delete. Run record preserved — retry to remove."
+                ),
+                "orphaned_sessions": failed_sessions,
+                "sessions_removed": sessions_removed,
+            },
+        )
+
+    deleted_run = workflow_run_service.delete_run(run_id)
+    if not deleted_run:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+
+    return {"deleted": True, "sessions_removed": sessions_removed}
 
 
 class HumanInputRequest(BaseModel):
@@ -498,13 +703,18 @@ async def send_human_input(run_id: str, request: HumanInputRequest) -> dict:
 
     # Atomically clear pending state so SSE stops emitting human_input_required.
     active["pending_input"] = None
-    active["pending_emitted"] = False
-    active["status"] = "running"
     active["events"].append({
         "type": "human_input_received",
         "run_id": run_id,
         "request_id": request.request_id,
+        "data": request.data,
     })
+    # Broadcast paused→running via the unified helper so the live badge flips
+    # back to RUNNING for the post-resume window (instead of staying PAUSED
+    # until the workflow completes).
+    run = workflow_run_service.load_run(run_id)
+    if run is not None:
+        _emit_status_change(active, run, WorkflowRunStatus.RUNNING)
 
     return {"ok": True, "status": "resumed"}
 
@@ -517,6 +727,22 @@ async def stream_workflow_run(run_id: str, from_event: int = 0) -> EventSourceRe
         event_idx = from_event
         idle_count = 0
         terminal_types = {"run_complete", "workflow_completed", "workflow_failed"}
+        # On a fresh subscribe (from_event=0) the client just fetched the run
+        # and already has the authoritative current status. Replaying historical
+        # status_changed events would flicker the badge through stale states
+        # (running→paused→running→…) before converging. Skip them in the first
+        # drain only; live transitions (after first drain) and reconnects
+        # (from_event>0, where the client may have missed real transitions)
+        # still flow through unchanged.
+        is_initial_replay = from_event == 0
+        first_drain_done = False
+
+        def _is_replay_skippable(ev: dict) -> bool:
+            return (
+                is_initial_replay
+                and not first_drain_done
+                and ev.get("type") == "status_changed"
+            )
 
         try:
             while True:
@@ -537,6 +763,8 @@ async def stream_workflow_run(run_id: str, from_event: int = 0) -> EventSourceRe
                         for i, ev in enumerate(run.events):
                             if i < event_idx:
                                 continue
+                            if _is_replay_skippable(ev):
+                                continue
                             yield {
                                 "event": "workflow_event",
                                 "data": json.dumps(ev, default=str),
@@ -556,15 +784,21 @@ async def stream_workflow_run(run_id: str, from_event: int = 0) -> EventSourceRe
                     }
                     return
 
-                # Drain new events from the active run
+                # Drain new events from the active run. The human_input_required
+                # envelope is part of active["events"] (appended at the
+                # request_info gate), so reconnects naturally re-emit it via the
+                # frontend's lastEventId-based dedupe.
                 while event_idx < len(active["events"]):
                     event = active["events"][event_idx]
+                    current_idx = event_idx
+                    event_idx += 1
+                    if _is_replay_skippable(event):
+                        continue
                     yield {
                         "event": "workflow_event",
                         "data": json.dumps(event, default=str),
-                        "id": str(event_idx),
+                        "id": str(current_idx),
                     }
-                    event_idx += 1
                     idle_count = 0
 
                     # Terminal event drained — we're done
@@ -572,24 +806,9 @@ async def stream_workflow_run(run_id: str, from_event: int = 0) -> EventSourceRe
                         _active_runs.pop(run_id, None)
                         return
 
-                if (
-                    active["status"] == "paused"
-                    and active.get("pending_input")
-                    and not active.get("pending_emitted")
-                ):
-                    yield {
-                        "event": "human_input_required",
-                        "data": json.dumps({
-                            "type": "human_input_required",
-                            "run_id": run_id,
-                            "request_id": active["pending_input"].get("request_id"),
-                            "data": active["pending_input"].get("data"),
-                            "request_type": active["pending_input"].get("request_type"),
-                            "message": active["pending_input"].get("message"),
-                            "metadata": active["pending_input"].get("metadata"),
-                        }, default=str),
-                    }
-                    active["pending_emitted"] = True
+                # First active drain complete — subsequent transitions are live
+                # and should always reach the client.
+                first_drain_done = True
 
                 await asyncio.sleep(0.5)
                 idle_count += 1

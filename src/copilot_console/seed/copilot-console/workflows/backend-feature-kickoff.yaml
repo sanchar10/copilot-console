@@ -1,0 +1,113 @@
+kind: Workflow
+name: backend-feature-kickoff
+description: |
+  "Backend feature kickoff brief" — a four-role engineering chain that
+  turns a one-line feature pitch into a design note, a backend
+  implementation plan, a test plan, and a changelog entry. Each handoff
+  uses the previous agent's output as the next agent's input via
+  System.LastMessage.
+
+  Demonstrates the non-PowerFx workflow surface:
+    - SetVariable / SetMultipleVariables (literal sprint + defaults)
+    - EmitEvent (kickoff.started / .completed in the run log)
+    - WaitForInput (free-text feature pitch)
+    - Multi-agent chain (Architect → Backend Dev → QA Engineer → Doc Writer)
+    - SendActivity interpolation ({Local.x} substitution)
+    - EndWorkflow (explicit terminal)
+
+  Leave the "Input message (optional)" field blank — the workflow asks
+  for the feature pitch via WaitForInput.
+trigger:
+  kind: OnConversationStart
+  id: feature_kickoff
+  actions:
+    - kind: SendActivity
+      id: intro
+      activity: "🚀 Backend feature kickoff brief — four roles will turn your pitch into a shippable plan. Watch the event log for state changes."
+
+    # ---- Tag the session so downstream artifacts can reference it.
+    - kind: SetVariable
+      id: tag_sprint
+      variable: Local.sprint
+      value: "2026-Q2-S3"
+
+    # ---- Bulk-set kickoff defaults (target stack + priority).
+    - kind: SetMultipleVariables
+      id: set_defaults
+      assignments:
+        - variable: Local.target
+          value: "backend"
+        - variable: Local.priority
+          value: "P2"
+        - variable: Local.reviewers
+          value: "@dev-lead, @qa-lead"
+
+    - kind: EmitEvent
+      id: kickoff_started
+      event:
+        name: kickoff.started
+        data: "Sprint 2026-Q2-S3 — defaults applied"
+
+    # ---- HITL: capture the feature pitch as Local.userInput so the first
+    # agent picks it up automatically via the input-fallback chain.
+    - kind: WaitForInput
+      id: pitch_feature
+      prompt: "Describe the feature in one or two sentences (e.g., 'Add OAuth login with GitHub'). The architect will design it from this."
+      property: Local.userInput
+
+    # ---- 1/4: Architect drafts the design note from the pitch
+    # (picked up via the Local.userInput fallback).
+    - kind: InvokeAzureAgent
+      id: design
+      agent:
+        name: Architect
+
+    # ---- Clear Local.userInput so the next agent's fallback resolves to
+    # System.LastMessage.Text (the architect's design) instead of the
+    # original pitch. Repeat after each handoff.
+    - kind: SetVariable
+      id: clear_for_implement
+      variable: Local.userInput
+      value: ""
+
+    # ---- 2/4: Backend dev turns the design into an implementation plan.
+    - kind: InvokeAzureAgent
+      id: implement
+      agent:
+        name: Backend Developer
+
+    - kind: SetVariable
+      id: clear_for_qa
+      variable: Local.userInput
+      value: ""
+
+    # ---- 3/4: QA engineer derives a test plan from the implementation plan.
+    - kind: InvokeAzureAgent
+      id: test_plan
+      agent:
+        name: QA Engineer
+
+    - kind: SetVariable
+      id: clear_for_docs
+      variable: Local.userInput
+      value: ""
+
+    # ---- 4/4: Doc writer drafts the changelog / release-notes entry.
+    - kind: InvokeAzureAgent
+      id: changelog
+      agent:
+        name: Doc Writer
+
+    - kind: EmitEvent
+      id: kickoff_completed
+      event:
+        name: kickoff.completed
+        data: "Design + plan + tests + changelog drafted"
+
+    # ---- Variable interpolation in the closing summary.
+    - kind: SendActivity
+      id: outro
+      activity: "✅ Kickoff brief complete for sprint {Local.sprint} (target={Local.target}, priority={Local.priority}). Route to reviewers: {Local.reviewers}."
+
+    - kind: EndWorkflow
+      id: stop

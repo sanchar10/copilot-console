@@ -199,9 +199,9 @@ describe('HumanInputRow', () => {
     );
 
     expect(screen.getByText(/Response submitted/i)).toBeInTheDocument();
-    const approve = screen.getByRole('button', { name: /Approve/i }) as HTMLButtonElement;
-    expect(approve.disabled).toBe(true);
-    fireEvent.click(approve);
+    // Once submitted, input controls are hidden entirely (not rendered-and-disabled),
+    // which guarantees the user cannot trigger a second submit for the same prompt.
+    expect(screen.queryByRole('button', { name: /Approve/i })).not.toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 

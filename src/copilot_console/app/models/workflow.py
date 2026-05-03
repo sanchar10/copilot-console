@@ -30,6 +30,9 @@ class WorkflowMetadata(BaseModel):
     yaml_filename: str = Field(..., description="Filename of the YAML definition (e.g. 'content-pipeline.yaml')")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Capability hints (computed at response time, not persisted to disk)
+    uses_powerfx: bool = Field(default=False, description="YAML contains =expressions")
+    powerfx_available: bool = Field(default=True, description="Server can evaluate PowerFx expressions")
 
 
 class WorkflowCreate(BaseModel):

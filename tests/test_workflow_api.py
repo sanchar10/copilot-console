@@ -236,7 +236,7 @@ class TestWorkflowRunManagement:
 
         resp = wf_client.get(f"/api/workflows/{wf_id}/runs")
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json() == {"items": [], "total": 0}
 
     def test_get_run_not_found(self, wf_client):
         resp = wf_client.get("/api/workflow-runs/nonexistent")

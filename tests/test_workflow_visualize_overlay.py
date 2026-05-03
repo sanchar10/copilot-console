@@ -305,6 +305,19 @@ def test_overlay_trycatch_renders_three_lanes():
     assert "cleanup (SendActivity)" in out
 
 
+def test_overlay_trycatch_lanes_render_in_try_catch_finally_order():
+    """Lane subgraphs must emit in semantic order so dagre lays out
+    try ABOVE catch ABOVE finally, and dashed edges between lane entries
+    anchor that order in the rendered SVG."""
+    out = _render(YAML_TRY_CATCH)
+    try_pos = out.index('["try"]')
+    catch_pos = out.index('["catch"]')
+    finally_pos = out.index('["finally"]')
+    assert try_pos < catch_pos < finally_pos
+    # Dashed anchor edges between lane entries (one per gap).
+    assert out.count("-.->") >= 2
+
+
 # ---------------------------------------------------------------------------
 # Defensive paths
 # ---------------------------------------------------------------------------

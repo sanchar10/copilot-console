@@ -124,6 +124,19 @@ class WorkflowRunService:
         self.save_run(run)
         return run
 
+    def mark_aborted(self, run: WorkflowRun, node_results: dict | None = None, events: list[dict] | None = None) -> WorkflowRun:
+        """Mark a run as aborted (force-cancelled by user) — moves JSON from running/ to main dir."""
+        run.status = WorkflowRunStatus.ABORTED
+        run.completed_at = datetime.now(timezone.utc)
+        if run.started_at:
+            run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
+        if node_results:
+            run.node_results = node_results
+        if events is not None:
+            run.events = events
+        self._move_to_main(run)
+        return run
+
     def _move_to_main(self, run: WorkflowRun) -> None:
         """Remove from running/ and save to main dir."""
         running_f = self._running_file(run.id)

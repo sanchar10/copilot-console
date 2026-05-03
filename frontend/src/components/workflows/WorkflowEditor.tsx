@@ -14,6 +14,7 @@ import { FolderBrowserModal } from '../common/FolderBrowserModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import * as workflowsApi from '../../api/workflows';
 import type { WorkflowDetail, WorkflowRunSummary } from '../../types/workflow';
+import { useToastStore } from '../../stores/toastStore';
 
 const DEFAULT_YAML = `kind: Workflow
 name: my-workflow
@@ -43,13 +44,17 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
   const [mermaid, setMermaid] = useState<string | null>(null);
   const [mermaidError, setMermaidError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(workflowId !== 'new');
   const [runs, setRuns] = useState<WorkflowRunSummary[]>([]);
+  const [totalRuns, setTotalRuns] = useState(0);
   const [showRuns, setShowRuns] = useState(true);
-  const [runError, setRunError] = useState<string | null>(null);
   const [showRunInput, setShowRunInput] = useState(false);
+
+  // Stable toast ids per workflow so retries replace the previous error toast
+  // (sticky, dismissible) instead of stacking. Cleared on success.
+  const saveToastId = `workflow-save-${workflowId}`;
+  const runToastId = `workflow-run-${workflowId}`;
   const [runMessage, setRunMessage] = useState('');
   const [runCwd, setRunCwd] = useState('');
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
@@ -79,10 +84,26 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
       .catch(() => setLoading(false));
 
     // Load runs
-    workflowsApi.listWorkflowRuns(workflowId, 10)
-      .then(setRuns)
+    workflowsApi.listWorkflowRuns(workflowId, 50)
+      .then((resp) => { setRuns(resp.items); setTotalRuns(resp.total); })
       .catch(() => {});
   }, [workflowId, isNew]);
+
+  // Live-refresh the run list while any visible row is in an active state.
+  // Mount-time fetch already handles "opened editor while runs in progress";
+  // this covers "user is staring at the editor while a run advances".
+  // Idle (all rows terminal) → no interval, no CPU. Cleans up on unmount.
+  useEffect(() => {
+    if (isNew) return;
+    const hasActive = runs.some((r) => r.status === 'running' || r.status === 'paused');
+    if (!hasActive) return;
+    const id = setInterval(() => {
+      workflowsApi.listWorkflowRuns(workflowId, 50)
+        .then((resp) => { setRuns(resp.items); setTotalRuns(resp.total); })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [runs, workflowId, isNew]);
 
   // Debounced mermaid preview on YAML changes
   const updateMermaidPreview = useCallback((_yaml: string) => {
@@ -115,13 +136,15 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
 
   const handleSave = async () => {
     setSaving(true);
-    setSaveError(null);
+    useToastStore.getState().removeToast(saveToastId);
     try {
+      let saved;
       if (isNew) {
         const created = await workflowsApi.createWorkflow({
           name: 'new-workflow',
           yaml_content: yamlContent,
         });
+        saved = created;
         // Pre-populate local state so useEffect doesn't re-fetch
         setWorkflow(created as unknown as WorkflowDetail);
         setName(created.name);
@@ -132,8 +155,8 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
           .then((r) => { setMermaid(r.mermaid); setMermaidError(null); })
           .catch(() => setMermaidError('Failed to generate diagram'));
         // Load run history
-        workflowsApi.listWorkflowRuns(created.id, 10)
-          .then(setRuns)
+        workflowsApi.listWorkflowRuns(created.id, 50)
+          .then((resp) => { setRuns(resp.items); setTotalRuns(resp.total); })
           .catch(() => {});
         // Replace the "new" tab in-place with the saved workflow's tab
         replaceTab(tabId.workflowEditor('new'), {
@@ -147,6 +170,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
         const updated = await workflowsApi.updateWorkflow(workflowId, {
           yaml_content: yamlContent,
         });
+        saved = updated;
         setName(updated.name);
         setDescription(updated.description);
         // Refresh mermaid
@@ -156,8 +180,20 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
         fetchWorkflows();
       }
       setDirty(false);
+      // Warn if the saved workflow uses Power Fx but this server can't run it.
+      if (saved && saved.uses_powerfx && saved.powerfx_available === false) {
+        useToastStore.getState().addToast(
+          "Saved. This workflow uses Power Fx (=expressions), but this server can't evaluate them — install .NET 6+ and the powerfx package, or run elsewhere.",
+          'warning',
+          { duration: 8000, id: `workflow-powerfx-${saved.id}` },
+        );
+      }
     } catch (e) {
-      setSaveError((e as Error).message);
+      useToastStore.getState().addToast(
+        `Save failed: ${(e as Error).message}`,
+        'error',
+        { duration: 0, id: saveToastId },
+      );
     } finally {
       setSaving(false);
     }
@@ -165,16 +201,25 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
 
   const handleRun = async (message?: string) => {
     if (isNew) {
-      setRunError('Save the workflow before running');
+      useToastStore.getState().addToast(
+        'Save the workflow before running.',
+        'warning',
+        { duration: 4000, id: runToastId },
+      );
       return;
     }
-    setRunError(null);
+    useToastStore.getState().removeToast(runToastId);
     setShowRunInput(false);
     try {
       const request: Record<string, unknown> = {};
       if (message?.trim()) request.message = message.trim();
       if (runCwd.trim()) request.cwd = runCwd.trim();
       const result = await workflowsApi.runWorkflow(workflowId, Object.keys(request).length ? request : undefined);
+      // Refetch the run list so the new row appears immediately and the
+      // polling effect can pick it up while it's active.
+      workflowsApi.listWorkflowRuns(workflowId, 50)
+        .then((resp) => { setRuns(resp.items); setTotalRuns(resp.total); })
+        .catch(() => {});
       openTab({
         id: tabId.workflowRun(result.run_id),
         type: 'workflow-run',
@@ -183,7 +228,11 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
         runId: result.run_id,
       });
     } catch (e) {
-      setRunError((e as Error).message);
+      useToastStore.getState().addToast(
+        `Run failed: ${(e as Error).message}`,
+        'error',
+        { duration: 0, id: runToastId },
+      );
     }
   };
 
@@ -194,7 +243,11 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
       fetchWorkflows();
       useTabStore.getState().closeTab(tabId.workflowEditor(workflowId));
     } catch (e) {
-      setSaveError((e as Error).message);
+      useToastStore.getState().addToast(
+        `Delete failed: ${(e as Error).message}`,
+        'error',
+        { duration: 0, id: `workflow-delete-${workflowId}` },
+      );
     }
   };
 
@@ -227,12 +280,6 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
         <div className="flex items-center gap-2 flex-shrink-0">
           {dirty && (
             <span className="text-xs text-amber-500 dark:text-amber-400">Unsaved</span>
-          )}
-          {saveError && (
-            <span className="text-xs text-red-500 max-w-[200px] truncate" title={saveError}>{saveError}</span>
-          )}
-          {runError && (
-            <span className="text-xs text-red-500 max-w-[200px] truncate" title={runError}>{runError}</span>
           )}
           <button
             onClick={handleSave}
@@ -359,7 +406,7 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
             <svg className={`w-3 h-3 transition-transform ${showRuns ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
-            Run History ({runs.length})
+            Run History (showing {runs.length} of {totalRuns})
           </button>
           {showRuns && (
             <div className="overflow-y-auto px-4 pb-2" style={{ height: 'calc(100% - 28px)' }}>
@@ -383,7 +430,10 @@ export function WorkflowEditor({ workflowId }: WorkflowEditorProps) {
                         key={run.id}
                         run={run}
                         onClick={() => handleRunClick(run.id)}
-                        onDeleted={() => setRuns((prev) => prev.filter((r) => r.id !== run.id))}
+                        onDeleted={() => {
+                          setRuns((prev) => prev.filter((r) => r.id !== run.id));
+                          setTotalRuns((prev) => Math.max(0, prev - 1));
+                        }}
                       />
                     ))}
                   </tbody>
@@ -449,10 +499,20 @@ function RunRow({ run, onClick, onDeleted }: {
       return;
     }
     try {
-      await workflowsApi.deleteWorkflowRun(run.id);
+      const result = await workflowsApi.deleteWorkflowRun(run.id);
+      const removed = (result as { sessions_removed?: number }).sessions_removed;
+      if (typeof removed === 'number' && removed > 0) {
+        useToastStore.getState().addToast(
+          `Run deleted (${removed} session${removed === 1 ? '' : 's'} removed)`,
+          'success',
+          3000,
+        );
+      }
       onDeleted();
-    } catch {
-      // silently fail
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to delete workflow run';
+      useToastStore.getState().addToast(msg, 'error', 6000);
+      setConfirming(false);
     }
   };
 

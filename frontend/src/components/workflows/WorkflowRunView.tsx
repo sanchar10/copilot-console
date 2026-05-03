@@ -7,6 +7,10 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { formatDateTime } from '../../utils/formatters';
 import { MermaidDiagram } from '../chat/MermaidDiagram';
 import * as workflowsApi from '../../api/workflows';
+import { getSession } from '../../api/sessions';
+import { useChatStore } from '../../stores/chatStore';
+import { useTabStore, tabId } from '../../stores/tabStore';
+import { useToastStore } from '../../stores/toastStore';
 import type {
   HumanInputChoice,
   HumanInputKind,
@@ -37,6 +41,7 @@ interface RunEvent {
   iteration?: number;
   status?: string;
   workflow_name?: string;
+  session_id?: string;
   [key: string]: unknown;
 }
 
@@ -48,9 +53,17 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
   const [error, setError] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
+  // Highest workflow_event id seen so far. Used to skip re-replayed events on
+  // SSE reconnect (StrictMode double-mount, EventSource auto-retry, network
+  // blips). Backend assigns numeric event_idx as the SSE id.
+  const lastEventIdRef = useRef<number>(-1);
 
   // Load initial run data and mermaid
   useEffect(() => {
+    // Reset event-id high-water mark whenever the run changes so a fresh
+    // SSE stream gets the full backlog from event 0.
+    lastEventIdRef.current = -1;
+    setEvents([]);
     workflowsApi.getWorkflowRun(runId)
       .then((loadedRun) => {
         setRun(loadedRun);
@@ -98,7 +111,7 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
     // Wait for run data to load before deciding
     if (!run) return;
 
-    const es = workflowsApi.createWorkflowRunStream(runId);
+    const es = workflowsApi.createWorkflowRunStream(runId, lastEventIdRef.current + 1);
     eventSourceRef.current = es;
 
     es.onopen = () => setConnected(true);
@@ -106,8 +119,25 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
     const terminalTypes = new Set(['run_complete', 'workflow_completed', 'workflow_failed']);
 
     es.addEventListener('workflow_event', (e) => {
+      // Numeric dedupe by SSE id — backend labels every workflow_event with
+      // its append-order index. Skip anything we've already seen so reconnects
+      // never duplicate the trace.
+      const idStr = (e as MessageEvent).lastEventId;
+      const idNum = idStr ? parseInt(idStr, 10) : NaN;
+      if (!Number.isNaN(idNum)) {
+        if (idNum <= lastEventIdRef.current) return;
+        lastEventIdRef.current = idNum;
+      }
       try {
         const data = JSON.parse(e.data);
+        // status_changed is a badge-only carrier — patch run.status in place
+        // and skip appending to the trace (filtered out anyway, but avoid
+        // triggering downstream effects unnecessarily).
+        if (data.type === 'status_changed' && typeof data.status === 'string') {
+          const newStatus = data.status as import('../../types/workflow').WorkflowRunStatus;
+          setRun((prev) => (prev ? { ...prev, status: newStatus } : prev));
+          return;
+        }
         setEvents((prev) => [...prev, data]);
         // Terminal event — close SSE and refresh run data
         if (terminalTypes.has(data.type)) {
@@ -116,6 +146,16 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
             .catch(() => {});
           setConnected(false);
           es.close();
+        }
+        // Sticky failure toast — keep visible even if user navigates away.
+        // Stable id so re-streaming the same terminal event doesn't stack.
+        if (data.type === 'workflow_failed') {
+          const errMsg = (data.error_message || data.error || 'Workflow run failed.') as string;
+          useToastStore.getState().addToast(
+            `Workflow failed: ${errMsg}`,
+            'error',
+            { duration: 0, id: `workflow-run-failed-${runId}` },
+          );
         }
       } catch {
         // ignore parse errors
@@ -157,21 +197,28 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
 
   // Track which request_ids we've already submitted a response for so the
   // row goes read-only after click and survives any SSE re-emit.
-  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
+  // Map of request_id -> the value the user submitted. Presence in the map
+  // (regardless of value, since `false` and `null` are valid answers) means
+  // "responded". The value is shown back to the user on the dimmed card.
+  const [submittedAnswers, setSubmittedAnswers] = useState<Map<string, unknown>>(new Map());
 
-  // Mark a request as "responded" the moment the human_input_received event
-  // arrives (covers reload + history replay paths).
+  // Pull responses out of human_input_received events (covers reload + history
+  // replay paths). Older runs lack the `data` field; we still mark them as
+  // responded but with `undefined` so the card falls back to a bare label.
   useEffect(() => {
-    const responded = events
-      .filter((e) => e.type === 'human_input_received' && typeof e.request_id === 'string')
-      .map((e) => e.request_id as string);
+    const responded: Array<[string, unknown]> = [];
+    for (const e of events) {
+      if (e.type === 'human_input_received' && typeof e.request_id === 'string') {
+        responded.push([e.request_id, (e as { data?: unknown }).data]);
+      }
+    }
     if (responded.length === 0) return;
-    setSubmittedIds((prev) => {
+    setSubmittedAnswers((prev) => {
       let changed = false;
-      const next = new Set(prev);
-      for (const id of responded) {
-        if (!next.has(id)) {
-          next.add(id);
+      const next = new Map(prev);
+      for (const [id, value] of responded) {
+        if (!next.has(id) || (next.get(id) === undefined && value !== undefined)) {
+          next.set(id, value);
           changed = true;
         }
       }
@@ -180,19 +227,20 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
   }, [events]);
 
   const submitInput = async (requestId: string, data: unknown): Promise<void> => {
-    if (submittedIds.has(requestId)) return;
-    // Optimistically lock the row so double-click is a no-op.
-    setSubmittedIds((prev) => {
-      const next = new Set(prev);
-      next.add(requestId);
+    if (submittedAnswers.has(requestId)) return;
+    // Optimistically lock the row + record the value so the dimmed card can
+    // show it immediately, before the receipt event round-trips.
+    setSubmittedAnswers((prev) => {
+      const next = new Map(prev);
+      next.set(requestId, data);
       return next;
     });
     try {
       await workflowsApi.sendHumanInput(runId, { request_id: requestId, data });
     } catch (e) {
       // Roll back so the user can retry on transient failure.
-      setSubmittedIds((prev) => {
-        const next = new Set(prev);
+      setSubmittedAnswers((prev) => {
+        const next = new Map(prev);
         next.delete(requestId);
         return next;
       });
@@ -201,11 +249,13 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
   };
 
   // Memoize the visible event list with HITL de-dupe (defensive — also
-  // applied at SSE handler level).
+  // applied at SSE handler level). Also drops status_changed carriers which
+  // are not meant to render as trace rows.
   const visibleEvents = useMemo(() => {
     const seen = new Set<string>();
     const out: RunEvent[] = [];
     for (const ev of events) {
+      if (ev.type === 'status_changed') continue;
       if (ev.type === 'human_input_required' && typeof ev.request_id === 'string') {
         if (seen.has(ev.request_id)) continue;
         seen.add(ev.request_id);
@@ -277,7 +327,12 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
                 event={event}
                 onSubmit={submitInput}
                 isSubmitted={
-                  typeof event.request_id === 'string' && submittedIds.has(event.request_id)
+                  typeof event.request_id === 'string' && submittedAnswers.has(event.request_id)
+                }
+                submittedAnswer={
+                  typeof event.request_id === 'string'
+                    ? submittedAnswers.get(event.request_id)
+                    : undefined
                 }
               />
             ))}
@@ -302,10 +357,11 @@ export function WorkflowRunView({ workflowId, runId }: WorkflowRunViewProps) {
   );
 }
 
-function EventCard({ event, onSubmit, isSubmitted }: {
+function EventCard({ event, onSubmit, isSubmitted, submittedAnswer }: {
   event: RunEvent;
   onSubmit: (requestId: string, data: unknown) => void | Promise<void>;
   isSubmitted: boolean;
+  submittedAnswer?: unknown;
 }) {
   const type = event.type || 'unknown';
 
@@ -316,6 +372,7 @@ function EventCard({ event, onSubmit, isSubmitted }: {
         event={event}
         onSubmit={onSubmit}
         isSubmitted={isSubmitted}
+        submittedAnswer={submittedAnswer}
       />
     );
   }
@@ -421,6 +478,7 @@ function EventCard({ event, onSubmit, isSubmitted }: {
   // Build a human-readable label
   const label = type.replace(/_/g, ' ');
   const nodeId = event.executor_id || event.source_executor_id;
+  const sessionId = event.session_id;
 
   return (
     <div className="px-3 py-2 bg-white/50 dark:bg-[#2a2a3c]/50 border border-white/40 dark:border-[#3a3a4e] rounded-lg text-sm">
@@ -434,6 +492,9 @@ function EventCard({ event, onSubmit, isSubmitted }: {
         )}
         {event.iteration != null && (
           <span className="text-xs text-gray-400 dark:text-gray-500">step {event.iteration}</span>
+        )}
+        {sessionId && (
+          <OpenWorkflowSessionButton sessionId={sessionId} label={nodeId || 'agent'} />
         )}
       </div>
       {event.state && (
@@ -462,6 +523,50 @@ function EventCard({ event, onSubmit, isSubmitted }: {
 }
 
 // ---------------------------------------------------------------------------
+// OpenWorkflowSessionButton — opens the agent's Copilot session in a chat tab.
+// Mirrors the TaskBoard "open automation session" flow but skips the
+// setSessions push: workflow sessions are filtered out of the sidebar by
+// trigger="workflow", and ChatPane fetches messages via getSession() directly.
+// ---------------------------------------------------------------------------
+
+function OpenWorkflowSessionButton({ sessionId, label }: { sessionId: string; label: string }) {
+  const openTab = useTabStore(s => s.openTab);
+  const [busy, setBusy] = useState(false);
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const sessionData = await getSession(sessionId);
+      useChatStore.getState().setMessages(sessionId, sessionData.messages);
+      openTab({
+        id: tabId.session(sessionId),
+        type: 'session',
+        label,
+        sessionId,
+      });
+    } catch (err) {
+      console.error('Failed to open workflow session:', err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      disabled={busy}
+      title="Open this agent's Copilot session in a chat tab"
+      className="ml-auto px-2 py-0.5 text-xs rounded border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50"
+    >
+      ↗ Open session
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // HumanInputRow — polymorphic by request_type
 // ---------------------------------------------------------------------------
 
@@ -469,20 +574,44 @@ interface HumanInputRowProps {
   event: RunEvent;
   onSubmit: (requestId: string, data: unknown) => void | Promise<void>;
   isSubmitted: boolean;
+  submittedAnswer?: unknown;
 }
 
-export function HumanInputRow({ event, onSubmit, isSubmitted }: HumanInputRowProps) {
+function formatSubmittedAnswer(value: unknown, requestType: string): string | null {
+  if (value === undefined) return null;
+  if (value === null) return 'null';
+  if (typeof value === 'boolean') {
+    if (requestType === 'confirmation') return value ? '✓ Approved' : '✕ Rejected';
+    return value ? 'true' : 'false';
+  }
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+export function HumanInputRow({ event, onSubmit, isSubmitted, submittedAnswer }: HumanInputRowProps) {
   const requestId = event.request_id as string;
   const requestType = (event.request_type || '').toLowerCase() as HumanInputKind | '';
   const message = (event.message as string) || '';
   const metadata = (event.metadata || {}) as Record<string, unknown>;
+  const formattedAnswer = isSubmitted ? formatSubmittedAnswer(submittedAnswer, requestType) : null;
 
   // Fallback message: if backend didn't send a structured message, render
   // the raw data field as a JSON dump so the user still sees something.
-  const fallbackBody = !message && event.data != null
-    ? (typeof event.data === 'string'
-        ? event.data
-        : JSON.stringify(event.data, null, 2))
+  // Suppress the fallback when the data looks like an SDK object repr —
+  // structured controls below render the actual UI, so an opaque dump
+  // would only confuse the user.
+  const looksLikeSdkRepr = (s: string) =>
+    /^[A-Z][A-Za-z0-9_]*\(.*request_id=/.test(s);
+  const rawData = event.data;
+  const fallbackBody = !message && rawData != null
+    ? (typeof rawData === 'string'
+        ? (looksLikeSdkRepr(rawData) ? null : rawData)
+        : JSON.stringify(rawData, null, 2))
     : null;
 
   return (
@@ -514,47 +643,59 @@ export function HumanInputRow({ event, onSubmit, isSubmitted }: HumanInputRowPro
         </div>
       )}
 
-      {requestType === 'confirmation' && (
+      {!isSubmitted && requestType === 'confirmation' && (
         <ConfirmationInput
           metadata={metadata}
-          disabled={isSubmitted}
+          disabled={false}
           onSubmit={(value) => onSubmit(requestId, value)}
         />
       )}
-      {requestType === 'question' && (
+      {!isSubmitted && requestType === 'question' && (
         <QuestionInput
           metadata={metadata}
-          disabled={isSubmitted}
+          disabled={false}
           onSubmit={(value) => onSubmit(requestId, value)}
         />
       )}
-      {requestType === 'user_input' && (
+      {!isSubmitted && requestType === 'user_input' && (
         <UserInputInput
           metadata={metadata}
-          disabled={isSubmitted}
+          disabled={false}
           onSubmit={(value) => onSubmit(requestId, value)}
         />
       )}
-      {requestType === 'external' && (
+      {!isSubmitted && requestType === 'external' && (
         <ExternalInput
           metadata={metadata}
-          disabled={isSubmitted}
+          disabled={false}
           onSubmit={(value) => onSubmit(requestId, value)}
         />
       )}
-      {!['confirmation', 'question', 'user_input', 'external'].includes(requestType) && (
+      {!isSubmitted && !['confirmation', 'question', 'user_input', 'external'].includes(requestType) && (
         // Unknown / unset request_type — fall back to bare confirm/reject so
         // the workflow can still progress.
         <ConfirmationInput
           metadata={metadata}
-          disabled={isSubmitted}
+          disabled={false}
           onSubmit={(value) => onSubmit(requestId, value)}
         />
       )}
 
       {isSubmitted && (
-        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Response submitted
+        <div
+          data-testid={`hitl-answer-${requestId}`}
+          className="text-xs text-gray-600 dark:text-gray-300"
+        >
+          {formattedAnswer !== null ? (
+            <>
+              <span className="text-gray-500 dark:text-gray-400">↩ Response: </span>
+              <span className="font-mono whitespace-pre-wrap break-words max-h-32 overflow-y-auto inline-block align-top">
+                {formattedAnswer}
+              </span>
+            </>
+          ) : (
+            <span className="text-gray-500 dark:text-gray-400">↩ Response submitted</span>
+          )}
         </div>
       )}
     </div>

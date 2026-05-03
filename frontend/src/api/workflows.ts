@@ -85,7 +85,12 @@ export async function runWorkflow(workflowId: string, request?: WorkflowRunReque
   return response.json();
 }
 
-export async function listWorkflowRuns(workflowId: string, limit = 50): Promise<WorkflowRunSummary[]> {
+export interface WorkflowRunListResponse {
+  items: WorkflowRunSummary[];
+  total: number;
+}
+
+export async function listWorkflowRuns(workflowId: string, limit = 50): Promise<WorkflowRunListResponse> {
   const response = await fetch(`${API_BASE}/workflows/${workflowId}/runs?limit=${limit}`);
   if (!response.ok) {
     throw new Error('Failed to list workflow runs');
@@ -101,11 +106,15 @@ export async function getWorkflowRun(runId: string): Promise<WorkflowRun> {
   return response.json();
 }
 
-export async function deleteWorkflowRun(runId: string): Promise<{ deleted: boolean }> {
+export async function deleteWorkflowRun(runId: string): Promise<{ deleted: boolean; sessions_removed?: number }> {
   const response = await fetch(`${API_BASE}/workflow-runs/${runId}`, { method: 'DELETE' });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.detail || 'Failed to delete workflow run');
+    const detail = data.detail;
+    const msg = typeof detail === 'string'
+      ? detail
+      : detail?.message || 'Failed to delete workflow run';
+    throw new Error(msg);
   }
   return response.json();
 }

@@ -244,13 +244,28 @@ trigger:
 
 
 def test_validate_yaml_rejects_expression_when_powerfx_unavailable(monkeypatch):
+    """Strict mode (block_powerfx=True) — used by the raw-mermaid path —
+    rejects expression-using YAML when PowerFx is unavailable. Save paths
+    leave block_powerfx=False so users can author Power Fx workflows on
+    machines that can't run them."""
     monkeypatch.setattr(wfe, "POWERFX_AVAILABLE", False)
-    result = workflow_engine.validate_yaml(YAML_WITH_EXPR)
+    result = workflow_engine.validate_yaml(YAML_WITH_EXPR, block_powerfx=True)
     assert result["valid"] is False
     err = result["error"].lower()
     assert "power fx" in err or "powerfx" in err
     # Mention of '=' or interpreter context so users know the next step.
     assert "=" in result["error"] or "python" in err
+
+
+def test_validate_yaml_default_does_not_block_powerfx(monkeypatch):
+    """Default mode (block_powerfx=False) — used by save paths — lets
+    expression-using YAML through the guard. The loader may still raise
+    later, but NOT with the PowerFx-unavailable preamble."""
+    monkeypatch.setattr(wfe, "POWERFX_AVAILABLE", False)
+    result = workflow_engine.validate_yaml(YAML_WITH_EXPR)
+    if result["valid"] is False:
+        assert "Power Fx" not in result["error"]
+        assert "powerfx" not in result["error"].lower()
 
 
 def test_validate_yaml_skips_guard_when_powerfx_available(monkeypatch):
