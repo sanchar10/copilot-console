@@ -109,13 +109,13 @@ class NotificationManager:
         # Check if already viewed
         viewed_at = viewed_service.get(session_id)
         if viewed_at is not None and viewed_at >= completion_time:
-            logger.info(f"[{session_id}] Already viewed, skipping push")
+            logger.debug(f"[{session_id}] Already viewed, skipping push")
             return
         
         # Check if already notified for this update
         notified_at = self._notified.get(session_id, 0)
         if notified_at >= completion_time:
-            logger.info(f"[{session_id}] Already notified, skipping push")
+            logger.debug(f"[{session_id}] Already notified, skipping push")
             return
         
         # Send push

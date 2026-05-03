@@ -288,7 +288,7 @@ class SessionClient:
         self._register_compact_bridge()
         # Log capabilities to verify elicitation support
         if hasattr(self.session, 'capabilities'):
-            logger.info(f"[{self.session_id}] Session capabilities: {self.session.capabilities}")
+            logger.debug(f"[{self.session_id}] Session capabilities: {self.session.capabilities}")
         logger.debug(
             f"[{self.session_id}] Created SDK session with model={model}, "
             f"working_directory={self.cwd}, mcp_servers={len(mcp_servers or {})}, "

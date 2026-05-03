@@ -78,7 +78,7 @@ class ResponseBuffer:
         self.status = ResponseStatus.COMPLETED
         self.completed_at = datetime.now(timezone.utc)
         self._new_data_event.set()
-        logger.info(f"[{self.session_id}] Response completed, {len(self.chunks)} chunks")
+        logger.debug(f"[{self.session_id}] Response completed, {len(self.chunks)} chunks")
     
     def fail(self, error: str) -> None:
         """Mark response as failed."""
@@ -159,7 +159,7 @@ class ResponseBufferManager:
             
             buffer = ResponseBuffer(session_id=session_id)
             self._buffers[session_id] = buffer
-            logger.info(f"[{session_id}] Created response buffer, total buffers: {len(self._buffers)}")
+            logger.debug(f"[{session_id}] Created response buffer, total buffers: {len(self._buffers)}")
             return buffer
     
     def register_task(self, session_id: str, task: asyncio.Task) -> None:

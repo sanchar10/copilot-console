@@ -137,7 +137,6 @@ async def stream_active_agents() -> EventSourceResponse:
                 await asyncio.sleep(1)  # Update every second
                 
         except asyncio.CancelledError:
-            logger.info("[SSE] Active agents stream client disconnected")
             raise
     
     return EventSourceResponse(generate_events())
@@ -218,10 +217,8 @@ async def disconnect_session(session_id: str) -> dict:
     """
     # Check if there's an active response - if so, don't kill the session!
     has_active = response_buffer_manager.has_active_response(session_id)
-    logger.info(f"[Disconnect] Session {session_id}: has_active_response={has_active}")
-    
+
     if has_active:
-        logger.info(f"[Disconnect] Session {session_id} has active response, NOT destroying client")
         return {"success": True, "deferred": True}
     
     await session_service.disconnect_session(session_id)
@@ -432,7 +429,6 @@ async def enqueue_message(session_id: str, request: MessageCreate) -> dict:
     The running agent will process it after the current response completes.
     """
     set_session_context(session_id)
-    logger.info(f"Enqueue request: {request.content[:100]}")
 
     # Verify session is active (enqueue requires an active SDK session — zero I/O)
     if not copilot_service.is_session_active(session_id):
@@ -646,16 +642,13 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
     """
     # Set session context for logging
     set_session_context(session_id)
-    
-    logger.info(f"Received message request: {request.content[:100]}{'...' if len(request.content) > 100 else ''}, is_new_session={request.is_new_session}")
-    
+
     # Determine which path to take
     session_active = copilot_service.is_session_active(session_id)
-    
+
     if session_active and not request.is_new_session:
         # Path 2: Active session — SDK already has all config cached.
         # No need to read session.json or call list_sessions().
-        logger.info(f"[SSE] Active session path for {session_id}")
         session = None  # Not needed — SDK handles everything
         # Preserve the existing client's CWD to avoid destroying/recreating it
         cwd = copilot_service.get_session_cwd(session_id)
@@ -672,9 +665,7 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
         session = session_service.get_session_local(session_id)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        
-        logger.info(f"[SSE] {'New' if request.is_new_session else 'Inactive'} session path for {session_id}")
-        
+
         model = session.model
         reasoning_effort = session.reasoning_effort
 
@@ -701,12 +692,6 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
         system_message = cfg["system_message"]
         custom_agents_sdk = cfg["custom_agents"]
 
-        logger.info(f"[SSE] Loading {len(mcp_servers_sdk)} MCP servers for session {session_id}")
-        if tools_sdk:
-            logger.info(f"[SSE] Loading {len(tools_sdk)} custom tools for session {session_id}")
-        if custom_agents_sdk:
-            logger.info(f"[SSE] Resolved {len(custom_agents_sdk)} sub-agents for session {session_id}")
-
     # Add user message to history
     session_service.add_user_message(session_id, request.content)
     
@@ -717,7 +702,6 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
     async def run_agent():
         """Wrapper to ensure exceptions are logged and don't propagate."""
         try:
-            logger.info(f"[Background] Starting agent for session {session_id}")
             await copilot_service.send_message_background(
                 session_id=session_id,
                 model=model or "",
@@ -743,8 +727,7 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                 agent=('__deselect__' if (session.selected_agent if session else request.agent) == 'default'
                        else (session.selected_agent if session else request.agent)),
             )
-            logger.info(f"[Background] Agent completed for session {session_id}")
-            
+
             # Auto-name: try title_changed event first, fall back to list_sessions()
             stored_meta = None
             try:
@@ -796,12 +779,15 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
     # Start as a fire-and-forget task using the event loop directly
     loop = asyncio.get_running_loop()
     task = loop.create_task(run_agent())
-    # Add a done callback to log completion
-    task.add_done_callback(
-        lambda t: logger.info(f"[Background] Task done for {session_id}: cancelled={t.cancelled()}, exception={t.exception() if not t.cancelled() else None}")
-    )
+    # Defensive: surface any exception that escaped run_agent's own handlers
+    def _log_task_failure(t: asyncio.Task) -> None:
+        if t.cancelled():
+            return
+        exc = t.exception()
+        if exc is not None:
+            logger.error(f"[Background] Task for {session_id} crashed: {exc}", exc_info=exc)
+    task.add_done_callback(_log_task_failure)
     response_buffer_manager.register_task(session_id, task)
-    logger.info(f"[SSE] Started background task for session {session_id}")
 
     async def generate_events() -> AsyncGenerator[dict, None]:
         """Stream events from the buffer to SSE client."""
@@ -842,7 +828,7 @@ async def send_message(session_id: str, request: MessageCreate) -> EventSourceRe
                     
         except asyncio.CancelledError:
             # Client disconnected - that's OK, background task should continue!
-            logger.info(f"[SSE] Client disconnected for session {session_id}")
+            pass
             # DON'T re-raise - let the request end cleanly without affecting background task
 
     return EventSourceResponse(generate_events())
@@ -923,9 +909,8 @@ async def resume_response_stream(
                 await buffer.wait_for_update(timeout=30.0)
                     
         except asyncio.CancelledError:
-            logger.info(f"[SSE] Resume stream client disconnected for session {session_id}")
             raise
-    
+
     return EventSourceResponse(generate_events())
 
 
