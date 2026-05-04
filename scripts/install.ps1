@@ -6,6 +6,18 @@ $REPO = "sanchar10/copilot-console"
 # Allow .ps1 wrappers (npm.ps1, pip.ps1, etc.) to run in this process only
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
+# Pause-before-exit helper. When the script is run via `irm | iex`, a bare
+# `exit 1` terminates the host PowerShell window before the user can read
+# the error. This keeps the window open until the user acknowledges.
+function Stop-Installer {
+    param([int]$Code = 1)
+    Write-Host ""
+    if ([Environment]::UserInteractive -and $Host.Name -eq 'ConsoleHost') {
+        try { Read-Host "  Press Enter to close" | Out-Null } catch { }
+    }
+    exit $Code
+}
+
 Write-Host ""
 Write-Host "  Copilot Console Installer" -ForegroundColor Cyan
 Write-Host "  ====================================" -ForegroundColor DarkGray
@@ -53,7 +65,7 @@ if (-not $python) {
     Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
     Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
     Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-    exit 1
+    Stop-Installer 1
 }
 $pyVer = (python --version 2>&1) -replace 'Python\s*', ''
 $pyMajor, $pyMinor = $pyVer.Split('.')[0..1] | ForEach-Object { [int]$_ }
@@ -65,7 +77,7 @@ if ($pyMajor -lt 3 -or ($pyMajor -eq 3 -and $pyMinor -lt 11)) {
     Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
     Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
     Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-    exit 1
+    Stop-Installer 1
 }
 Write-Host "  [OK] Python $pyVer" -ForegroundColor Green
 
@@ -93,7 +105,7 @@ if (-not $node) {
     Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
     Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
     Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-    exit 1
+    Stop-Installer 1
 }
 $nodeVer = (node --version 2>&1) -replace 'v', ''
 $nodeMajor = [int]($nodeVer.Split('.')[0])
@@ -105,7 +117,7 @@ if ($nodeMajor -lt 18) {
     Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
     Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
     Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-    exit 1
+    Stop-Installer 1
 }
 Write-Host "  [OK] Node.js $nodeVer" -ForegroundColor Green
 
@@ -120,14 +132,14 @@ if (-not $copilot) {
         Write-Host "  │  2. Re-run:                                                                │" -ForegroundColor Yellow
         Write-Host "  │     irm https://raw.githubusercontent.com/$REPO/main/scripts/install.ps1 | iex" -ForegroundColor Yellow
         Write-Host "  └────────────────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
-        exit 1
+        Stop-Installer 1
     }
     Write-Host "  Installing GitHub Copilot CLI..." -ForegroundColor Yellow
     npm install -g @github/copilot 2>&1 | Out-Null
     $copilot = Get-Command copilot -ErrorAction SilentlyContinue
     if (-not $copilot) {
         Write-Host "  [ERROR] Failed to install Copilot CLI" -ForegroundColor Red
-        exit 1
+        Stop-Installer 1
     }
 }
 $copilotRaw = ((copilot --version 2>&1) | Select-Object -First 1)
@@ -148,13 +160,13 @@ try {
     if (-not $WHL_URL) {
         Write-Host "  [ERROR] No .whl found in latest release." -ForegroundColor Red
         Write-Host "     Check https://github.com/$REPO/releases" -ForegroundColor Yellow
-        exit 1
+        Stop-Installer 1
     }
     Write-Host "  [OK] Found $($releaseInfo.tag_name)" -ForegroundColor Green
 } catch {
     Write-Host "  [ERROR] Failed to fetch latest release from GitHub." -ForegroundColor Red
     Write-Host "     Check https://github.com/$REPO/releases for manual download." -ForegroundColor Yellow
-    exit 1
+    Stop-Installer 1
 }
 
 Write-Host ""
@@ -199,7 +211,7 @@ if (-not $installed) {
     }
 }
 if (-not $installed) {
-    exit 1
+    Stop-Installer 1
 }
 
 # Clean up stale dist-info directories that confuse importlib.metadata
