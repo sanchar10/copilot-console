@@ -445,9 +445,34 @@ if ($setupMobile -ne 'n' -and $setupMobile -ne 'N') {
         Write-Host "  Signing in to devtunnel..." -ForegroundColor Yellow
         Write-Host "  TIP: Use a work or school (Entra ID) account for best iOS/Safari support." -ForegroundColor Yellow
         Write-Host "  If you only have a personal account, use --allow-anonymous mode instead." -ForegroundColor DarkGray
-        devtunnel user login
-        $loginStatus = devtunnel user show 2>&1
-        if ($loginStatus -notmatch "Not logged in") {
+        Write-Host "  (Will time out and skip after 5 minutes if not completed.)" -ForegroundColor DarkGray
+
+        # Bound the login call so a cancelled/abandoned browser flow can't
+        # hang the installer indefinitely. Use the resolved exe path to
+        # avoid any PATH ambiguity introduced by this script's PATH edits.
+        $tunnelExe = $devtunnel.Source
+        $tunnelProc = $null
+        try {
+            $tunnelProc = Start-Process -FilePath $tunnelExe -ArgumentList @("user","login") -NoNewWindow -PassThru -ErrorAction Stop
+        } catch {
+            Write-Host "  [WARN] Could not launch devtunnel: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+        if ($tunnelProc) {
+            if (-not $tunnelProc.WaitForExit(300000)) {
+                try {
+                    $tunnelProc.Kill()
+                    $null = $tunnelProc.WaitForExit(5000)
+                } catch { }
+                Write-Host ""
+                Write-Host "  [WARN] devtunnel login did not complete within 5 minutes." -ForegroundColor Yellow
+                Write-Host "         Checking current authentication status..." -ForegroundColor DarkGray
+                Write-Host "         Run 'devtunnel user login' later if mobile access is not enabled." -ForegroundColor Yellow
+            }
+        }
+
+        $loginStatus = & $tunnelExe user show 2>&1
+        $loginExitCode = $LASTEXITCODE
+        if ($loginExitCode -eq 0 -and $loginStatus -notmatch "Not logged in") {
             Write-Host "  [OK] devtunnel authenticated" -ForegroundColor Green
             $mobileEnabled = $true
         } else {
