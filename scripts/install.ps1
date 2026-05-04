@@ -7,15 +7,15 @@ $REPO = "sanchar10/copilot-console"
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
 # Pause-before-exit helper. When the script is run via `irm | iex`, a bare
-# `exit 1` terminates the host PowerShell window before the user can read
-# the error. This keeps the window open until the user acknowledges.
+# `exit 1` terminates the host PowerShell window because iex executes in
+# the calling process. Using `throw` instead lets iex surface the error
+# and return control to the user's prompt without killing the session.
+# When the script is invoked as a child process (e.g. `pwsh -c "irm... | iex"`),
+# the uncaught throw still results in a non-zero exit, so both modes work.
 function Stop-Installer {
     param([int]$Code = 1)
     Write-Host ""
-    if ([Environment]::UserInteractive -and $Host.Name -eq 'ConsoleHost') {
-        try { Read-Host "  Press Enter to close" | Out-Null } catch { }
-    }
-    exit $Code
+    throw "Copilot Console installer aborted (exit code $Code). See messages above."
 }
 
 Write-Host ""
