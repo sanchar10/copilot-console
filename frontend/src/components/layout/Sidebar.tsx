@@ -10,6 +10,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { listSessions } from '../../api/sessions';
 import { fetchModels } from '../../api/models';
 import { getSettings } from '../../api/settings';
+import { getAuthStatus } from '../../api/auth';
 import { subscribeToActiveAgents } from '../../api/activeAgents';
 import { apiClient } from '../../api/client';
 import { useViewedStore } from '../../stores/viewedStore';
@@ -20,7 +21,7 @@ import { isUserSession } from '../../utils/sessionFilters';
 import { SessionList } from '../session/SessionList';
 import { Button } from '../common/Button';
 import { SearchModal } from '../search/SearchModal';
-import { useAuthStore, type AuthStatus } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useToastStore } from '../../stores/toastStore';
 
 export function Sidebar() {
@@ -105,11 +106,29 @@ export function Sidebar() {
       setLoading(true);
       try {
         const [sessionsData, modelsData, settingsData, authData] = await withRetry(() =>
-          Promise.all([listSessions(), fetchModels(), getSettings(), apiClient.get<AuthStatus>('/auth/status')])
+          Promise.all([listSessions(), fetchModels(), getSettings(), getAuthStatus()])
         );
         setSessions(sessionsData);
         setAvailableModels(modelsData);
         setAuthStatus(authData);
+        // Heads-up toast on cold start when the user isn't signed in. Single-shot,
+        // de-duped via stable id so a retry of loadData() doesn't stack a copy.
+        // Auto-closes — we deliberately avoid persistent banner state to keep this
+        // simple; users who miss the toast still get the lock icon in the sidebar.
+        if (authData.authenticated === false) {
+          useToastStore.getState().addToast(
+            'Not signed in to GitHub Copilot. Sign in to enable chat, agents, and workflows.',
+            'warning',
+            {
+              id: 'auth-required',
+              duration: 8000,
+              action: {
+                label: 'Open Settings',
+                onClick: () => openSettingsModal(),
+              },
+            }
+          );
+        }
         setDefaultModel(settingsData.default_model);
         setDefaultReasoningEffort(settingsData.default_reasoning_effort ?? null);
         if (settingsData.default_cwd) {

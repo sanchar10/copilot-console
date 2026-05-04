@@ -1,11 +1,17 @@
-"""Auth router — multi-source auth detection, login, and logout.
+"""Auth router — Copilot SDK auth detection, login, and logout.
 
-Authentication is checked from multiple sources in priority order:
-1. SDK ``get_auth_status()`` (fastest — checks bundled CLI tokens)
-2. Functional probe — the main client exists and is started
-3. GitHub CLI (``gh auth status``) — catches ``gh auth login`` tokens
+Authentication is reported from a single source: the bundled Copilot SDK's
+``get_auth_status()``. Anything the app actually does (chat, workflows,
+sub-agents) goes through that SDK, so its view is the only one that
+matches reality.
 
-If *any* source reports authenticated, the user is authenticated.
+Earlier releases also fell back to ``gh auth status`` when the SDK probe
+came back negative. That produced false positives — ``gh``'s token lives
+under ``~/.config/gh/`` and is never used by the Copilot SDK, so a
+machine with a stale ``gh`` login would report authenticated even after
+``copilot logout``. Symptom: clicking Disconnect did the right thing
+backend-side, but ``/auth/status`` still returned ``true`` (gh fallback
+fired) and the UI never refreshed.
 """
 
 import asyncio
@@ -80,44 +86,16 @@ async def _check_sdk_auth() -> dict | None:
 
 
 def _run_gh_auth_status()-> subprocess.CompletedProcess:
-    """Synchronous helper — runs ``gh auth status --active``."""
+    """Synchronous helper — runs ``gh auth status --active``.
+
+    Retained for diagnostic use only (e.g. ``copilot --help`` in support
+    tickets). NOT consulted by ``/auth/status`` — see module docstring.
+    """
     return subprocess.run(
         ["gh", "auth", "status", "--active"],
         capture_output=True,
         timeout=5,
     )
-
-
-async def _check_gh_cli_auth() -> dict | None:
-    """Run ``gh auth status --active`` to detect GitHub CLI authentication."""
-    try:
-        result = await asyncio.to_thread(_run_gh_auth_status)
-        output = (result.stdout or b"").decode(errors="replace") + (result.stderr or b"").decode(errors="replace")
-
-        if result.returncode == 0:
-            # Parse login from output like "Logged in to github.com account username"
-            login = None
-            for line in output.splitlines():
-                low = line.lower()
-                if "account" in low:
-                    parts = line.strip().split()
-                    idx = None
-                    for i, p in enumerate(parts):
-                        if p.lower() == "account":
-                            idx = i
-                    if idx is not None and idx + 1 < len(parts):
-                        login = parts[idx + 1].strip("() ")
-                    break
-            return {
-                "authenticated": True,
-                "provider": "github",
-                "login": login or None,
-            }
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    except Exception:
-        logger.debug("gh CLI auth check failed", exc_info=True)
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -128,25 +106,14 @@ async def _check_gh_cli_auth() -> dict | None:
 async def get_auth_status():
     """Return current authentication status.
 
-    Checks multiple sources in order — SDK, then GitHub CLI.
-    Always returns a valid response, never crashes.
+    Reports whatever the Copilot SDK says — the SDK is the only source
+    that matches what the app can actually do. See module docstring for
+    why we don't fall back to ``gh auth status``.
     """
     try:
-        # 1. SDK get_auth_status (fastest, most detailed)
         result = await _check_sdk_auth()
         if result:
-            # SDK sometimes returns authenticated=True but no login — enrich from gh CLI
-            if not result.get("login"):
-                gh_result = await _check_gh_cli_auth()
-                if gh_result and gh_result.get("login"):
-                    result["login"] = gh_result["login"]
             return result
-
-        # 2. GitHub CLI fallback
-        result = await _check_gh_cli_auth()
-        if result:
-            return result
-
     except Exception:
         logger.debug("Auth status check failed — reporting unauthenticated", exc_info=True)
 

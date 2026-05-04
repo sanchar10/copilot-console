@@ -9,6 +9,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
 import { updateSettings, getSettings } from '../../api/settings';
 import { fetchModels } from '../../api/models';
+import { getAuthStatus } from '../../api/auth';
 import { apiClient } from '../../api/client';
 import { useTheme } from '../../hooks/useTheme';
 import { requestNotificationPermission, setDesktopNotificationSetting } from '../../utils/desktopNotifications';
@@ -720,12 +721,7 @@ function AuthenticationTab() {
 
   const refreshAuthStatus = useCallback(async () => {
     try {
-      const data = await apiClient.get<{ authenticated: boolean; provider: string | null; login: string | null }>('/auth/status');
-      setAuthStatus({
-        authenticated: data.authenticated,
-        provider: data.provider ?? undefined,
-        username: data.login ?? undefined,
-      });
+      setAuthStatus(await getAuthStatus());
     } catch { /* ignore */ }
   }, [setAuthStatus]);
 
@@ -783,11 +779,10 @@ function AuthenticationTab() {
                   }));
                 }
               } else if (eventType === 'done') {
-                setAuthStatus({
-                  authenticated: data.authenticated,
-                  provider: data.provider ?? undefined,
-                  username: data.login ?? undefined,
-                });
+                // Re-fetch via the canonical helper so wire→store translation
+                // lives in exactly one place. Negligible extra cost since login
+                // is a one-shot user action.
+                await refreshAuthStatus();
                 setDeviceCode(null);
                 setConnecting(false);
                 await refreshModels();
@@ -810,7 +805,7 @@ function AuthenticationTab() {
     } finally {
       setConnecting(false);
     }
-  }, [setAuthStatus, refreshAuthStatus, refreshModels]);
+  }, [refreshAuthStatus, refreshModels]);
 
   const handleDisconnect = useCallback(async () => {
     setDisconnecting(true);
