@@ -184,8 +184,23 @@ try { $pipxCheck = python -m pipx --version 2>&1 | Out-String; if ($LASTEXITCODE
 # Otherwise a stale user-site install can shadow a fresh pipx install on PATH,
 # leaving users running an old Console against a newer SDK -> ImportError.
 # Idempotent: silent no-op if nothing is installed there.
-$priorUserInstall = $null
-try { $priorUserInstall = python -m pip show copilot-console 2>$null | Select-String -Pattern '^Location:.*Roaming.*Python' -Quiet } catch { }
+# Detect by comparing pip show Location against python -m site --user-site so
+# we correctly handle Microsoft Store Python (paths under AppData\Local\Packages\...)
+# in addition to Python.org (AppData\Roaming\Python\...).
+$priorUserInstall = $false
+try {
+    $pipShow = python -m pip show copilot-console 2>$null
+    if ($pipShow) {
+        $locMatch = $pipShow | Select-String -Pattern '^Location:\s*(.+)$'
+        $userSite = (python -m site --user-site 2>$null | Out-String).Trim()
+        if ($locMatch -and $userSite) {
+            $priorLoc = $locMatch.Matches.Groups[1].Value.Trim()
+            $a = [IO.Path]::GetFullPath($priorLoc).TrimEnd('\')
+            $b = [IO.Path]::GetFullPath($userSite).TrimEnd('\')
+            if ($a -ieq $b) { $priorUserInstall = $true }
+        }
+    }
+} catch { }
 if ($priorUserInstall) {
     Write-Host "  Removing prior pip --user install (prevents PATH shadowing)..." -ForegroundColor DarkGray
     python -m pip uninstall -y copilot-console 2>&1 | Out-Null
