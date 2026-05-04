@@ -1,5 +1,115 @@
 # Changelog
 
+## v0.8.5 (DRAFT — not yet released)
+
+### Release Summary
+
+v0.8.5 ships the in-app **`/help` slash command** backed by a hand-validated **FAQ.md** that the help agent reads first, plus a global **Cmd/Ctrl+K SearchModal** for cross-session search. It pins **`github-copilot-sdk==0.3.0`** so SDK changes can't break the build mid-week, and tightens dozens of UX details across MCP, sub-agents, mobile, and chat. Sessions whose history can no longer be loaded by the Copilot CLI now show a clear **"⚠ Session history unavailable"** banner with a one-line CLI-fallback recovery instead of a silent blank pane. The offline-detection layer was removed in favor of a simpler server-truth-only model.
+
+---
+
+### ✨ Features
+
+#### `/help` & Documentation
+- **`/help` slash command** — opens a dedicated help session backed by a `help-assistant` agent that reads `docs/guides/FAQ.md` first, then the per-feature guides shipped under `~/.copilot-console/docs/`
+- **`docs/guides/FAQ.md`** — new, hand-validated FAQ covering sessions, agents, models, MCP, custom tools, workflows, automations, mobile, special cards, settings, and error banners. Every answer was code-validated against the implementation.
+- **WORKFLOWS.md merge** — duplicate `docs/Workflows.md` removed; single source of truth at `docs/guides/WORKFLOWS.md`
+
+#### Global Search & Layout
+- **Cmd/Ctrl+K SearchModal** — fast cross-session search from anywhere
+- **Global banner system** — unified surface for sticky cross-session notices
+
+#### MCP Servers — Full UI Control
+- **New MCP Servers settings tab** — create, edit, enable/disable, and delete MCP servers without editing config files
+- **Canonical-source backend** — single source of truth for MCP server config; settings endpoint exposes per-server enabled state
+- **Auto-enable defaults** — sensible servers are turned on out of the box for new installs
+- **Reset OAuth button** — one-click recovery from stale OAuth tokens (e.g. EACCES port collisions) without manually deleting `~/.copilot/mcp-oauth-config/`
+- **Persistent per-server OAuth status badge** in the MCP picker — click a failed badge to re-trigger sign-in
+- **Cold-only OAuth readiness gate** — sessions only block on OAuth when servers actually need it
+- **Global OAuth event bus + sticky toasts** — sign-in prompts persist across tab switches and survive reloads
+- **MCP picker UX** — shortened "app" / "App" labels, tighter badge slots, persistent connection dot
+
+#### Agent Framework Workflows
+- **AF declarative features exposed** — Human-in-the-Loop, TryCatch nodes, PowerFx guard expressions, YAML overlay visualization, event styling
+- **AF-GHCP / SDK 0.3.0 shim** — keeps the Agent Framework working against the latest Copilot SDK
+- **Seed workflow rename** — `feature-tour` → `mood-topic-poem`, `feature-tour-advanced` → `workflow-feature-advanced`; new `backend-feature-kickoff.yaml` seed
+- **Removed `emoji-poem` workflow + Emoji Illustrator agent** from seed data
+- **WorkflowEditor + WorkflowRunView upgrades** — sticky failure toasts, run timeline polish
+- **PowerFx guard tests + visualize overlay tests**
+
+#### Sessions & Sub-Agents
+- **Model + agent picker refinements** — clearer sub-agent enablement flow; agents added via the Sub-Agents picker now appear in `/agent`
+- **Session-history-unavailable banner** — when the Copilot CLI's `session resume` rejects a session.jsonl (typically written by an older CLI build), an in-chat amber banner explains the cause and points to `copilot --resume <id>` as a CLI-side workaround. No more silent blank panes.
+
+#### Mobile Companion
+- **SSE handling fixes** — robust reconnect on backgrounding/network changes
+- **OAuth + network state alignment** — mobile no longer races the desktop on auth state
+
+#### Chat & Messages
+- **Better loading UX** — Session/Context message tooltips
+- **MessageBubble polish** — long system messages wrap instead of overflowing; thinner system divider ticks give text more width
+- **Sub-agent events surfaced as chat steps** — `subagent.started/completed/failed` now appear in the chat timeline
+- **Toast UX** — distinct error icon, no auto-dismiss on body click
+
+#### Slash Commands & UX
+- **`/compact` simplified** — Phase 5 cleanup; MCP gate skipped when no servers configured
+- **Reasoning text from SDK** — uses native `reasoning_text` field; dropped legacy system_notification filter
+
+---
+
+### 🧹 Removed
+
+- **Offline-detection layer** — `useNetworkStatus`, `network_probe.py`, `health.py` router, offline banner, and store wiring are gone (~210 LOC removed). The app now trusts the server as the source of truth for connectivity, which is simpler and more accurate than client-side probing.
+- **`approve_all_permissions` try/except shim** — no longer needed against current SDK
+- **`emoji-poem` workflow + Emoji Illustrator seed agent**
+- **Duplicate `docs/Workflows.md`** — content merged into `docs/guides/WORKFLOWS.md`
+
+---
+
+### 🔒 Pinning
+
+- **`github-copilot-sdk==0.3.0`** — pinned exactly so SDK API changes can't silently break a release. Bump deliberately when validating against a new SDK.
+- **Bundled CLI** — the SDK ships with its own bundled Copilot CLI; `npm install -g @github/copilot` in the installers remains unpinned (latest is fine).
+
+---
+
+### 🐛 Bug Fixes
+
+- **Installer (Windows): CLI version display** — `install.ps1` no longer prints the entire version line when the regex doesn't match; falls back to `"unknown"` cleanly
+- **AF-GHCP shim repair** against SDK 0.3.0 — restores Agent Framework workflow functionality
+- **MCP OAuth recovery** — picker badges now reflect real server state; click-to-retrigger works without a session restart
+- **Mobile SSE/OAuth races** — fixed inconsistent state on resume from background
+
+---
+
+### 🧪 Tests
+
+- MCP OAuth coordinator + retrigger endpoint + selector badges
+- EventBus pub/sub, replay buffer, slow-subscriber drop
+- PowerFx guard + workflow visualize overlay
+- `/help` service: FAQ.md priority + fallback to guides
+
+---
+
+### 📦 Installation
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.ps1 | iex
+```
+
+```bash
+# macOS / Linux (Bash)
+curl -fsSL https://raw.githubusercontent.com/sanchar10/copilot-console/main/scripts/install.sh | bash
+```
+
+```powershell
+# Or manual install with pipx
+pipx install --force https://github.com/sanchar10/copilot-console/releases/download/v0.8.5/copilot_console-0.8.5-py3-none-any.whl
+```
+
+---
+
 ## v0.8.1 (2026-04-21)
 
 ### 🐛 Bug Fixes

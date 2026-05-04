@@ -277,7 +277,7 @@
             <ul class="space-y-3 text-gray-400">
               <li class="flex items-start gap-3">
                 <span class="text-accent mt-0.5">▸</span>
-                <span>Per-session context isolation — model, tools, CWD, system prompt</span>
+                <span>Per-session context isolation — system prompt, model, tools, MCPs, CWD</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="text-accent mt-0.5">▸</span>
@@ -471,16 +471,15 @@
             <p class="text-gray-400 text-lg leading-relaxed mb-6">
               Chain agents into deterministic pipelines with YAML — built on
               <a href="https://github.com/microsoft/agent-framework" class="text-accent-light hover:underline">Microsoft Agent Framework</a>.
-              Branch with <code class="font-mono text-accent-light">If</code>/<code class="font-mono text-accent-light">Switch</code>,
-              loop with <code class="font-mono text-accent-light">Foreach</code>, pause for human input, and watch each step
-              light up in a live Mermaid diagram. Run history is replayable; failures surface as sticky toasts.
+              See the workflow as a Mermaid diagram. Branch with <code class="font-mono text-accent-light">If</code>/<code class="font-mono text-accent-light">Switch</code>,
+              loop with <code class="font-mono text-accent-light">Foreach</code>, pause for human input. Run history is replayable; failures surface as sticky toasts.
               Optional Power Fx <code class="font-mono text-accent-light">=expressions</code> for richer logic.
             </p>
           </div>
         </div>
         <div class="fade-in stagger-2 max-w-5xl mx-auto">
           <div class="screenshot-glow rounded-xl overflow-hidden border border-white/20">
-            <img src="screenshots/workflow-run-dark.jpg" alt="Workflow run with live Mermaid diagram and event stream" class="w-full h-auto rounded-xl">
+            <img src="screenshots/workflow-run-dark.jpg" alt="Workflow run with Mermaid diagram and event stream" class="w-full h-auto rounded-xl">
           </div>
         </div>
       </div>
@@ -530,7 +529,7 @@
         <div class="feature-card fade-in stagger-5 bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">🔌</div>
           <h3 class="font-display font-600 text-white text-lg mb-2">MCP &amp; Custom Tools</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">Per-session MCP server management with OAuth sign-in and auto-recovery. Drop Python functions as custom tools. Built-in Tool Builder agent.</p>
+          <p class="text-gray-400 text-sm leading-relaxed">Manage MCP servers right from Settings. OAuth support with auto-recovery on token expiry. Drop Python functions as custom tools.</p>
         </div>
 
         <!-- Card: Web Browsing -->
@@ -558,7 +557,7 @@
         <div class="feature-card fade-in bg-surface-700/50 border border-white/5 rounded-xl p-6">
           <div class="text-2xl mb-3">👁️</div>
           <h3 class="font-display font-600 text-white text-lg mb-2">Full Visibility</h3>
-          <p class="text-gray-400 text-sm leading-relaxed">See what your agents are doing — streamed reasoning steps, live status banners, sticky error alerts, and replayable run history. No surprises, no black boxes.</p>
+          <p class="text-gray-400 text-sm leading-relaxed">See what your agents are doing — reasoning steps, live status banners, sticky error alerts, and replayable run history. No surprises, no black boxes.</p>
         </div>
       </div>
     </div>
@@ -578,8 +577,8 @@
 
       <div class="fade-in stagger-1 code-block p-6 text-left mb-8">
         <div class="flex items-center gap-3 mb-4">
-          <button onclick="document.getElementById('tab-ps').classList.remove('hidden');document.getElementById('tab-bash').classList.add('hidden');this.classList.add('text-accent-light','border-accent');this.classList.remove('text-gray-500','border-transparent');this.nextElementSibling.classList.remove('text-accent-light','border-accent');this.nextElementSibling.classList.add('text-gray-500','border-transparent')" class="text-xs font-mono pb-1 border-b-2 text-accent-light border-accent transition-colors">❯ PowerShell</button>
-          <button onclick="document.getElementById('tab-bash').classList.remove('hidden');document.getElementById('tab-ps').classList.add('hidden');this.classList.add('text-accent-light','border-accent');this.classList.remove('text-gray-500','border-transparent');this.previousElementSibling.classList.remove('text-accent-light','border-accent');this.previousElementSibling.classList.add('text-gray-500','border-transparent')" class="text-xs font-mono pb-1 border-b-2 text-gray-500 border-transparent transition-colors">❯ Bash</button>
+          <button onclick="document.getElementById('tab-ps').classList.remove('hidden');document.getElementById('tab-bash').classList.add('hidden');this.classList.add('text-accent-light','border-accent');this.classList.remove('text-gray-500','border-transparent');this.nextElementSibling.classList.remove('text-accent-light','border-accent');this.nextElementSibling.classList.add('text-gray-500','border-transparent')" class="text-xs font-mono pb-1 border-b-2 text-accent-light border-accent transition-colors">❯ PowerShell (Windows)</button>
+          <button onclick="document.getElementById('tab-bash').classList.remove('hidden');document.getElementById('tab-ps').classList.add('hidden');this.classList.add('text-accent-light','border-accent');this.classList.remove('text-gray-500','border-transparent');this.previousElementSibling.classList.remove('text-accent-light','border-accent');this.previousElementSibling.classList.add('text-gray-500','border-transparent')" class="text-xs font-mono pb-1 border-b-2 text-gray-500 border-transparent transition-colors">❯ Bash (macOS / Linux)</button>
         </div>
         <div id="tab-ps">
           <pre class="font-mono text-sm sm:text-base leading-relaxed overflow-x-auto"><code><span class="text-gray-500"># Install (or upgrade)</span>

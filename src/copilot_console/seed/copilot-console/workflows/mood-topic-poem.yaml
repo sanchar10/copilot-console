@@ -1,5 +1,5 @@
 kind: Workflow
-name: feature-tour
+name: mood-topic-poem
 description: |
   Guided tour of the workflow features that work on Python 3.14
   (no PowerFx required). Leave the "Input message (optional)" field
@@ -18,15 +18,15 @@ description: |
 
   (Confirmation, If/Switch and TryCatch were left out: they require
   PowerFx expression evaluation to gate behavior, and PowerFx wheels
-  are not available on Python 3.14+. See feature-tour-advanced for a
+  are not available on Python 3.14+. See workflow-feature-advanced for a
   workflow that exercises those features on 3.10–3.13.)
 trigger:
   kind: OnConversationStart
-  id: feature_tour
+  id: mood_topic_poem
   actions:
     - kind: SendActivity
       id: intro
-      activity: "👋 Welcome to the feature tour. Watch the live viewer on the right."
+      activity: "👋 Welcome — pick a mood, give me a topic, and I'll write you a poem. Watch the live viewer on the right."
 
     # ---- HITL #1: Question with choices -> HumanInputRow renders buttons.
     # Decorative — shows off the choices UI. Stored in Local.mood (unused).

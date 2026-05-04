@@ -26,15 +26,15 @@ A visual management layer on top of [GitHub Copilot CLI](https://docs.github.com
 | | Feature | Description |
 |---|---|---|
 | 🖥️ | **Visual Session Management** | Multiple sessions in a tabbed interface with per-session context management: system prompt, model, tools, MCP servers, agents, and working directory |
-| 🔀 | **Workflows** | Multi-agent YAML pipelines using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — branch, loop, pause for human input, and watch each step light up in a live Mermaid diagram. See [docs/Workflows.md](docs/Workflows.md). |
+| 🔀 | **Workflows** | Multi-agent YAML pipelines using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) — see the workflow as a Mermaid diagram. Branch, loop, pause for human input. See [docs/guides/WORKFLOWS.md](docs/guides/WORKFLOWS.md). |
 | ⚡ | **Slash Commands** | Type `/` for command palette — `/fleet` fires parallel sub-agents, `/compact` compresses context, `/agent` picks the primary agent persona for the session. Inline chips with auto-complete |
 | ⏰ | **Automations** | Cron-scheduled agent runs with a Runs dashboard and live session access |
 | 📂 | **Project Facilitation** | Folder-based session filtering, cross-session search with keyword highlighting, pin responses with notes |
 | 🤖 | **Agent Library** | Reusable agent personalities with custom prompts, models, tools, and MCP servers |
 | 🤝 | **Agent Teams** | Compose agents into teams with automatic delegation to specialized sub-agents |
 | 🌐 | **Agentic Web Browsing** | Autonomous web navigation via bundled Playwright MCP server |
-| 🔌 | **MCP Servers** | Global and app-level MCP config with per-session server / tool toggling. OAuth sign-in with auto-recovery when tokens expire. See [docs/guides/MCP-SERVERS.md](docs/guides/MCP-SERVERS.md) |
-| 🔧 | **Custom Tools** | Drop Python functions into `~/.copilot-console/tools/` to easily create selectable agent tools |
+| 🔌 | **MCP Servers** | Add, edit, enable, and delete MCP servers from Settings — sensible defaults auto-enabled on first install. Per-session server / tool toggling. OAuth sign-in with auto-recovery when tokens expire. See [docs/guides/MCP-SERVERS.md](docs/guides/MCP-SERVERS.md) |
+| 🔧 | **Custom Tools** | Drop Python functions into `~/.copilot-console/tools/` to easily create selectable agent tools. Built-in **Tool Builder** agent scaffolds new tools for you |
 | 📎 | **Files & Images** | Drag-and-drop files and paste images into messages to give agents visual and textual context |
 | 🎨 | **Rich Rendering** | Markdown, syntax highlighting, Mermaid diagrams, streaming, reasoning steps |
 | 💬 | **Interactive Q&A** | Agents ask structured questions when they need input — works on desktop and mobile |
@@ -92,7 +92,7 @@ copilot-console
 4. **Search across sessions** — Use the search bar in the sidebar to find anything across all conversations.
 5. **Create an agent** — Go to **Agents**, click **+ New Agent**, configure a system prompt, model, and tools.
 6. **Build a micro-app** — Go to **Agents** → **Dev Lead** → **New Session**, pick a starter prompt, and watch a 6-agent team build a full-stack app.
-7. **Run a workflow** — Go to **Workflows**, open **Emoji Poem** or **Codebase Health Check**, click **▶ Run**.
+7. **Run a workflow** — Go to **Workflows**, open **Mood Topic Poem** or **Codebase Health Check**, click **▶ Run**.
 8. **Go mobile** — Run `copilot-console` with `--expose`, scan the QR code from Settings on your phone, and continue from anywhere.
 9. **Ask the Console Guide** — Start a session with the built-in 📖 **Copilot Console Guide** agent from the Agent Library. Ask it anything about features, setup, or troubleshooting — it reads the bundled docs to give you accurate answers.
 

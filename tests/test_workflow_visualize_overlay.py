@@ -6,7 +6,7 @@ the overlay surfaces declarative semantics that AF's built-in mermaid loses:
     with branch labels on the outgoing edges.
   * ``Foreach``/``RepeatUntil`` render as subgraph blocks.
   * ``TryCatch`` renders as a subgraph containing try/catch/finally lanes.
-  * Plain workflows (``emoji-poem`` regression) render as a sequential chain
+  * Plain workflows (``mood-topic-poem`` regression) render as a sequential chain
     of rectangles.
 """
 
@@ -36,17 +36,17 @@ def _starts_clean(out: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Plain sequential workflow (emoji-poem regression)
+# Plain sequential workflow (mood-topic-poem regression)
 # ---------------------------------------------------------------------------
 
 
-YAML_EMOJI_POEM = """
+YAML_MOOD_TOPIC_POEM = """
 kind: Workflow
-name: emoji-poem
-description: Writes a poem on any topic and illustrates it with inline emoji
+name: mood-topic-poem
+description: Writes a poem on any topic in the chosen mood
 trigger:
   kind: OnConversationStart
-  id: emoji_poem
+  id: mood_topic_poem
   actions:
     - kind: InvokeAzureAgent
       id: write
@@ -55,12 +55,12 @@ trigger:
     - kind: InvokeAzureAgent
       id: illustrate
       agent:
-        name: Emoji Illustrator
+        name: Creative Poet
 """
 
 
-def test_overlay_emoji_poem_renders_sequential_rectangles():
-    out = _render(YAML_EMOJI_POEM)
+def test_overlay_mood_topic_poem_renders_sequential_rectangles():
+    out = _render(YAML_MOOD_TOPIC_POEM)
     _starts_clean(out)
     # Both action ids appear, each labelled with the kind.
     assert "write (InvokeAzureAgent)" in out

@@ -1,5 +1,5 @@
 kind: Workflow
-name: feature-tour-advanced
+name: workflow-feature-advanced
 description: |
   Advanced tour — exercises branching, loops, and PowerFx expressions.
 
@@ -14,7 +14,7 @@ description: |
     • A Foreach subgraph iterating over the choices
 trigger:
   kind: OnConversationStart
-  id: feature_tour_advanced
+  id: workflow_feature_advanced
   actions:
     - kind: SendActivity
       id: intro

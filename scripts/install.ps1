@@ -130,7 +130,9 @@ if (-not $copilot) {
         exit 1
     }
 }
-$copilotVer = ((copilot --version 2>&1) | Select-Object -First 1) -replace '.*?(\d+\.\d+\.\d+[-\d]*).*', '$1'
+$copilotRaw = ((copilot --version 2>&1) | Select-Object -First 1)
+$copilotMatch = [regex]::Match($copilotRaw, '(\d+\.\d+\.\d+(?:-\d+)?)')
+$copilotVer = if ($copilotMatch.Success) { $copilotMatch.Groups[1].Value } else { "unknown" }
 Write-Host "  [OK] Copilot CLI $copilotVer" -ForegroundColor Green
 
 # --- Install Copilot Console ---

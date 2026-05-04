@@ -37,7 +37,7 @@ or oneshot declarative workflows silently drop user input.
 | **What we patch** | A context manager (`_declarative_state_seeder`) wraps `state.clear()` so that whenever the workflow internals reset state, we re-seed the declarative state key (`_declarative_workflow_state`) with `Inputs.input`, `System.LastMessage.Text`, `System.LastMessageText`, etc. |
 | **Idempotency** | Only seeds when `_declarative_workflow_state` is absent after `clear()`. Preserves `Local` / `Outputs` / `Agent` across mid-workflow clears (HITL pause/resume, sub-workflow re-entry). On resume via `responses={...}` AF passes `reset_context=False` so `state.clear()` is never called — defensive idempotency still guards against future SDK changes. |
 | **Guards (raise loudly on SDK drift)** | (1) `Workflow` must expose `_state`. (2) `state` must have callable `clear`/`set`/`get`/`commit`. (3) `state.clear` must be assignable (not frozen/slotted). Any failure raises `RuntimeError` referencing this doc. |
-| **When to remove** | Test a oneshot workflow (e.g. `emoji-poem`) without the patch (`with WorkflowEngine._null_seeder():`). If the first agent receives the topic, the AF Python SDK has fixed input seeding natively — remove the patch. Otherwise, if any guard now raises, the SDK internals moved and the patch needs rewriting against the new `Workflow` internals. |
+| **When to remove** | Test a oneshot declarative workflow (e.g. `mood-topic-poem`) without the patch (`with WorkflowEngine._null_seeder():`). If the first agent receives the topic, the AF Python SDK has fixed input seeding natively — remove the patch. Otherwise, if any guard now raises, the SDK internals moved and the patch needs rewriting against the new `Workflow` internals. |
 
 ---
 
@@ -60,7 +60,7 @@ or oneshot declarative workflows silently drop user input.
 
 ### Patch 1 (Input Seeding)
 
-1. Pin a known-good oneshot declarative workflow (`emoji-poem` lives in the
+1. Pin a known-good oneshot declarative workflow (`mood-topic-poem` lives in the
    bundled seed content).
 2. Run it with a topic via the workflows UI.
 3. If the first agent receives the topic verbatim — the AF Python SDK now

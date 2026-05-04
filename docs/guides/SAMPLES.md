@@ -41,21 +41,20 @@ Copilot Console ships with pre-built agents, workflows, automations, and tools t
 
 ---
 
-### 3. ✍️ Emoji Poem (Workflow)
+### 3. ✍️ Mood Topic Poem (Workflow)
 
-**What:** A 2-agent pipeline — one writes a poem on any topic, the other transforms it into a beautiful HTML page with inline emoji.
+**What:** A guided HITL workflow — pick a mood from a choice list, give a topic, and the Creative Poet streams a poem on that topic.
 
 **Try it:**
-1. Go to **Workflows** → **Emoji Poem**
-2. Click **▶ Run**
-3. Enter a topic (e.g., "shining stars", "rainy morning", "coffee")
-4. The poet writes, the illustrator decorates with emoji and saves `emoji-poem.html`
+1. Go to **Workflows** → **Mood Topic Poem**
+2. Click **▶ Run** (leave the optional input blank)
+3. Pick a mood when prompted, then type a topic
+4. Watch the poet stream a poem in the run timeline
 
 **Agents:**
 | Step | Agent | Role |
 |------|-------|------|
-| 1 | ✍️ Creative Poet | Writes a 3–5 stanza poem on the given topic |
-| 2 | 🎨 Emoji Illustrator | Adds inline emoji and saves a styled HTML page |
+| 1 | ✍️ Creative Poet | Writes a 3–5 stanza poem on the given topic in the chosen mood |
 
 ---
 
@@ -106,7 +105,6 @@ Copilot Console ships with pre-built agents, workflows, automations, and tools t
 | 📊 | Health Analyst | Scores codebase health from scan data |
 | 🎨 | Report Generator | Creates styled HTML reports/dashboards |
 | ✍️ | Creative Poet | Writes poems on any topic |
-| 🎨 | Emoji Illustrator | Adds inline emoji, saves styled HTML |
 | 🔧 | Tool Builder | Generates custom Python tools from descriptions |
 | 📖 | Copilot Console Guide | Answers questions about Copilot Console by reading bundled docs |
 
@@ -115,7 +113,7 @@ Copilot Console ships with pre-built agents, workflows, automations, and tools t
 | Name | Steps | Description |
 |------|-------|-------------|
 | Codebase Health Check | Scanner → Analyst → Report Generator | Full codebase health analysis pipeline |
-| Emoji Poem | Creative Poet → Emoji Illustrator | Topic → poem → emoji HTML page |
+| Mood Topic Poem | Creative Poet | Mood + topic → streamed poem (HITL choices + free-text) |
 
 ### Automations
 

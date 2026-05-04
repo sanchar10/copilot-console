@@ -155,7 +155,7 @@ foo:
 def test_walker_no_false_positive_on_plain_strings():
     yaml_text = """
 kind: Workflow
-name: emoji-poem
+name: mood-topic-poem
 description: Writes a poem with leading text only
 trigger:
   kind: OnConversationStart
