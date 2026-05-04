@@ -168,6 +168,20 @@ fi
 
 INSTALLED=false
 USED_PIPX=false
+
+# Purge any prior pip --user install of copilot-console.
+# Otherwise a stale user-site install can shadow a fresh pipx install on PATH,
+# leaving users running an old Console against a newer SDK -> ImportError.
+# Idempotent: silent no-op if nothing is installed there.
+if python3 -m pip show copilot-console &>/dev/null; then
+    PRIOR_LOC=$(python3 -m pip show copilot-console 2>/dev/null | grep -i '^Location:' | awk '{print $2}')
+    USER_BASE=$(python3 -m site --user-site 2>/dev/null)
+    if [ -n "$PRIOR_LOC" ] && [ -n "$USER_BASE" ] && [ "$PRIOR_LOC" = "$USER_BASE" ]; then
+        echo -e "${YELLOW}  Removing prior pip --user install (prevents PATH shadowing)...${NC}"
+        python3 -m pip uninstall -y $PIP_BREAK_FLAG copilot-console &>/dev/null || true
+    fi
+fi
+
 if command -v pipx &> /dev/null; then
     PIPX_OUTPUT=$(pipx install --force "$WHL_URL" 2>&1)
     PIPX_EXIT=$?

@@ -179,6 +179,18 @@ $installed = $false
 $usedPipx = $false
 $pipxAvailable = $false
 try { $pipxCheck = python -m pipx --version 2>&1 | Out-String; if ($LASTEXITCODE -eq 0) { $pipxAvailable = $true } } catch { }
+
+# Purge any prior pip --user install of copilot-console.
+# Otherwise a stale user-site install can shadow a fresh pipx install on PATH,
+# leaving users running an old Console against a newer SDK -> ImportError.
+# Idempotent: silent no-op if nothing is installed there.
+$priorUserInstall = $null
+try { $priorUserInstall = python -m pip show copilot-console 2>$null | Select-String -Pattern '^Location:.*Roaming.*Python' -Quiet } catch { }
+if ($priorUserInstall) {
+    Write-Host "  Removing prior pip --user install (prevents PATH shadowing)..." -ForegroundColor DarkGray
+    python -m pip uninstall -y copilot-console 2>&1 | Out-Null
+}
+
 if ($pipxAvailable) {
     python -m pipx install --force $WHL_URL 2>&1 | ForEach-Object {
         $line = $_.ToString().Trim()
